@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { CONTRACTOR_NOTE, JOB_NOUN, PAY_TERMS, ROLE_COPY, ROLE_JOB, satsFor } from "@/lib/crew";
+import { CONTRACTOR_NOTE, JOB_NOUN, ROLE_COPY, ROLE_JOB, satsFor } from "@/lib/crew";
 import { rateFeed } from "@/lib/rate";
 import { CREW_ROLES } from "@/lib/types";
 import type { FrensPostingFeed } from "@/lib/frensPosting";
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     contractorNote: CONTRACTOR_NOTE,
     postings: CREW_ROLES.map((r) => ({
       id: `crew-${r}`, role: r, title: ROLE_COPY[r].title, body: ROLE_COPY[r].body,
-      pay: { line: PAY_TERMS.line, satsPerJob: satsFor(ROLE_JOB[r], rate.satsPerUsd), job: JOB_NOUN[ROLE_JOB[r]], testRate: rate.test },
+      pay: { line: "Paid in sats.", satsPerJob: satsFor(ROLE_JOB[r], rate.satsPerUsd), job: JOB_NOUN[ROLE_JOB[r]], testRate: rate.test },
       area: { region: "Illinois", startingIn: "Chicago area" },
       applyUrl: `${origin}/crew/apply?role=${r}`,
     })),

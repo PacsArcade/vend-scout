@@ -5,7 +5,7 @@ import { ILLINOIS, cityCenter } from "./places";
 import type { Job } from "./jobs";
 import type { State } from "./store";
 
-const base = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, applicants: [], routes: [], claims: [], counter: 0 });
+const base = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], proofs: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, applicants: [], routes: [], claims: [], counter: 0 });
 const job = (id: string, lat: number, lon: number, bonus = 0): Job => ({ id, kind: "restock", title: id, detail: "", sats: 7000, bonus, lat, lon });
 const crew = (id: string, lat: number, lon: number) => ({ id, name: id, reach: "", area: "x", lat, lon, roles: ["runner" as const], transport: [], hours: "", why: "", stage: "On the crew" as const, notes: [], createdAt: "2026-01-01" });
 const centers = Object.fromEntries(ILLINOIS.map((c) => [c.slug, cityCenter(c)]));

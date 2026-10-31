@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { ActionButton } from "@/components/Actions";
 import { CityFilter } from "@/components/CityFilter";
+import { ProofReview, type ProofView } from "@/components/ProofReview";
+import { stampString } from "@/components/Bft";
 import { findProspect } from "@/lib/overpass";
 import { openJobs } from "@/lib/jobs";
 import { listPlaces } from "@/lib/places";
@@ -31,9 +33,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const newApplicants = st.applicants.filter((a) => a.createdAt === day).length;
   const waiting = st.listings.filter((l) => l.status === "pending" && (!city || slugOf.get(st.machines.find((m) => m.id === l.machine)?.prospectId ?? "") === city));
   const claimedOpen = st.claims.filter((c) => !c.doneAt);
+  const toCheck = st.proofs.filter((x) => x.status === "sent");
+  const proofViews: ProofView[] = await Promise.all(toCheck.map(async (x) => ({ id: x.id, title: st.claims.find((c) => c.job === x.ref)?.title ?? `Stop on ${st.routes.find((r) => r.id === x.route)?.name ?? "a route"}`, who: st.applicants.find((a) => a.id === x.by)?.name ?? x.by, before: x.before, after: x.after, ticked: x.ticked, loadTotal: x.loadTotal, sentStamp: await stampString(x.history[x.history.length - 1]?.at, x.history[x.history.length - 1]?.h), resent: x.history.some((e) => e.status === "retake") })));
   const who = (id: string) => st.applicants.find((a) => a.id === id)?.name ?? id;
   const strip: [string, string][] = [
-    ["Jobs open", String(jobs.length + bundles.length)], ["Stops done today", String(stopsToday)], ["Sats paid out (test)", paidToday.toLocaleString("en-US")],
+    ["Jobs open", String(jobs.length + bundles.length)], ["Proof to check", String(toCheck.length)], ["Stops done today", String(stopsToday)], ["Sats paid out (test)", paidToday.toLocaleString("en-US")],
     ["New applicants", String(newApplicants)], ["Shelf items waiting", String(st.listings.filter((l) => l.status === "pending").length)],
   ];
   return (
@@ -54,7 +58,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                     {ids.map((id) => (
                       <div key={id} className="glass admcard"><Link href={`/prospects/${id}`}>{nameOf.get(id) ?? id}</Link>
                         {NEXT[s] && <ActionButton label={`Next step: ${NEXT[s]}`} payload={{ action: "stage", id, stage: NEXT[s] }} />}
-                        {s === "Yes" && <Link className="btn" href={`/machines/new?prospect=${id}`}>Place a machine</Link>}
+                        {s === "Yes" && <Link className="btn" href={`/admin/place/${id}`}>Next step: pick a machine</Link>}
                       </div>
                     ))}
                   </div>
@@ -130,6 +134,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <section className="glass card">
             <h2>Jobs</h2>
             <div className="admrow">
+              <div className="admcol"><h3><span>Proof to check</span><span className="muted num">{toCheck.length}</span></h3>
+                {proofViews.map((v) => <ProofReview key={v.id} p={v} />)}
+              </div>
               <div className="admcol"><h3><span>Open</span><span className="muted num">{jobs.length + bundles.length}</span></h3>
                 {[...bundles.map((b) => ({ id: b.route, t: `Route: ${b.name}` })), ...jobs.map((j) => ({ id: j.id, t: j.title }))].slice(0, 8).map((j) => <div key={j.id} className="glass admcard"><Link href="/jobs">{j.t}</Link></div>)}
               </div>

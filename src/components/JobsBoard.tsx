@@ -13,7 +13,7 @@ function km(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-export function JobsBoard({ jobs, bundles, crew, rate }: { jobs: Job[]; bundles: Bundle[]; crew: Crew[]; rate: string }) {
+export function JobsBoard({ jobs, bundles, crew }: { jobs: Job[]; bundles: Bundle[]; crew: Crew[] }) {
   const router = useRouter();
   const [me, setMe] = useState("");
   const [loc, setLoc] = useState<{ lat: number; lon: number } | null>(null);
@@ -55,7 +55,7 @@ export function JobsBoard({ jobs, bundles, crew, rate }: { jobs: Job[]; bundles:
           <button className="btn" onClick={() => navigator.geolocation?.getCurrentPosition((p) => setLoc({ lat: p.coords.latitude, lon: p.coords.longitude }), () => setMsg("Location was not shared. Distances use your area pin if you set one."))}>Use my location</button>
           <Link className="btn" href={me ? `/run?crew=${me}` : "/run"}>My claimed jobs</Link>
         </div>
-        <p className="muted small">{rate}. Pay is the job&apos;s sats at the day&apos;s rate. Distance is straight-line {loc ? "from your location" : from ? "from your area pin" : "once we know where you are"}.</p>
+        <p className="muted small">Pay is shown in sats before you accept. Rates are test values. Distance is straight-line {loc ? "from your location" : from ? "from your area pin" : "once we know where you are"}.</p>
         {msg && <p className="small okmsg" role="status">{msg}</p>}
       </div>
       {bundles.length > 0 && (

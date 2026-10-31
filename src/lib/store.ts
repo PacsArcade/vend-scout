@@ -12,7 +12,9 @@ import { GIG } from "./gig";
 import { openJobs } from "./jobs";
 import { ILLINOIS } from "./places";
 import { payout } from "./payout";
-import type { Block, PayoutRec } from "./types";
+import type { Block, PayoutRec, Proof } from "./types";
+import { autoCheck } from "./autoCheck";
+import { comboBonus, scoreStop, streakDays } from "./arcade";
 import type { Claim, HostPick, JobKind, MachineStatus, MachineType } from "./types";
 import { MACHINE_STATUSES, MACHINE_TYPES } from "./types";
 import type { Applicant, ApplicantStage, CrewRole, Outreach, OutreachHow, Route } from "./types";
@@ -31,6 +33,7 @@ export interface State {
   seen: Record<string, number>;
   blocks: Block[];
   payouts: PayoutRec[];
+  proofs: Proof[];
   claims: Claim[];
   applicants: Applicant[];
   routes: Route[];
@@ -42,7 +45,7 @@ export interface State {
   suggestions: Record<string, VoteOption[]>;
   counter: number;
 }
-const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
+const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], proofs: [], claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
 
 export async function readState(): Promise<State> {
   try {
@@ -97,13 +100,15 @@ export type Action =
   | { action: "onboard"; id: string; lightning?: string; city?: string; lat?: number; lon?: number }
   | { action: "advance"; kind: "applicant" | "site"; id: string }
   | { action: "claimJob"; job: string; kind: JobKind; title: string; by: string }
-  | { action: "jobDone"; job: string; photo?: string }
+  | { action: "submitProof"; kind: "job" | "stop"; ref: string; route?: string; machine?: string; before: string; after: string; ticked: string[]; loadTotal: number }
+  | { action: "reviewProof"; id: string; decision: "approve" | "retake"; reason?: string; glassClean?: boolean; loadMatches?: boolean }
+  | { action: "ackPop"; id: string }
+  | { action: "setLeaderboard"; id: string; on: boolean }
   | { action: "outreach"; id: string; who: string; how: OutreachHow; outcome: string; note: string }
   | { action: "apply"; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
   | { action: "applicantStep"; id: string; stage: ApplicantStage; note: string }
   | { action: "createRoute"; name: string; runner?: string; stops: string[] }
   | { action: "routeRunner"; id: string; runner: string }
-  | { action: "stopDone"; route: string; machine: string; photo?: string }
   | { action: "profile"; machine: string; profile: Partial<MachineProfile> }
   | { action: "package"; id: string; status: PackageStatus }
   | { action: "addSlot"; machine: string; name: string; kind: SlotKind; priceSats: number; level: number; report?: Report }
@@ -227,16 +232,6 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       st.claims.push({ job: str(a.job, 80), kind: a.kind, title: str(a.title, 120), sats: satsFor(a.kind, rate.satsPerUsd) + bonus, bonus, by: by.id, at: new Date().toISOString(), h });
       break;
     }
-    case "jobDone": {
-      const c = st.claims.find((x) => x.job === a.job);
-      if (!c || c.doneAt) return { ok: false, error: "That job is not open to finish" };
-      c.doneAt = new Date().toISOString(); c.doneH = h;
-      if (a.photo && /^[\w.-]+$/.test(a.photo)) c.photo = a.photo;
-      const note = await payCrew(st, c.by, c.sats, c.title, c.job, h);
-      c.paidSats = c.sats;
-      await write(st);
-      return { ok: true, note };
-    }
     case "outreach": {
       const who = str(a.who, 80), note = str(a.note, 500);
       if (!who) return { ok: false, error: "Who did you reach?" };
@@ -285,16 +280,85 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       r.runner = a.runner || undefined;
       break;
     }
-    case "stopDone": {
-      const r = st.routes.find((x) => x.id === a.route);
-      if (!r || !r.stops.includes(a.machine)) return { ok: false, error: "That stop is not on this route" };
-      if (r.done.some((d) => d.machine === a.machine)) return { ok: false, error: "That stop is already done" };
-      const photo = a.photo && /^[\w.-]+$/.test(a.photo) ? a.photo : undefined;
-      r.done.push({ machine: a.machine, at: new Date().toISOString(), h, photo });
-      let note: string | undefined;
-      if (r.runner) note = await payCrew(st, r.runner, satsFor("restock", (await rateFeed.rate()).satsPerUsd), `Stop on ${r.name}`, `route:${r.id}:${a.machine}`, h);
+    case "submitProof": {
+      const okName = (f: string) => /^r\d+-\d+\.(jpg|png|webp)$/.test(f);
+      if (!okName(a.before) || !okName(a.after)) return { ok: false, error: "Add both photos: the glass before and after" };
+      let by = "", machineId = a.machine, jobKind: JobKind = "restock", ref = a.ref;
+      if (a.kind === "job") {
+        const c = st.claims.find((x) => x.job === a.ref);
+        if (!c) return { ok: false, error: "That job is not claimed" };
+        if (c.doneAt) return { ok: false, error: "That job is already paid" };
+        by = c.by; jobKind = c.kind; machineId = a.ref.includes(":") ? a.ref.split(":")[1] : machineId;
+        if (c.kind === "shelf") machineId = st.listings.find((l) => l.id === a.ref.split(":")[1])?.machine;
+      } else {
+        const r = st.routes.find((x) => x.id === a.route);
+        if (!r || !r.runner || !a.machine || !r.stops.includes(a.machine)) return { ok: false, error: "That stop is not on a route with a runner" };
+        if (r.done.some((d) => d.machine === a.machine)) return { ok: false, error: "That stop is already paid" };
+        by = r.runner; ref = `route:${r.id}:${a.machine}`;
+      }
+      const m = machine(machineId ?? "");
+      const soldOut = !!m && m.slots.some((s) => s.kind !== "pickup" && s.level <= 0);
+      const now = new Date().toISOString();
+      const ev = { status: "sent" as const, at: now, h };
+      let p = st.proofs.find((x) => x.ref === ref);
+      if (p && p.status !== "retake") return { ok: false, error: p.status === "approved" ? "That proof was already approved" : "Proof is already in and waiting for a check" };
+      const body = { before: a.before, after: a.after, ticked: (a.ticked ?? []).map((t) => str(t, 8)).slice(0, 60), loadTotal: int(a.loadTotal, 0, 60) };
+      if (p) { Object.assign(p, body, { status: "sent" as const, reason: undefined }); p.history.push(ev); }
+      else { p = { id: `p${++st.counter}`, kind: a.kind, ref, route: a.route, machine: machineId, by, jobKind, soldOutAtVisit: soldOut, status: "sent", history: [ev], sentAt: now, ...body }; st.proofs.push(p); }
+      // The seam for an automatic check. The stub always says needs-human, so this branch is unused for now.
+      if (autoCheck(p) === "pass") { await write(st); return perform({ action: "reviewProof", id: p.id, decision: "approve", glassClean: true, loadMatches: true }); }
+      await write(st);
+      return { ok: true, id: p.id, note: "Proof sent. You are paid after it is checked." };
+    }
+    case "reviewProof": {
+      const p = st.proofs.find((x) => x.id === a.id);
+      if (!p) return { ok: false, error: "No such proof" };
+      if (p.status !== "sent") return { ok: false, error: "Already handled. Nothing paid twice." };
+      if (a.decision === "retake") {
+        const reason = str(a.reason, 300);
+        if (!reason) return { ok: false, error: "Say what to retake" };
+        p.status = "retake"; p.reason = reason; p.history.push({ status: "retake", at: new Date().toISOString(), h, note: reason });
+        break;
+      }
+      // approve: score, pay, and only now finish the job or stop
+      const nowIso = new Date().toISOString();
+      const today0 = nowIso.slice(0, 10);
+      const dates = st.proofs.filter((x) => x.by === p.by && x.status === "approved" && x.approvedAt).map((x) => x.approvedAt!.slice(0, 10));
+      const sentMs = Date.parse(p.sentAt);
+      const inBlock = st.blocks.some((b) => b.by === p.by && Date.parse(b.startAt) <= sentMs && sentMs <= Date.parse(b.endAt));
+      const sc = scoreStop({ loadTotal: p.loadTotal, ticked: p.ticked.length, checkerSaysLoadMatches: a.loadMatches !== false, checkerSaysGlassClean: a.glassClean !== false, soldOutAtVisit: p.soldOutAtVisit, localDelivered: p.jobKind === "shelf", inBlock, streakDays: streakDays([...dates, today0], today0) });
+      p.points = sc.points; p.breakdown = sc.breakdown; p.status = "approved"; p.approvedAt = nowIso; p.approvedH = h; p.history.push({ status: "approved", at: nowIso, h });
+      let sats = 0, note = "";
+      if (p.kind === "job") {
+        const c = st.claims.find((x) => x.job === p.ref);
+        if (c) { c.doneAt = nowIso; c.doneH = h; sats = c.sats; c.paidSats = sats; note = await payCrew(st, c.by, sats, c.title, c.job, h); }
+      } else {
+        const r = st.routes.find((x) => x.id === p.route);
+        if (r) {
+          r.done.push({ machine: p.machine!, at: nowIso, h, photo: p.after });
+          sats = satsFor("restock", (await rateFeed.rate()).satsPerUsd);
+          note = await payCrew(st, p.by, sats, `Stop on ${r.name}`, p.ref, h);
+          const routeProofs = st.proofs.filter((x) => x.route === r.id);
+          if (r.done.length === r.stops.length && routeProofs.every((x) => !x.history.some((e) => e.status === "retake"))) {
+            const extra = comboBonus(routeProofs.reduce((a2, x) => a2 + (x.points ?? 0), 0));
+            p.points += extra; p.breakdown.push({ label: "Clean route combo", points: extra });
+          }
+        }
+      }
+      p.paidSats = sats;
       await write(st);
       return { ok: true, note };
+    }
+    case "ackPop": {
+      const p = st.proofs.find((x) => x.id === a.id);
+      if (p) p.popSeen = true;
+      break;
+    }
+    case "setLeaderboard": {
+      const ap = st.applicants.find((x) => x.id === a.id);
+      if (!ap) return { ok: false, error: "No such person" };
+      ap.leaderboard = !!a.on;
+      break;
     }
     case "profile": {
       const m = machine(a.machine);

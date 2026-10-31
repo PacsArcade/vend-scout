@@ -3,10 +3,19 @@
 import { execFileSync } from "node:child_process";
 
 const BASE = process.env.BASE || "http://localhost:4310";
-const PAGES = ["/admin", "/work?crew=a201", "/work/earnings?crew=a201", "/jobs", "/run", "/run?crew=a201", "/machines/inventory", "/host/PROSPECT", "/shelf/mine", "/crew", "/crew/apply?role=runner", "/crew/applicants", "/routes", "/run/r203", "/scout", "/prospects", "/prospects/PROSPECT", "/prospects/PROSPECT/site", "/machines", "/machines/new", "/machines/m1", "/shelf", "/shelf/new", "/shelf/l2", "/shelf/l1", "/orders", "/pickup/4219", "/vote/m1", "/pay/m1/A2", "/pay/m1/L1"];
+const PAGES = ["/work/leaderboard?crew=a201", "/admin/place/PROSPECT", "/admin", "/work?crew=a201", "/work/earnings?crew=a201", "/jobs", "/run", "/run?crew=a201", "/machines/inventory", "/host/PROSPECT", "/shelf/mine", "/crew", "/crew/apply?role=runner", "/crew/applicants", "/routes", "/run/r203", "/scout", "/prospects", "/prospects/PROSPECT", "/prospects/PROSPECT/site", "/machines", "/machines/new", "/machines/m1", "/shelf", "/shelf/new", "/shelf/l2", "/shelf/l1", "/orders", "/pickup/4219", "/vote/m1", "/pay/m1/A2", "/pay/m1/L1"];
 
 // [matches label or href, what it does]
 const DOES = [
+  [/^Send proof$|^Send the retake$/, "uploads the two glass photos and the ticked load list. Pay comes only after a person approves"],
+  [/^Photo of the glass (before|after)$/, "opens the camera or file chooser for that photo"],
+  [/^Approve$/, "admin: approves the proof, pays the stub payout once, scores the stop, finishes the job or stop"],
+  [/^Ask for a retake$/, "admin: sends the proof back to the runner with the reason typed"],
+  [/^Next step: pick a machine$/, "link to the page that picks an In storage machine for that place"],
+  [/^Confirm placing it here$/, "places the chosen machine at this place"],
+  [/^Nice$/, "closes the score pop"],
+  [/^City leaderboard$/, "link to the opt-in city leaderboard"],
+  [/^Back to admin$/, "link to /admin"],
   [/^\/crew\/applicants$|^\/jobs$|^\/run\?crew=/, "admin card: opens that record (applicant board, jobs board or the runner view)"],
   [/^Work$|^Admin$/, "main nav link"],
   [/^Next step/, "moves the record one step along its pipeline and saves"],

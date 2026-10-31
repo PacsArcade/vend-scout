@@ -132,6 +132,7 @@ export interface Applicant {
   why: string;
   lightning?: string;
   stage: ApplicantStage;
+  leaderboard?: boolean; // opt-in. Default off.
   notes: StepNote[];
   createdAt: string;
   h?: number;
@@ -149,3 +150,31 @@ export interface HostPick { types: MachineType[]; other: string; note: string; d
 
 export interface Block { id: string; by: string; city: string; cityName: string; startAt: string; endAt: string; h?: number }
 export interface PayoutRec { by: string; sats: number; reason: string; at: string; h?: number; job?: string; sent: boolean }
+
+// ---- Proof and points ----
+export type ProofStatus = "sent" | "retake" | "approved";
+export interface ProofEvent { status: ProofStatus; at: string; h?: number; note?: string }
+export interface Proof {
+  id: string;
+  kind: "job" | "stop";
+  ref: string; // the job id, or route:<route>:<machine> for a stop
+  route?: string;
+  machine?: string;
+  by: string;
+  before: string; // photo file: glass before
+  after: string; // photo file: glass after
+  ticked: string[]; // slot codes ticked on the load list
+  loadTotal: number; // how many slots were on the load list
+  soldOutAtVisit: boolean; // any slot already empty when the proof came in
+  jobKind: JobKind;
+  status: ProofStatus;
+  reason?: string; // why a retake was asked
+  history: ProofEvent[];
+  sentAt: string;
+  paidSats?: number;
+  points?: number;
+  breakdown?: { label: string; points: number }[];
+  popSeen?: boolean;
+  approvedAt?: string;
+  approvedH?: number;
+}

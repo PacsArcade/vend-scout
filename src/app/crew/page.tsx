@@ -25,7 +25,7 @@ export default async function CrewPage() {
             </section>
           ))}
         </div>
-        <p className="muted small">{rate.label}. The rate is a fixed test value for now.</p>
+        <p className="muted small">Pay per job is in sats. The rate is a test value for now.</p>
         <p className="muted small measure">{CONTRACTOR_NOTE}</p>
         <p className="muted small measure">Not sure which fits? Apply for more than one on the form. We talk first, then ride along on one route together.</p>
       </main>

@@ -41,11 +41,15 @@ describe("crew flow", () => {
     expect(st.applicants[0].notes[0].text).toBe("Ride-along done");
     expect(st.routes[0].stops).toEqual(["m1"]);
   });
-  it("logs a stop once, with a height when the time service answers", async () => {
+  it("a stop is logged only after its proof is approved", async () => {
     const st = await readState();
     const route = st.routes[0].id;
-    expect((await perform({ action: "stopDone", route, machine: "m1" })).ok).toBe(true);
-    expect((await perform({ action: "stopDone", route, machine: "m1" })).ok).toBe(false);
+    const sub = { action: "submitProof" as const, kind: "stop" as const, ref: "", route, machine: "m1", before: "r1-1.png", after: "r1-2.png", ticked: [], loadTotal: 0 };
+    expect((await perform(sub)).ok).toBe(true);
+    expect((await readState()).routes[0].done.length).toBe(0);
+    expect((await perform({ ...sub })).ok).toBe(false);
+    const pid = (await readState()).proofs[0].id;
+    expect((await perform({ action: "reviewProof", id: pid, decision: "approve" })).ok).toBe(true);
     expect((await readState()).routes[0].done.length).toBe(1);
   });
 });

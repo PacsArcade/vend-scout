@@ -9,10 +9,10 @@ import { typeLabel } from "@/lib/machineTypes";
 export interface InvChoice { id: string; name: string; type: MachineType; typeOther?: string }
 export interface PlaceChoice { id: string; name: string; stage: string }
 
-export function PlaceForm({ inventory, places, chosenPlace }: { inventory: InvChoice[]; places: PlaceChoice[]; chosenPlace?: string }) {
+export function PlaceForm({ inventory, places, chosenPlace, lockedPlace }: { inventory: InvChoice[]; places: PlaceChoice[]; chosenPlace?: string; lockedPlace?: { id: string; name: string } }) {
   const router = useRouter();
   const [machine, setMachine] = useState(inventory[0]?.id ?? "");
-  const [prospect, setProspect] = useState(chosenPlace ?? "");
+  const [prospect, setProspect] = useState(lockedPlace?.id ?? chosenPlace ?? "");
   const [filter, setFilter] = useState("");
   const [share, setShare] = useState(10);
   const [err, setErr] = useState("");
@@ -35,7 +35,7 @@ export function PlaceForm({ inventory, places, chosenPlace }: { inventory: InvCh
   return (
     <form className="form" onSubmit={submit}>
       <fieldset className="wide picker">
-        <legend>1. Which machine from inventory?</legend>
+        <legend>{lockedPlace ? "Which machine from inventory?" : "1. Which machine from inventory?"}</legend>
         <div className="pickrows">
           {inventory.map((m) => (
             <label key={m.id} className={"pickrow" + (m.id === machine ? " pick" : "")}>
@@ -46,7 +46,7 @@ export function PlaceForm({ inventory, places, chosenPlace }: { inventory: InvCh
           ))}
         </div>
       </fieldset>
-      <fieldset className="wide picker">
+      {!lockedPlace && <fieldset className="wide picker">
         <legend>2. Which place hosts it?</legend>
         {places.length === 0 ? <p className="muted">No places are tracked yet. A machine is placed at a prospect, so find one on the map and press Track this place.</p> : (
           <>
@@ -63,10 +63,10 @@ export function PlaceForm({ inventory, places, chosenPlace }: { inventory: InvCh
           </>
         )}
         <Link className="btn" href="/scout">Track a new place</Link>
-      </fieldset>
+      </fieldset>}
       <label><span>Host share (%)</span><input type="number" min={0} max={50} value={share} onChange={(e) => setShare(Number(e.target.value))} required /></label>
       <div className="formfoot">
-        <button className="btn gild" type="submit" disabled={busy}>Place machine</button>
+        <button className="btn gild" type="submit" disabled={busy}>{lockedPlace ? "Confirm placing it here" : "Place machine"}</button>
         {err && <span className="err" role="alert">{err}</span>}
       </div>
     </form>

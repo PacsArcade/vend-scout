@@ -3,7 +3,20 @@
 //   node scripts/seed-local-test.mjs [out-file]      default: data/state.seed.json
 //   VEND_STATE_FILE=data/state.seed.json npm run dev
 import { mkdirSync, writeFileSync } from "node:fs";
+import { deflateSync } from "node:zlib";
 import { dirname } from "node:path";
+
+// Tiny solid-colour PNGs for the proof photos (TEST pictures, written under data/stops, which is git-ignored).
+function png(r, g, b, w = 64, h = 64) {
+  const crc = (buf) => { let c, t = []; for (let n = 0; n < 256; n++) { c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } let x = 0xffffffff; for (const v of buf) x = t[(x ^ v) & 0xff] ^ (x >>> 8); return (x ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([len, td, c]); };
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) { raw[y * (w * 3 + 1)] = 0; for (let x = 0; x < w; x++) { const o = y * (w * 3 + 1) + 1 + x * 3; const f = 0.6 + 0.4 * (x / w); raw[o] = r * f; raw[o + 1] = g * f; raw[o + 2] = b * f; } }
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+mkdirSync("data/stops", { recursive: true });
+for (const [n, c] of [["r0-1000001", [90, 140, 200]], ["r0-1000002", [120, 200, 160]], ["r0-1000003", [200, 150, 90]], ["r0-1000004", [160, 110, 200]]]) writeFileSync(`data/stops/${n}.png`, png(...c));
 
 const out = process.argv[2] || "data/state.seed.json";
 const now = new Date().toISOString();
@@ -22,7 +35,13 @@ const state = {
       slot("P1", "Arcade mini print", "pickup", 1, 0),
     ],
   }],
-  claims: [{ job: "restock:m1", kind: "restock", title: "Restock TEST Machine 01", sats: 7000, by: "a201", at: now, h: 973996 }],
+  proofs: [
+    { id: "p300", kind: "job", ref: "restock:m211", by: "a201", machine: "m211", jobKind: "restock", before: "r0-1000001.png", after: "r0-1000002.png", ticked: ["A1"], loadTotal: 1, soldOutAtVisit: false, status: "sent", history: [{ status: "sent", at: now }], sentAt: now },
+    { id: "p301", kind: "job", ref: "restock:m212", by: "a201", machine: "m212", jobKind: "restock", before: "r0-1000003.png", after: "r0-1000004.png", ticked: [], loadTotal: 1, soldOutAtVisit: false, status: "retake", reason: "The glass photo is blurry. Please retake it in daylight.", history: [{ status: "sent", at: now }, { status: "retake", at: now, note: "blurry" }], sentAt: now },
+    { id: "p302", kind: "job", ref: "shelf:l1", by: "a201", machine: "m1", jobKind: "shelf", before: "r0-1000001.png", after: "r0-1000002.png", ticked: [], loadTotal: 0, soldOutAtVisit: false, status: "approved", history: [{ status: "sent", at: now }, { status: "approved", at: now }], sentAt: now, approvedAt: now, points: 700, breakdown: [{ label: "Stop done", points: 100 }, { label: "Clean glass", points: 150 }, { label: "Stocked before sell-out", points: 200 }, { label: "Local shelf delivered", points: 250 }], paidSats: 8750 },
+    { id: "p303", kind: "job", ref: "restock:old", by: "a203", jobKind: "restock", before: "r0-1000001.png", after: "r0-1000002.png", ticked: [], loadTotal: 0, soldOutAtVisit: false, status: "approved", history: [{ status: "approved", at: now }], sentAt: now, approvedAt: now, points: 900, breakdown: [{ label: "Stop done", points: 100 }], paidSats: 7000, popSeen: true },
+  ],
+  claims: [{ job: "restock:m211", kind: "restock", title: "Restock TEST Machine 03", sats: 8000, by: "a201", at: now, h: 973996 }, { job: "restock:m212", kind: "restock", title: "Restock TEST Machine 04", sats: 8000, by: "a201", at: now, h: 973996 }, { job: "shelf:l1", kind: "shelf", title: "Shelf pickup: TEST wildflower honey, 8 oz", sats: 8750, by: "a201", at: now, h: 973990, doneAt: now, doneH: 973995, paidSats: 8750 }, { job: "restock:m1", kind: "restock", title: "Restock TEST Machine 01", sats: 7000, by: "a201", at: now, h: 973996 }],
   hostPicks: {},
   online: { a201: true },
   passes: {},
@@ -37,7 +56,7 @@ const state = {
   ],
   outreach: { [PROSPECT]: [{ who: "TEST Owner", how: "visit", outcome: "Talked", note: "Left the pitch sheet.", date: now.slice(0, 10), h: 973990 }] },
   applicants: [
-    { id: "a201", name: "TEST Runner One", reach: "test1@example.invalid", area: "Pilsen", lat: 41.857, lon: -87.66, roles: ["runner"], transport: ["bike"], hours: "Early mornings", why: "I like being outside and knowing my neighbors.", lightning: "testrunner@example.invalid", stage: "On the crew", notes: [{ stage: "Chatted", text: "Good call, knows the west side.", date: now.slice(0, 10), h: 973980 }, { stage: "On the crew", text: "Ride-along went well.", date: now.slice(0, 10), h: 973990 }], createdAt: now.slice(0, 10), h: 973970 },
+    { id: "a201", name: "TEST Runner One", reach: "test1@example.invalid", area: "Pilsen", lat: 41.857, lon: -87.66, roles: ["runner"], transport: ["bike"], hours: "Early mornings", why: "I like being outside and knowing my neighbors.", lightning: "testrunner@example.invalid", leaderboard: true, stage: "On the crew", notes: [{ stage: "Chatted", text: "Good call, knows the west side.", date: now.slice(0, 10), h: 973980 }, { stage: "On the crew", text: "Ride-along went well.", date: now.slice(0, 10), h: 973990 }], createdAt: now.slice(0, 10), h: 973970 },
     { id: "a202", name: "TEST Scout Two", reach: "555 0100 202", area: "Rogers Park", lat: 42.008, lon: -87.668, roles: ["scout", "keeper"], transport: ["transit", "on foot"], hours: "Evenings", why: "I know every laundromat on Howard.", lightning: "test@example.invalid", stage: "Applied", notes: [], createdAt: now.slice(0, 10), h: 973995 },
   ],
   routes: [{ id: "r203", name: "TEST Thursday route", runner: "a201", stops: ["m1"], done: [], createdAt: now.slice(0, 10), h: 973992 }],
@@ -45,6 +64,7 @@ const state = {
   suggestions: { m1: [{ id: "s100", name: "TEST hot chips", votes: 3, sats: 0 }, { id: "s101", name: "TEST protein bars", votes: 2, sats: 0 }] },
   counter: 101,
 };
+state.applicants.push({ id: "a203", name: "TEST Runner Three", reach: "test3@example.invalid", area: "Pilsen", lat: 41.86, lon: -87.66, roles: ["runner"], transport: ["car"], hours: "Weekends", why: "", lightning: "test3@example.invalid", leaderboard: true, stage: "On the crew", notes: [], createdAt: now.slice(0, 10), h: 973960 });
 state.machines.push(
   { id: "m204", name: "TEST Cards machine", status: "In storage", type: "cards", prospectId: "", hostName: "", hostSharePct: 10, placedAt: "", profile: { make: "TEST Make", model: "Card-2", serial: "TEST-0204", rawCode: "TEST-0204", cardReader: "", cash: false, lightning: true, telemetry: "none", notes: "" }, slots: [] },
   { id: "m205", name: "TEST Snack machine", status: "In storage", type: "snack", prospectId: "", hostName: "", hostSharePct: 10, placedAt: "", profile: { make: "TEST Make", model: "Spiral-9", serial: "TEST-0205", rawCode: "", cardReader: "", cash: true, lightning: false, telemetry: "none", notes: "" }, slots: [] },
