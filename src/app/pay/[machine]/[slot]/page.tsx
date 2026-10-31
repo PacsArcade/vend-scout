@@ -28,7 +28,7 @@ export default async function PayPage({ params }: { params: Promise<{ machine: s
         <div className="step"><span className="n">1</span><div>Scan with any Lightning wallet.</div></div>
         <div className="step"><span className="n">2</span><div>Pay. The machine hears it right away.</div></div>
         <div className="step"><span className="n">3</span><div>Slot <b>{s.code}</b> turns and drops your item.</div></div>
-        <p className="muted small" style={{ marginTop: 14, textAlign: "center" }}>Placeholder invoice from the stub rail ({`${rail.name}`}). Not a real invoice.</p>
+        <p className="muted small" style={{ marginTop: 14, textAlign: "center" }}>Placeholder invoice from the {rail.name} rail. Not a real invoice.</p>
       </div>
     </div>
   );

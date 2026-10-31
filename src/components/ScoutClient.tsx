@@ -34,7 +34,8 @@ export function ScoutClient({ pins, existing, ours, total }: { pins: Pin[]; exis
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const shown = pins.filter((p) => on[p.category] && (!lateOnly || p.late));
+  const shown = pins.filter((p) => on[p.category] && (!lateOnly || p.late)).slice(0, 45);
+  const labelled = new Set(shown.slice(0, 8).map((p) => p.id));
   const list = shown.slice(0, 12);
   const current = shown.find((p) => p.id === sel) ?? shown[0];
 
@@ -74,7 +75,7 @@ export function ScoutClient({ pins, existing, ours, total }: { pins: Pin[]; exis
             return (
               <g key={p.id} onClick={() => setSel(p.id)}>
                 <circle cx={q.x} cy={q.y} r={strong ? 10 : 7} fill={strong ? "#d4a843" : "none"} stroke={isSel ? "#fff" : "#d4a843"} strokeWidth={isSel ? 2 : 2.5} />
-                {strong && <text x={q.x + 14} y={q.y + 5} fill="#ece6f2" fontSize="13" fontFamily="sans-serif">{p.score}</text>}
+                {strong && (labelled.has(p.id) || isSel) && <text x={q.x + 14} y={q.y + 5} fill="#ece6f2" fontSize="13" fontFamily="sans-serif">{p.score}</text>}
               </g>
             );
           })}

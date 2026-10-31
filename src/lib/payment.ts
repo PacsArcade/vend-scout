@@ -22,7 +22,7 @@ export interface PaymentRail {
 }
 
 export const stubRail: PaymentRail = {
-  name: "stub (test mode)",
+  name: "stub",
   async createInvoice(req) {
     const id = `test-${req.machineId}-${req.slot}`;
     return {
