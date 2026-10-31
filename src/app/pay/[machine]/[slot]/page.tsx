@@ -1,3 +1,4 @@
+import { PhoneBar } from "@/components/PhoneBar";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FakeQr } from "@/components/FakeQr";
@@ -18,7 +19,7 @@ export default async function PayPage({ params }: { params: Promise<{ machine: s
   return (
     <div className="phonewrap">
       <div className="phone">
-        <div className="bar0"><span>frens.earth · Machines</span><span>at the machine</span></div>
+        <PhoneBar right="at the machine" />
         <span className="testtag">TEST MODE · NO REAL PAYMENT</span>
         <h1>Pay with bitcoin</h1>
         <p className="muted small">{m.name}. Scan the QR on the glass.</p>

@@ -1,3 +1,4 @@
+import { PhoneBar } from "@/components/PhoneBar";
 import { CrewSwitch } from "@/components/CrewSwitch";
 import { WorkHome } from "@/components/WorkHome";
 import { stampString } from "@/components/Bft";
@@ -18,7 +19,7 @@ export default async function WorkPage({ searchParams }: { searchParams: Promise
   return (
     <div className="phonewrap">
       <div className="phone">
-        <div className="bar0"><span>frens.earth · Machines</span><span>crew</span></div>
+        <PhoneBar right="crew" />
         <h1>Crew home</h1>
         <CrewSwitch crew={people.map((a) => ({ id: a.id, name: a.name }))} current={me?.id} />
         {!me ? (

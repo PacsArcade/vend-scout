@@ -1,3 +1,4 @@
+import { PhoneBar } from "@/components/PhoneBar";
 import { notFound } from "next/navigation";
 import { VoteClient } from "@/components/VoteClient";
 import { getVotes, readState } from "@/lib/store";
@@ -12,7 +13,7 @@ export default async function VotePage({ params }: { params: Promise<{ machine: 
   return (
     <div className="phonewrap">
       <div className="phone">
-        <div className="bar0"><span>frens.earth · Machines</span><span>scanned from the machine</span></div>
+        <PhoneBar right="scanned from the machine" />
         <h1>What should go in here?</h1>
         <p className="muted small">{m.name}. Top picks go in on the next restock.</p>
         <VoteClient machine={machine} rows={rows} />

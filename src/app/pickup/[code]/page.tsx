@@ -1,3 +1,4 @@
+import { PhoneBar } from "@/components/PhoneBar";
 import { notFound } from "next/navigation";
 import { readState } from "@/lib/store";
 import { sats } from "@/lib/format";
@@ -14,7 +15,7 @@ export default async function PickupPage({ params }: { params: Promise<{ code: s
   return (
     <div className="phonewrap">
       <div className="phone">
-        <div className="bar0"><span>frens.earth · Machines</span><span>pickup</span></div>
+        <PhoneBar right="pickup" />
         <h1>Pick it up at a machine</h1>
         <p className="muted small">Order in the shop. Grab it any time, day or night.</p>
         <div className="glass tile"><b>{o.item}</b><div className="muted small">Paid {sats(o.priceSats)} · {o.source}</div></div>

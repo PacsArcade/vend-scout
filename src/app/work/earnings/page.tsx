@@ -1,3 +1,4 @@
+import { PhoneBar } from "@/components/PhoneBar";
 import { CrewSwitch } from "@/components/CrewSwitch";
 import { stampString } from "@/components/Bft";
 import { nowMs } from "@/lib/clock";
@@ -18,7 +19,7 @@ export default async function Earnings({ searchParams }: { searchParams: Promise
   return (
     <div className="phonewrap">
       <div className="phone">
-        <div className="bar0"><span>frens.earth · Machines</span><span>earnings</span></div>
+        <PhoneBar right="earnings" />
         <h1>My earnings</h1>
         <CrewSwitch crew={people.map((a) => ({ id: a.id, name: a.name }))} current={me?.id} />
         {!me ? <p className="muted">Pick your name.</p> : (

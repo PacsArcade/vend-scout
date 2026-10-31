@@ -1,3 +1,4 @@
+import { PhoneBar } from "@/components/PhoneBar";
 import { notFound } from "next/navigation";
 import { HostForm } from "@/components/HostForm";
 import { findProspect } from "@/lib/overpass";
@@ -16,7 +17,7 @@ export default async function HostPage({ params }: { params: Promise<{ prospect:
   return (
     <div className="phonewrap">
       <div className="phone hostphone">
-        <div className="bar0"><span>frens.earth · Machines</span><span>for hosts</span></div>
+        <PhoneBar right="for hosts" />
         <h1>Which machine would you like at {hit.prospect.name}?</h1>
         <p className="muted small">We place, stock and clean it. You get a share of every sale. Tap the kinds you would like. No account needed.</p>
         <HostForm prospectId={prospect} available={available} initial={prev ? { types: prev.types, other: prev.other, note: prev.note } : undefined} />

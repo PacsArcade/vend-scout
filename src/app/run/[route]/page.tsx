@@ -1,3 +1,4 @@
+import { PhoneBar } from "@/components/PhoneBar";
 import { notFound } from "next/navigation";
 import { Bft } from "@/components/Bft";
 import { RunStop } from "@/components/RunStop";
@@ -21,7 +22,7 @@ export default async function RunPage({ params }: { params: Promise<{ route: str
   return (
     <div className="phonewrap">
       <div className="phone">
-        <div className="bar0"><span>frens.earth · Machines</span><span>runner</span></div>
+        <PhoneBar right="runner" />
         <h1>{r.name}</h1>
         <p className="muted small">{runner ? `Runner: ${runner.name}` : "No runner assigned yet"} · stops logged {r.done.length} of {r.stops.length}</p>
         {!m ? (

@@ -1,3 +1,4 @@
+import { PhoneBar } from "@/components/PhoneBar";
 import { MyWork, type ClaimView, type RouteView } from "@/components/MyWork";
 import { stampString } from "@/components/Bft";
 import { locate } from "@/lib/jobs";
@@ -18,7 +19,7 @@ export default async function RunIndex({ searchParams }: { searchParams: Promise
   return (
     <div className="phonewrap">
       <div className="phone">
-        <div className="bar0"><span>frens.earth · Machines</span><span>my work</span></div>
+        <PhoneBar right="my work" />
         <h1>My claimed jobs</h1>
         <MyWork crew={people.map((a) => ({ id: a.id, name: a.name }))} claims={claims} routes={routes} initial={crew && people.some((p) => p.id === crew) ? crew : undefined} />
       </div>
