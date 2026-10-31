@@ -21,7 +21,7 @@ const FILTERS: { key: VenueCategory; label: string }[] = [
 const CHIP: Record<VenueCategory, string> = { laundry: "laundromat", gym: "gym", car_wash: "car wash", car_repair: "auto shop" };
 const CAT_NAME: Record<Category, string> = { laundry: "Laundromats", gym: "Gyms", car_wash: "Car washes", car_repair: "Auto shops", vending: "Vending machines", convenience: "Convenience shops", fast_food: "Fast food" };
 
-export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData, top20, initialView, initialTab }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: Pt[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list" }) {
+export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData, top20, initialView, initialTab, cities }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: Pt[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; cities: { slug: string; name: string; scanned: boolean }[] }) {
   const router = useRouter();
   const [on, setOn] = useState<Record<string, boolean>>({ laundry: true, gym: true, car_wash: true, car_repair: true });
   const [lateOnly, setLateOnly] = useState(false);
@@ -214,6 +214,12 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a city or place" aria-label="Search a city or place" />
           <button className="btn" type="submit" disabled={busy}>Search</button>
         </form>
+        <label className="runpick regionpick"><span>Illinois, Chicago first</span>
+          <select value={cities.some((c) => c.slug === place.slug) ? place.slug : ""} onChange={(e) => e.target.value && router.push(`/scout?place=${e.target.value}`)} aria-label="Illinois city">
+            {!cities.some((c) => c.slug === place.slug) && <option value="">{place.name}</option>}
+            {cities.map((c) => <option key={c.slug} value={c.slug}>{c.name}{c.scanned ? "" : " (not scanned yet)"}</option>)}
+          </select>
+        </label>
         <div className="rowflex"><h2 style={{ margin: 0 }}>Best prospects</h2><span className="muted small num">{inView.length} in view of {total}</span></div>
         <p className="muted small placeline">{place.name}</p>
         <label className="check muted small"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> Search as I move the map</label>

@@ -12,7 +12,7 @@ const STYLE: Record<MapPoint["kind"], Leaflet.CircleMarkerOptions> = {
 };
 
 /** A small OpenStreetMap map with dark tiles. Points can be clicked (onPick) or the empty map can be clicked (onPlace). */
-export function MiniMap({ points, center, zoom = 11, onPick, onPlace, placed, label }: { points: MapPoint[]; center: [number, number]; zoom?: number; onPick?: (id: string) => void; onPlace?: (lat: number, lon: number) => void; placed?: { lat: number; lon: number } | null; label: string }) {
+export function MiniMap({ points, zones, center, zoom = 11, onPick, onPlace, placed, label }: { points: MapPoint[]; zones?: { lat: number; lon: number; count: number }[]; center: [number, number]; zoom?: number; onPick?: (id: string) => void; onPlace?: (lat: number, lon: number) => void; placed?: { lat: number; lon: number } | null; label: string }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<Leaflet.Map | null>(null);
   const layer = useRef<Leaflet.LayerGroup | null>(null);
@@ -42,10 +42,11 @@ export function MiniMap({ points, center, zoom = 11, onPick, onPlace, placed, la
     const lf = L.current, g = layer.current;
     if (!lf || !g) return;
     g.clearLayers();
+    for (const z of zones ?? []) lf.circle([z.lat, z.lon], { radius: 1800, stroke: false, fillColor: "#ff6400", fillOpacity: Math.min(0.6, 0.15 + z.count * 0.1) }).bindTooltip(`Busy: ${z.count} open job${z.count === 1 ? "" : "s"}`).addTo(g);
     for (const p of points) lf.circleMarker([p.lat, p.lon], STYLE[p.kind]).bindTooltip(p.label).on("click", (e) => { lf.DomEvent.stopPropagation(e); cb.current.onPick?.(p.id); }).addTo(g);
     if (placed) lf.circleMarker([placed.lat, placed.lon], { radius: 10, color: "#fff", fillColor: "#ff6400", fillOpacity: 0.8, weight: 3 }).addTo(g);
   }
-  useEffect(draw, [points, placed]);
+  useEffect(draw, [points, placed, zones]);
 
   return <div ref={el} className="minimap" role="application" aria-label={label} />;
 }

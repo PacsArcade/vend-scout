@@ -24,6 +24,11 @@ const state = {
   }],
   claims: [{ job: "restock:m1", kind: "restock", title: "Restock TEST Machine 01", sats: 7000, by: "a201", at: now, h: 973996 }],
   hostPicks: {},
+  online: { a201: true },
+  passes: {},
+  seen: {},
+  blocks: [],
+  payouts: [{ by: "a201", sats: 7000, reason: "Restock TEST Machine 00", at: now, h: 973990, sent: false }, { by: "a201", sats: 8000, reason: "Restock TEST Machine 0Z (busy bonus)", at: now, h: 973991, sent: false }],
   sales: [{ machine: "m1", slot: "A2", item: "Test crackers", sats: 3000, at: now, test: true }, { machine: "m1", slot: "B1", item: "Arcade sticker pack", sats: 5000, at: now, test: true }],
   orders: [{ code: "4219", item: "Arcade mini print", priceSats: 21000, machine: "m1", slot: "P1", createdAt: now, source: "frens.earth (test)" }],
   listings: [
@@ -32,7 +37,7 @@ const state = {
   ],
   outreach: { [PROSPECT]: [{ who: "TEST Owner", how: "visit", outcome: "Talked", note: "Left the pitch sheet.", date: now.slice(0, 10), h: 973990 }] },
   applicants: [
-    { id: "a201", name: "TEST Runner One", reach: "test1@example.invalid", area: "Pilsen", lat: 41.857, lon: -87.66, roles: ["runner"], transport: ["bike"], hours: "Early mornings", why: "I like being outside and knowing my neighbors.", stage: "On the crew", notes: [{ stage: "Chatted", text: "Good call, knows the west side.", date: now.slice(0, 10), h: 973980 }, { stage: "On the crew", text: "Ride-along went well.", date: now.slice(0, 10), h: 973990 }], createdAt: now.slice(0, 10), h: 973970 },
+    { id: "a201", name: "TEST Runner One", reach: "test1@example.invalid", area: "Pilsen", lat: 41.857, lon: -87.66, roles: ["runner"], transport: ["bike"], hours: "Early mornings", why: "I like being outside and knowing my neighbors.", lightning: "testrunner@example.invalid", stage: "On the crew", notes: [{ stage: "Chatted", text: "Good call, knows the west side.", date: now.slice(0, 10), h: 973980 }, { stage: "On the crew", text: "Ride-along went well.", date: now.slice(0, 10), h: 973990 }], createdAt: now.slice(0, 10), h: 973970 },
     { id: "a202", name: "TEST Scout Two", reach: "555 0100 202", area: "Rogers Park", lat: 42.008, lon: -87.668, roles: ["scout", "keeper"], transport: ["transit", "on foot"], hours: "Evenings", why: "I know every laundromat on Howard.", lightning: "test@example.invalid", stage: "Applied", notes: [], createdAt: now.slice(0, 10), h: 973995 },
   ],
   routes: [{ id: "r203", name: "TEST Thursday route", runner: "a201", stops: ["m1"], done: [], createdAt: now.slice(0, 10), h: 973992 }],
@@ -45,6 +50,9 @@ state.machines.push(
   { id: "m205", name: "TEST Snack machine", status: "In storage", type: "snack", prospectId: "", hostName: "", hostSharePct: 10, placedAt: "", profile: { make: "TEST Make", model: "Spiral-9", serial: "TEST-0205", rawCode: "", cardReader: "", cash: true, lightning: false, telemetry: "none", notes: "" }, slots: [] },
   { id: "m206", name: "TEST Fridge", status: "In repair", type: "fresh", prospectId: "", hostName: "", hostSharePct: 10, placedAt: "", profile: { make: "TEST Make", model: "Cool-3", serial: "TEST-0206", rawCode: "", cardReader: "", cash: false, lightning: false, telemetry: "camera", notes: "Compressor noise." }, slots: [] },
 );
+for (const [i, [la, lo]] of [[41.825, -87.68], [41.83, -87.675], [41.835, -87.67]].entries()) {
+  state.machines.push({ id: "m21" + i, name: `TEST Machine 0${i + 2}`, status: "Placed", type: "snack", prospectId: PROSPECT, hostName: "Su Nueva Lavanderia", lat: la, lon: lo, hostSharePct: 10, placedAt: now.slice(0, 10), profile: { make: "", model: "", serial: "", rawCode: "", cardReader: "", cash: true, lightning: false, telemetry: "none", notes: "" }, slots: [slot("A1", "Test chips", "snack", 0.1, 3000)] });
+}
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, JSON.stringify(state, null, 1));
 console.log("wrote", out);

@@ -8,6 +8,7 @@ export function RunJob({ job }: { job: string }) {
   const [photo, setPhoto] = useState<File | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState("");
   async function done() {
     setBusy(true); setErr("");
     let file: string | undefined;
@@ -18,16 +19,18 @@ export function RunJob({ job }: { job: string }) {
       file = u.file;
     }
     const r = await fetch("/api/do", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "jobDone", job, photo: file }) });
-    const j = (await r.json()) as { ok: boolean; error?: string };
+    const j = (await r.json()) as { ok: boolean; error?: string; note?: string };
     setBusy(false);
     if (!j.ok) return setErr(j.error ?? "That did not work");
-    router.refresh();
+    setToast(j.note ?? "Done.");
+    setTimeout(() => router.refresh(), 2500);
   }
   return (
     <div>
       <FilePick label="Snap a photo" file={photo} onFile={setPhoto} capture />
       <div className="actions"><button className="btn gild full" onClick={done} disabled={busy}>Mark job done</button></div>
       {err && <p className="err" role="alert">{err}</p>}
+      {toast && <p className="toast" role="status">{toast}</p>}
     </div>
   );
 }

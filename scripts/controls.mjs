@@ -3,10 +3,21 @@
 import { execFileSync } from "node:child_process";
 
 const BASE = process.env.BASE || "http://localhost:4310";
-const PAGES = ["/jobs", "/run", "/run?crew=a201", "/machines/inventory", "/host/PROSPECT", "/shelf/mine", "/crew", "/crew/apply?role=runner", "/crew/applicants", "/routes", "/run/r203", "/scout", "/prospects", "/prospects/PROSPECT", "/prospects/PROSPECT/site", "/machines", "/machines/new", "/machines/m1", "/shelf", "/shelf/new", "/shelf/l2", "/shelf/l1", "/orders", "/pickup/4219", "/vote/m1", "/pay/m1/A2", "/pay/m1/L1"];
+const PAGES = ["/admin", "/work?crew=a201", "/work/earnings?crew=a201", "/jobs", "/run", "/run?crew=a201", "/machines/inventory", "/host/PROSPECT", "/shelf/mine", "/crew", "/crew/apply?role=runner", "/crew/applicants", "/routes", "/run/r203", "/scout", "/prospects", "/prospects/PROSPECT", "/prospects/PROSPECT/site", "/machines", "/machines/new", "/machines/m1", "/shelf", "/shelf/new", "/shelf/l2", "/shelf/l1", "/orders", "/pickup/4219", "/vote/m1", "/pay/m1/A2", "/pay/m1/L1"];
 
 // [matches label or href, what it does]
 const DOES = [
+  [/^\/crew\/applicants$|^\/jobs$|^\/run\?crew=/, "admin card: opens that record (applicant board, jobs board or the runner view)"],
+  [/^Work$|^Admin$/, "main nav link"],
+  [/^Next step/, "moves the record one step along its pipeline and saves"],
+  [/^Place it$/, "link to place this machine from inventory"],
+  [/^Go online$|^You are online/, "big toggle: goes online or offline (offers show only while online)"],
+  [/^Save and continue$/, "saves the onboarding step (Lightning address or city)"],
+  [/^Accept$/, "accepts the offer: claims the job for you"],
+  [/^Pass$/, "hides the offer from you only. No score, no penalty"],
+  [/^Schedule this block$/, "saves a block: jobs in that city and hours come to you first"],
+  [/^My earnings$/, "link to the earnings page"],
+  [/^Back to crew home$/, "link to crew home"],
   [/^Jobs$/, "main nav link to the open jobs board"],
   [/^Use my location$/, "asks the browser for your position to sort jobs by distance"],
   [/^My claimed jobs$/, "link to the phone page with the jobs you claimed"],

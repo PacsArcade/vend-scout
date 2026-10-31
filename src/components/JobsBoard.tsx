@@ -83,7 +83,7 @@ export function JobsBoard({ jobs, bundles, crew, rate }: { jobs: Job[]; bundles:
               <span className="chip">{KIND[j.kind]}</span>
               <h2>{j.title}</h2>
               <p className="muted small">{j.detail}</p>
-              <div className="foot2"><span className="num">{j.sats.toLocaleString("en-US")} sats</span><span className="muted small num">{j.d !== null ? `${j.d.toFixed(1)} km away` : "distance unknown"}</span></div>
+              <div className="foot2"><span className="num">{(j.sats + j.bonus).toLocaleString("en-US")} sats{j.bonus > 0 && <span className="chip"> + busy bonus</span>}</span><span className="muted small num">{j.d !== null ? `${j.d.toFixed(1)} km away` : "distance unknown"}</span></div>
               <button className="btn gild" onClick={() => act({ action: "claimJob", job: j.id, kind: j.kind, title: j.title, by: me }, "Claimed. It is in My claimed jobs.")}>Claim</button>
             </div>
           ))}

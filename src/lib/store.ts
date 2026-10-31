@@ -8,6 +8,11 @@ import { EMPTY_PROFILE, APPLICANT_STAGES, CREW_ROLES, OUTREACH_HOW, TRANSPORT } 
 import { validLightning } from "./lightning";
 import { rateFeed } from "./rate";
 import { satsFor } from "./crew";
+import { GIG } from "./gig";
+import { openJobs } from "./jobs";
+import { ILLINOIS } from "./places";
+import { payout } from "./payout";
+import type { Block, PayoutRec } from "./types";
 import type { Claim, HostPick, JobKind, MachineStatus, MachineType } from "./types";
 import { MACHINE_STATUSES, MACHINE_TYPES } from "./types";
 import type { Applicant, ApplicantStage, CrewRole, Outreach, OutreachHow, Route } from "./types";
@@ -21,6 +26,11 @@ export interface State {
   packages: Record<string, SitePackage>;
   outreach: Record<string, Outreach[]>;
   hostPicks: Record<string, HostPick>;
+  online: Record<string, boolean>;
+  passes: Record<string, string[]>;
+  seen: Record<string, number>;
+  blocks: Block[];
+  payouts: PayoutRec[];
   claims: Claim[];
   applicants: Applicant[];
   routes: Route[];
@@ -32,7 +42,7 @@ export interface State {
   suggestions: Record<string, VoteOption[]>;
   counter: number;
 }
-const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
+const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
 
 export async function readState(): Promise<State> {
   try {
@@ -80,6 +90,12 @@ export type Action =
   | { action: "placeMachine"; machine: string; prospectId: string; hostSharePct: number }
   | { action: "machineStatus"; machine: string; status: MachineStatus }
   | { action: "hostPick"; prospectId: string; types: MachineType[]; other: string; note: string }
+  | { action: "seenJobs"; ids: string[] }
+  | { action: "goOnline"; id: string; on: boolean }
+  | { action: "passJob"; by: string; job: string }
+  | { action: "scheduleBlock"; by: string; city: string; startInH: number; lengthH: number }
+  | { action: "onboard"; id: string; lightning?: string; city?: string; lat?: number; lon?: number }
+  | { action: "advance"; kind: "applicant" | "site"; id: string }
   | { action: "claimJob"; job: string; kind: JobKind; title: string; by: string }
   | { action: "jobDone"; job: string; photo?: string }
   | { action: "outreach"; id: string; who: string; how: OutreachHow; outcome: string; note: string }
@@ -99,7 +115,7 @@ export type Action =
   | { action: "vote"; machine: string; option: string; backed: boolean }
   | { action: "suggest"; machine: string; name: string };
 
-export async function perform(a: Action): Promise<{ ok: boolean; error?: string; id?: string; code?: string }> {
+export async function perform(a: Action): Promise<{ ok: boolean; error?: string; id?: string; code?: string; note?: string }> {
   const st = await readState();
   const h = (await currentHeight()).h || undefined;
   const machine = (id: string) => st.machines.find((m) => m.id === id);
@@ -151,13 +167,64 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       st.tracked[a.prospectId] ??= "Found";
       break;
     }
+    case "seenJobs": {
+      const t = Date.now();
+      for (const id of (a.ids ?? []).slice(0, 500)) st.seen[id] ??= t;
+      break;
+    }
+    case "goOnline": {
+      const ap = st.applicants.find((x) => x.id === a.id && x.stage === "On the crew");
+      if (!ap) return { ok: false, error: "Only someone On the crew can go online" };
+      st.online[a.id] = !!a.on;
+      break;
+    }
+    case "passJob": {
+      // Passing never hurts: it only hides the offer from this worker. No score, no penalty.
+      (st.passes[a.by] ??= []).push(a.job);
+      break;
+    }
+    case "scheduleBlock": {
+      const ap = st.applicants.find((x) => x.id === a.by && x.stage === "On the crew");
+      const city = ILLINOIS.find((c) => c.slug === a.city);
+      if (!ap || !city) return { ok: false, error: "Pick who you are and a city" };
+      const startIn = GIG.startHours.includes(a.startInH) ? a.startInH : 1, len = GIG.lengthHours.includes(a.lengthH) ? a.lengthH : 2;
+      const start = Date.now() + startIn * 3600_000;
+      st.blocks.push({ id: `b${++st.counter}`, by: a.by, city: city.slug, cityName: city.name, startAt: new Date(start).toISOString(), endAt: new Date(start + len * 3600_000).toISOString(), h });
+      break;
+    }
+    case "onboard": {
+      const ap = st.applicants.find((x) => x.id === a.id && x.stage === "On the crew");
+      if (!ap) return { ok: false, error: "Only someone On the crew can set this up" };
+      if (a.lightning !== undefined && a.lightning !== "") { const ln = validLightning(a.lightning); if (!ln.ok) return { ok: false, error: ln.error }; ap.lightning = ln.value; }
+      if (a.city) { const c = ILLINOIS.find((x) => x.slug === a.city); if (c) { ap.area = c.name; ap.lat = (c.bbox.south + c.bbox.north) / 2; ap.lon = (c.bbox.west + c.bbox.east) / 2; } }
+      else if (Number.isFinite(a.lat) && Number.isFinite(a.lon)) { ap.lat = a.lat; ap.lon = a.lon; ap.area ||= "My location"; }
+      break;
+    }
+    case "advance": {
+      if (a.kind === "applicant") {
+        const ap = st.applicants.find((x) => x.id === a.id);
+        const order: ApplicantStage[] = ["Applied", "Chatted", "Ride-along", "On the crew"];
+        const i = ap ? order.indexOf(ap.stage) : -1;
+        if (!ap || i < 0 || i >= order.length - 1) return { ok: false, error: "No next step" };
+        ap.stage = order[i + 1]; ap.notes.push({ stage: ap.stage, text: "Moved on from the admin board.", date: today(), h });
+      } else {
+        const pk = st.packages[a.id];
+        const order = ["drafted", "offered", "accepted"] as const;
+        const i = pk ? order.indexOf(pk.status) : -1;
+        if (!pk || i < 0 || i >= order.length - 1) return { ok: false, error: "No next step" };
+        st.packages[a.id] = { status: order[i + 1], updatedAt: today(), h };
+      }
+      break;
+    }
     case "claimJob": {
       const by = st.applicants.find((x) => x.id === a.by && x.stage === "On the crew");
       if (!by) return { ok: false, error: "Only someone On the crew can claim a job" };
       if (st.claims.some((c) => c.job === a.job)) return { ok: false, error: "Someone already claimed that job" };
       if (!(["restock", "scout", "shelf", "tech"] as string[]).includes(a.kind)) return { ok: false, error: "Unknown job" };
       const rate = await rateFeed.rate();
-      st.claims.push({ job: str(a.job, 80), kind: a.kind, title: str(a.title, 120), sats: satsFor(a.kind, rate.satsPerUsd), by: by.id, at: new Date().toISOString(), h });
+      const open = (await openJobs(st)).jobs.find((j) => j.id === a.job);
+      const bonus = open?.bonus ?? 0;
+      st.claims.push({ job: str(a.job, 80), kind: a.kind, title: str(a.title, 120), sats: satsFor(a.kind, rate.satsPerUsd) + bonus, bonus, by: by.id, at: new Date().toISOString(), h });
       break;
     }
     case "jobDone": {
@@ -165,7 +232,10 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       if (!c || c.doneAt) return { ok: false, error: "That job is not open to finish" };
       c.doneAt = new Date().toISOString(); c.doneH = h;
       if (a.photo && /^[\w.-]+$/.test(a.photo)) c.photo = a.photo;
-      break;
+      const note = await payCrew(st, c.by, c.sats, c.title, c.job, h);
+      c.paidSats = c.sats;
+      await write(st);
+      return { ok: true, note };
     }
     case "outreach": {
       const who = str(a.who, 80), note = str(a.note, 500);
@@ -221,7 +291,10 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       if (r.done.some((d) => d.machine === a.machine)) return { ok: false, error: "That stop is already done" };
       const photo = a.photo && /^[\w.-]+$/.test(a.photo) ? a.photo : undefined;
       r.done.push({ machine: a.machine, at: new Date().toISOString(), h, photo });
-      break;
+      let note: string | undefined;
+      if (r.runner) note = await payCrew(st, r.runner, satsFor("restock", (await rateFeed.rate()).satsPerUsd), `Stop on ${r.name}`, `route:${r.id}:${a.machine}`, h);
+      await write(st);
+      return { ok: true, note };
     }
     case "profile": {
       const m = machine(a.machine);
@@ -338,4 +411,14 @@ export async function setLabelPhoto(machineId: string, file: string): Promise<bo
   m.profile.labelPhoto = file;
   await write(st);
   return true;
+}
+
+
+/** Pay a crew member after a finished job. The Payout is a stub, so nothing is sent. Every payout is logged for the earnings page. */
+async function payCrew(st: State, by: string, sats: number, reason: string, job: string, h?: number): Promise<string> {
+  const to = st.applicants.find((x) => x.id === by)?.lightning;
+  if (!to) { st.payouts.push({ by, sats, reason, at: new Date().toISOString(), h, job, sent: false }); return `Job done. Add your Lightning address to be paid ${sats.toLocaleString("en-US")} sats.`; }
+  await payout.send({ to, sats, reason });
+  st.payouts.push({ by, sats, reason, at: new Date().toISOString(), h, job, sent: false });
+  return `Paid ${sats.toLocaleString("en-US")} sats (test, nothing is really sent yet).`;
 }

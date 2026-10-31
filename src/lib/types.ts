@@ -144,5 +144,8 @@ export interface StopDone { machine: string; at: string; h?: number; photo?: str
 export interface Route { id: string; name: string; runner?: string; stops: string[]; done: StopDone[]; createdAt: string; h?: number }
 
 export type JobKind = "restock" | "scout" | "shelf" | "tech";
-export interface Claim { job: string; kind: JobKind; title: string; sats: number; by: string; at: string; h?: number; doneAt?: string; doneH?: number; photo?: string }
+export interface Claim { bonus?: number; paidSats?: number; job: string; kind: JobKind; title: string; sats: number; by: string; at: string; h?: number; doneAt?: string; doneH?: number; photo?: string }
 export interface HostPick { types: MachineType[]; other: string; note: string; date: string; h?: number }
+
+export interface Block { id: string; by: string; city: string; cityName: string; startAt: string; endAt: string; h?: number }
+export interface PayoutRec { by: string; sats: number; reason: string; at: string; h?: number; job?: string; sent: boolean }

@@ -8,6 +8,7 @@ export function RunStop({ route, machine }: { route: string; machine: string }) 
   const [photo, setPhoto] = useState<File | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState("");
   async function done() {
     setBusy(true); setErr("");
     let file: string | undefined;
@@ -18,16 +19,17 @@ export function RunStop({ route, machine }: { route: string; machine: string }) 
       file = u.file;
     }
     const r = await fetch("/api/do", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stopDone", route, machine, photo: file }) });
-    const j = (await r.json()) as { ok: boolean; error?: string };
+    const j = (await r.json()) as { ok: boolean; error?: string; note?: string };
     setBusy(false);
     if (!j.ok) return setErr(j.error ?? "That did not work");
-    setPhoto(null); router.refresh();
+    setPhoto(null); setToast(j.note ?? "Stop logged."); setTimeout(() => router.refresh(), 2500);
   }
   return (
     <div>
       <FilePick label="Snap a photo" file={photo} onFile={setPhoto} capture />
       <div className="actions"><button className="btn gild full" onClick={done} disabled={busy}>Mark done</button></div>
       {err && <p className="err" role="alert">{err}</p>}
+      {toast && <p className="toast" role="status">{toast}</p>}
     </div>
   );
 }

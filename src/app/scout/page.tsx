@@ -1,6 +1,7 @@
 import { Nav } from "@/components/Nav";
 import { ScoutClient, type Pin } from "@/components/ScoutClient";
 import { cacheCounts, placeProspects } from "@/lib/overpass";
+import { ILLINOIS } from "@/lib/places";
 import { getPlace, CHICAGO } from "@/lib/places";
 import { readState } from "@/lib/store";
 
@@ -14,6 +15,7 @@ export default async function ScoutPage({ searchParams }: { searchParams: Promis
   const { list, machines } = await placeProspects(place.slug);
   const st = await readState();
   const counts = await cacheCounts(place.slug);
+  const cities = await Promise.all(ILLINOIS.map(async (c) => ({ slug: c.slug, name: c.name.replace(", Illinois", "").replace(", United States", ""), scanned: Object.values(await cacheCounts(c.slug)).some((n) => n !== null) })));
   const pins: Pin[] = list.slice(0, 1500).map(({ prospect: p }) => ({
     id: p.id, name: p.name, area: p.area, lat: p.lat, lon: p.lon, category: p.category, score: p.score, late: p.late, site: !!p.tags.website,
   }));
@@ -22,7 +24,7 @@ export default async function ScoutPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <Nav on="scout" />
-      <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} total={list.length} top20={top20} initialView={initialView} initialTab={tab === "list" ? "list" : "map"} hasData={Object.values(counts).some((c) => c !== null)} />
+      <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} total={list.length} top20={top20} initialView={initialView} initialTab={tab === "list" ? "list" : "map"} cities={cities} hasData={Object.values(counts).some((c) => c !== null)} />
     </>
   );
 }

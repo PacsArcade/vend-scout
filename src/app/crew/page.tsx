@@ -13,6 +13,7 @@ export default async function CrewPage() {
         <div className="crewhead">
           <h1>Join the crew</h1>
           <p className="lead">{SHARED_LINE}</p>
+          <p className="muted small">Starting in the Chicago area, open across Illinois.</p>
         </div>
         <div className="rolecards">
           {CREW_ROLES.map((r) => (
