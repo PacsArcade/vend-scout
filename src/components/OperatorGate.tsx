@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 
-declare global { interface Window { nostr?: { signEvent: (e: unknown) => Promise<unknown> } } }
 
 /** Sign a fresh challenge with an operator key. Pattern from frens.earth's OperatorGate (extension door only for now). */
 export function OperatorGate({ configured, next }: { configured: boolean; next: string }) {

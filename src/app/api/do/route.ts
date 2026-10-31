@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { actionAllowed, operatorFromCookieHeader, gateOn } from "@/lib/operator";
+import { actionAllowed, crewPubkeyFromCookieHeader, gateOn, operatorFromCookieHeader } from "@/lib/operator";
+import { crewActionOk, crewFor } from "@/lib/crewauth";
 import { allow } from "@/lib/ratelimit";
-import { perform, type Action } from "@/lib/store";
+import { perform, readState, type Action } from "@/lib/store";
 
 export async function POST(req: Request) {
   let body: Action;
@@ -12,8 +13,16 @@ export async function POST(req: Request) {
   }
   let op = false;
   try { op = !!operatorFromCookieHeader(req.headers.get("cookie")); } catch { op = false; }
-  const gate = actionAllowed(String(body?.action), op);
+  let crewHex: string | null = null;
+  try { crewHex = crewPubkeyFromCookieHeader(req.headers.get("cookie")); } catch { crewHex = null; }
+  const st0 = !op && crewHex ? await readState() : null;
+  const me = st0 ? crewFor(st0.applicants, crewHex) : null;
+  const gate = actionAllowed(String(body?.action), op, !!me);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  if (gateOn() && !op && me && st0 && !["apply", "hostPick"].includes(String(body.action))) {
+    const ok = crewActionOk(st0, body as never, me);
+    if (!ok.ok) return NextResponse.json({ ok: false, error: ok.error }, { status: 403 });
+  }
   if (gateOn() && body.action === "apply") {
     const ip = (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim();
     if (!allow(`apply:${ip}`)) return NextResponse.json({ ok: false, error: "That is a lot of applications from one place. Try again later." }, { status: 429 });

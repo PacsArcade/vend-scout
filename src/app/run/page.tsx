@@ -1,3 +1,4 @@
+import { resolveCrewId } from "@/lib/crewsession";
 import { PhoneBar } from "@/components/PhoneBar";
 import { MyWork, type ClaimView, type RouteView } from "@/components/MyWork";
 import { stampString } from "@/components/Bft";
@@ -7,7 +8,8 @@ import { readState } from "@/lib/store";
 export const dynamic = "force-dynamic";
 
 export default async function RunIndex({ searchParams }: { searchParams: Promise<{ crew?: string }> }) {
-  const { crew } = await searchParams;
+  const { crew: crewParam } = await searchParams;
+  const { id: crew, who } = await resolveCrewId(crewParam);
   const st = await readState();
   const people = st.applicants.filter((a) => a.stage === "On the crew");
   const claims: ClaimView[] = [];
@@ -26,7 +28,7 @@ export default async function RunIndex({ searchParams }: { searchParams: Promise
       <div className="phone">
         <PhoneBar right="my work" />
         <h1>My claimed jobs</h1>
-        <MyWork crew={people.map((a) => ({ id: a.id, name: a.name }))} claims={claims} routes={routes} initial={crew && people.some((p) => p.id === crew) ? crew : undefined} pops={pops} />
+        <MyWork crew={people.map((a) => ({ id: a.id, name: a.name }))} claims={claims} routes={routes} initial={crew && people.some((p) => p.id === crew) ? crew : undefined} pops={pops} locked={who.gate && !who.operator} />
       </div>
     </div>
   );

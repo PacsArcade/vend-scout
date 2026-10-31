@@ -11,10 +11,11 @@ export const ROLE_COPY: Record<CrewRole, { title: string; body: string }> = {
 };
 
 // Pay terms (the Admiral's ruling): independent contractors, DoorDash style, paid in sats.
-// Target about $21 an hour (the 21 nod), turned into a per-job sats rate at the day's rate.
+// Target hourly value (the 21 nod), turned into a per-job sats rate at the day's rate.
 // No other legal claims here. The only legal line is CONTRACTOR_NOTE.
+// The dollar target stays behind the scenes (it sets the sats per job). It is never shown on any page or feed.
 export interface PayTerms { currency: "sats"; targetUsdPerHour: number; line: string }
-export const PAY_TERMS: PayTerms = { currency: "sats", targetUsdPerHour: 21, line: "About $21 an hour, paid in sats." };
+export const PAY_TERMS: PayTerms = { currency: "sats", targetUsdPerHour: 21, line: "Paid in sats." };
 export const CONTRACTOR_NOTE = "Crew work as independent contractors. Rules differ by place; check yours.";
 
 // Estimated minutes per job. Edit here.

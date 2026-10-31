@@ -13,14 +13,14 @@ function km(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-export function JobsBoard({ jobs, bundles, crew }: { jobs: Job[]; bundles: Bundle[]; crew: Crew[] }) {
+export function JobsBoard({ jobs, bundles, crew, lockedMe }: { jobs: Job[]; bundles: Bundle[]; crew: Crew[]; lockedMe?: string }) {
   const router = useRouter();
-  const [me, setMe] = useState("");
+  const [me, setMe] = useState(lockedMe && lockedMe !== "none" ? lockedMe : "");
   const [loc, setLoc] = useState<{ lat: number; lon: number } | null>(null);
   const [kind, setKind] = useState("all");
   const [msg, setMsg] = useState("");
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setMe(localStorage.getItem("vs-me") ?? ""); }, []);
+  useEffect(() => { if (!lockedMe) setMe(localStorage.getItem("vs-me") ?? ""); }, [lockedMe]);
   const who = crew.find((c) => c.id === me);
   const from = loc ?? (who?.lat !== undefined ? { lat: who.lat, lon: who.lon! } : null);
   const dist = (p: { lat?: number; lon?: number }) => (from && p.lat !== undefined ? km(from, { lat: p.lat, lon: p.lon! }) : null);
@@ -38,12 +38,12 @@ export function JobsBoard({ jobs, bundles, crew }: { jobs: Job[]; bundles: Bundl
     <>
       <div className="glass card">
         <div className="form">
-          <label><span>I am</span>
+          {!lockedMe && <label><span>I am</span>
             <select value={me} onChange={(e) => { setMe(e.target.value); localStorage.setItem("vs-me", e.target.value); }}>
               <option value="">Pick your name</option>
               {crew.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-          </label>
+          </label>}
           <label><span>Job type</span>
             <select value={kind} onChange={(e) => setKind(e.target.value)}>
               <option value="all">All jobs</option>

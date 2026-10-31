@@ -20,7 +20,7 @@ describe("crew copy", () => {
     const all = [SHARED_LINE, PAY_TERMS.line, ...Object.values(ROLE_COPY).flatMap((r) => [r.title, r.body])].join(" ");
     expect(Object.keys(ROLE_COPY).length).toBe(4);
     expect(all).not.toMatch(/—|W-2|1099|minimum wage|benefits|employee/i);
-    expect(PAY_TERMS.line).toBe("About $21 an hour, paid in sats.");
+    expect(PAY_TERMS.line).toBe("Paid in sats.");
     expect(CONTRACTOR_NOTE).toBe("Crew work as independent contractors. Rules differ by place; check yours.");
   });
 });

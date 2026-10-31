@@ -7,7 +7,7 @@ import { ROLE_COPY } from "@/lib/crew";
 
 export interface ApplicantView {
   id: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string;
-  stage: ApplicantStage; stamp: string; notes: { stage: string; text: string; stamp: string }[];
+  stage: ApplicantStage; npub?: string; stamp: string; notes: { stage: string; text: string; stamp: string }[];
 }
 
 export function ApplicantsBoard({ applicants, machines, center }: { applicants: ApplicantView[]; machines: { id: string; name: string; lat: number; lon: number }[]; center: [number, number] }) {
@@ -48,8 +48,10 @@ export function ApplicantsBoard({ applicants, machines, center }: { applicants: 
                     <div className="brk">{a.reach}{a.lightning ? ` · ${a.lightning}` : ""}</div>
                     {a.hours && <div className="muted">Hours: {a.hours}</div>}
                     {a.why && <div className="muted">&ldquo;{a.why}&rdquo;</div>}
+                    <div className="muted small brk">{a.npub ? `npub: ${a.npub.slice(0, 14)}...${a.npub.slice(-6)}` : "No npub linked"}</div>
                     <div className="muted mono stamp">Applied {a.stamp}</div>
                     {a.notes.map((n, i) => <div key={i} className="stepnote"><span className="muted">{n.stage}</span> · {n.text}<br /><span className="muted mono stamp">{n.stamp}</span></div>)}
+                    {!a.npub && <ActionForm action="attachNpub" extra={{ id: a.id }} submit="Link npub" doneText="Linked." fields={[{ name: "npub", label: "Link their npub", placeholder: "npub1..." }]} />}
                     <ActionForm action="applicantStep" extra={{ id: a.id }} submit="Save step" doneText="Saved." fields={[
                       { name: "stage", label: "Move to", type: "select", value: a.stage, options: APPLICANT_STAGES.map((s) => ({ value: s, label: s })) },
                       { name: "note", label: "Note", optional: true, placeholder: "What happened?" },

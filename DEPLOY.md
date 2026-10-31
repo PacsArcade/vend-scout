@@ -11,12 +11,13 @@ Names only. Never put values in this file or in the repo.
 |---|---|---|
 | `BLOB_READ_WRITE_TOKEN` | yes | Gives the app a Vercel Blob store. All state, scan caches and photos are kept there as PRIVATE blobs under `vend/`. Without it the app falls back to local files, which Vercel does not allow. Create the Blob store as a private store. |
 | `OPERATOR_NPUBS` | yes | Comma separated npubs allowed to sign in as operator. Nobody can open admin until at least one is set. |
-| `VEND_SESSION_SECRET` | yes | Signs the operator session cookie. A long random string. |
+| `VEND_SESSION_SECRET` | yes | Signs the operator and crew session cookies. A long random string. |
 | `VERCEL` | automatic | Set by Vercel. It turns the operator gate on. |
 
 ## Optional names
 | Name | What it does |
 |---|---|
+| `VEND_CONTACT_EMAIL` | A public contact address. Shown as a mailto line in the footer (so also on /crew and /host). Hidden when unset. |
 | `OLLAMA_URL` | Address of an Ollama server for the photo checker. Leave it unset on Vercel (the checker is skipped with the reason "AI checker runs on the home box"). Set it only on the home box, for example when running the app there. |
 | `VEND_AI_MODEL` | Model name for the checker. Default `gemma3:12b`. |
 | `VEND_REQUIRE_OPERATOR` | Set to `1` to turn the operator gate on outside Vercel (for a home-box trial of the live behaviour). |
@@ -27,7 +28,7 @@ Names only. Never put values in this file or in the repo.
 ## What is public and what is not
 Public with no sign-in: the scout map (read-only, no contacts), `/crew`, `/crew/apply` (rate limited, with a honeypot field), `/host/[prospect]`, `/api/crew/postings`, and the `/vote` and `/pay` preview pages.
 Operators only: `/admin` and everything under it, every write action in `/api/do` except applying and the host's machine choice, every page that shows owner contacts, photos, applicants, machines, jobs and routes.
-Crew pages (`/work`, `/run`, `/jobs`) show "Crew sign-in is coming soon" to everyone but operators until crew sign-in exists.
+Crew pages (`/work`, `/run`, `/jobs`) need a nostr sign-in (`/crew/signin`) by someone whose npub is linked to an applicant who is On the crew. Operators link an npub on `/crew/applicants` (or the applicant adds it on the apply form). A crew member can only act as themselves. On sign-in the app offers the Lightning address from their nostr profile (kind 0, lud16, read in the browser from a few public relays) and they confirm it. Operators can do everything.
 
 ## Known limits
 - Storage is last write wins. Fine for one operator and a small crew; not for heavy concurrent use.

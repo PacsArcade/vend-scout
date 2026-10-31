@@ -4,6 +4,6 @@ export interface Rate { satsPerUsd: number; test: boolean; label: string }
 export interface RateFeed { name: string; rate(): Promise<Rate> }
 export const stubRate: RateFeed = {
   name: "fixed test rate",
-  async rate() { return { satsPerUsd: 1000, test: true, label: "TEST RATE: $1 = 1,000 sats" }; },
+  async rate() { return { satsPerUsd: 1000, test: true, label: "TEST RATE" }; },
 };
 export const rateFeed: RateFeed = stubRate;

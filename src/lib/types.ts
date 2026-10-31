@@ -133,6 +133,7 @@ export interface Applicant {
   why: string;
   lightning?: string;
   stage: ApplicantStage;
+  npub?: string; // linked nostr key, for crew sign-in
   leaderboard?: boolean; // opt-in. Default off.
   notes: StepNote[];
   createdAt: string;

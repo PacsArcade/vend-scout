@@ -31,7 +31,7 @@ export function LiveBft() {
 
   if (!arrival || !now) return <span className="stamp mono" data-clock>{down ? "Block time unavailable" : "Reading the chain"}</span>;
   const f = face(arrival, now);
-  const parts = [f.date, `${f.est ? "~" : ""}${f.time} a₿`, `block ${f.height.toLocaleString("en-US")}`, `${f.pct}% full`];
+  const parts = [f.date, `${f.est ? "~" : ""}${f.time} a₿`, `block ${f.height.toLocaleString("en-US")}`];
   return (
     <span className="stamp mono clockline" data-clock aria-label={faceText(f)}>
       {parts.map((t, i) => <span key={i}><span className="unit">{t.replace(/ /g, "\u00a0")}</span>{i < parts.length - 1 ? " · " : ""}</span>)}

@@ -11,7 +11,7 @@ export interface ClaimView {
 }
 export interface RouteView { id: string; name: string; runner: string; stops: number; logged: number }
 
-export function MyWork({ crew, claims, routes, initial, pops }: { crew: { id: string; name: string }[]; claims: ClaimView[]; routes: RouteView[]; initial?: string; pops: PopView[] }) {
+export function MyWork({ crew, claims, routes, initial, pops, locked }: { crew: { id: string; name: string }[]; claims: ClaimView[]; routes: RouteView[]; initial?: string; pops: PopView[]; locked?: boolean }) {
   const [me, setMe] = useState(initial ?? "");
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (!initial) setMe(localStorage.getItem("vs-me") ?? ""); }, [initial]);
@@ -20,14 +20,15 @@ export function MyWork({ crew, claims, routes, initial, pops }: { crew: { id: st
   const total = mine.filter((c) => c.done).reduce((a, c) => a + c.sats, 0);
   return (
     <>
-      <label className="runpick"><span>I am</span>
+      {!locked && <label className="runpick"><span>I am</span>
         <select value={me} onChange={(e) => { setMe(e.target.value); localStorage.setItem("vs-me", e.target.value); }}>
           <option value="">Pick your name</option>
           {crew.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-      </label>
+      </label>}
+      {locked && !me && <p><Link className="btn gild full" href="/crew/signin?next=/run">Sign in with nostr</Link></p>}
       {me && <PopHost pops={pops} me={me} />}
-      {!me && <p className="muted">Pick your name to see the jobs you claimed.</p>}
+      {!me && !locked && <p className="muted">Pick your name to see the jobs you claimed.</p>}
       {me && mine.length === 0 && myRoutes.length === 0 && <div className="glass tile"><b>Nothing claimed yet</b><p className="muted small">Claim a job on the Open jobs board.</p><div className="actions"><Link className="btn gild full" href="/jobs">Open jobs</Link></div></div>}
       {myRoutes.map((r) => (
         <div key={r.id} className="glass tile">

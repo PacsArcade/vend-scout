@@ -4,25 +4,24 @@ import { CREW_ROLES } from "@/lib/types";
 import { CONTRACTOR_NOTE, JOB_NOUN, PAY_TERMS, ROLE_COPY, ROLE_JOB, SHARED_LINE, satsFor } from "@/lib/crew";
 import { rateFeed } from "@/lib/rate";
 
-export default async function CrewPage({ searchParams }: { searchParams: Promise<{ soon?: string }> }) {
-  const { soon } = await searchParams;
+export default async function CrewPage() {
   const rate = await rateFeed.rate();
   return (
     <>
       <Nav on="crew" />
       <main className="page">
-        {soon && <p className="toast" role="status">Crew sign-in is coming soon. You can apply now and we will be in touch.</p>}
         <div className="crewhead">
           <h1>Join the crew</h1>
           <p className="lead">{SHARED_LINE}</p>
           <p className="muted small">Starting in the Chicago area, open across Illinois.</p>
+          <p className="small"><Link className="gl" href="/crew/signin">Already on the crew? Sign in with nostr</Link></p>
         </div>
         <div className="rolecards">
           {CREW_ROLES.map((r) => (
             <section key={r} className="glass card rolecard">
               <h2>{ROLE_COPY[r].title}</h2>
               <p>{ROLE_COPY[r].body}</p>
-              <p className="payline">{PAY_TERMS.line} About <span className="num">{satsFor(ROLE_JOB[r], rate.satsPerUsd).toLocaleString("en-US")} sats</span> per {JOB_NOUN[ROLE_JOB[r]]}.</p>
+              <p className="payline">{PAY_TERMS.line} About <span className="num">{satsFor(ROLE_JOB[r], rate.satsPerUsd).toLocaleString("en-US")} sats</span> per {JOB_NOUN[ROLE_JOB[r]]}, at the test rate.</p>
               <div className="actions"><Link className="btn gild" href={`/crew/apply?role=${r}`}>Apply</Link></div>
             </section>
           ))}

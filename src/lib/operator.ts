@@ -5,6 +5,7 @@ import { nip19, verifyEvent } from "nostr-tools";
 // The operator IS a key: sign a fresh challenge with a key on the OPERATOR_NPUBS list (comma separated).
 // The session is an HMAC token in an httpOnly cookie, signed with VEND_SESSION_SECRET.
 export const OPERATOR_COOKIE = "vs-operator";
+export const CREW_COOKIE = "vs-crew";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const CHALLENGE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -20,6 +21,37 @@ export function operatorHexKeys(): string[] {
   }).filter((k): k is string => !!k);
 }
 export const operatorsConfigured = () => operatorHexKeys().length > 0;
+
+/** A signed fresh challenge from ANY key (the crew door). Who the key belongs to is decided by the applicant list, not here. */
+export function verifySignedChallenge(event: { content?: string; pubkey?: string; sig?: string; kind?: number; created_at?: number; tags?: unknown; id?: string }, prefix: string, now = Date.now()): { ok: true; pubkey: string } | { ok: false; reason: string } {
+  if (!event?.content || !event.pubkey || !event.sig) return { ok: false, reason: "A signed challenge is needed" };
+  const m = event.content.match(new RegExp(`^${prefix}-(\\d+)$`));
+  if (!m) return { ok: false, reason: "That is not a sign-in challenge" };
+  if (Math.abs(now - Number(m[1])) > CHALLENGE_WINDOW_MS) return { ok: false, reason: "The challenge expired. Sign a fresh one" };
+  if (!verifyEvent(event as any)) return { ok: false, reason: "The signature check failed" };
+  return { ok: true, pubkey: event.pubkey };
+}
+
+export function npubToHex(npub: string): string | null {
+  try { const d = nip19.decode(npub.trim()); return d.type === "npub" ? (d.data as string) : null; } catch { return null; }
+}
+
+/** Crew session token: proves a key signed in. Whether that key is still On the crew is checked against the applicant list on every use. */
+export function makeCrewToken(pubkey: string, now = Date.now()): string {
+  const exp = now + SESSION_TTL_MS;
+  return `${pubkey}.${exp}.${hmac(`crew|${pubkey}|${exp}`)}`;
+}
+export function verifyCrewToken(token: string | undefined | null, now = Date.now()): string | null {
+  if (!token) return null;
+  const [pubkey, exp, sig] = token.split(".");
+  if (!pubkey || !exp || !sig || now > Number(exp)) return null;
+  try { if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(hmac(`crew|${pubkey}|${exp}`)))) return null; } catch { return null; }
+  return pubkey;
+}
+export function crewPubkeyFromCookieHeader(header: string | null): string | null {
+  const m = (header ?? "").match(new RegExp(`${CREW_COOKIE}=([^;]+)`));
+  return verifyCrewToken(m?.[1]);
+}
 
 export function verifyOperatorLogin(event: { content?: string; pubkey?: string; sig?: string; kind?: number; created_at?: number; tags?: unknown; id?: string }, now = Date.now()): { ok: true; pubkey: string } | { ok: false; reason: string } {
   if (!event?.content || !event.pubkey || !event.sig) return { ok: false, reason: "A signed challenge is needed" };
@@ -54,17 +86,21 @@ export function operatorFromCookieHeader(header: string | null): string | null {
 export const PUBLIC_ACTIONS = ["apply", "hostPick"];
 /** Crew actions: operator-only on the live site until crew sign-in exists. */
 export const CREW_ACTIONS = ["goOnline", "passJob", "scheduleBlock", "onboard", "claimJob", "submitProof", "ackPop", "setLeaderboard", "routeRunner"];
-export function actionAllowed(action: string, isOperator: boolean): { ok: true } | { ok: false; status: number; error: string } {
+export const SIGN_IN_LINE = "Sign in with nostr. You need a nostr signer, like the nos2x or Alby browser extension.";
+export function actionAllowed(action: string, isOperator: boolean, isCrew = false): { ok: true } | { ok: false; status: number; error: string } {
   if (!gateOn() || isOperator || PUBLIC_ACTIONS.includes(action)) return { ok: true };
-  if (CREW_ACTIONS.includes(action)) return { ok: false, status: 403, error: "Crew sign-in is coming soon." };
+  if (CREW_ACTIONS.includes(action)) return isCrew ? { ok: true } : { ok: false, status: 403, error: "Sign in with nostr." };
   return { ok: false, status: 401, error: "Operators only. Sign in first." };
 }
 
 /** Paths anyone may open when the gate is on. Everything else needs an operator. */
-const PUBLIC_PAGES = [/^\/$/, /^\/scout$/, /^\/crew$/, /^\/crew\/apply$/, /^\/host\/[^/]+$/, /^\/vote\/[^/]+$/, /^\/pay\/[^/]+\/[^/]+$/, /^\/signin$/];
-const PUBLIC_API = [/^\/api\/crew\/postings$/, /^\/api\/chain\/tip$/, /^\/api\/place$/, /^\/api\/do$/, /^\/api\/admin\/session$/, /^\/api\/scout$/];
+const PUBLIC_PAGES = [/^\/$/, /^\/scout$/, /^\/crew$/, /^\/crew\/apply$/, /^\/crew\/signin$/, /^\/host\/[^/]+$/, /^\/vote\/[^/]+$/, /^\/pay\/[^/]+\/[^/]+$/, /^\/signin$/];
+const PUBLIC_API = [/^\/api\/crew\/postings$/, /^\/api\/chain\/tip$/, /^\/api\/place$/, /^\/api\/do$/, /^\/api\/admin\/session$/, /^\/api\/crew\/session$/, /^\/api\/scout$/];
 export function pathIsPublic(pathname: string, isApi: boolean): boolean {
   return (isApi ? PUBLIC_API : PUBLIC_PAGES).some((r) => r.test(pathname));
 }
 /** Crew pages say "sign-in is coming soon" instead of a bare operator gate. */
 export const isCrewPath = (p: string) => /^\/(work|run|jobs)(\/|$)/.test(p);
+
+/** Paths a signed-in crew member (not an operator) may also use. */
+export const isCrewOnlyApi = (p: string) => p === "/api/offers" || p === "/api/stopphoto";

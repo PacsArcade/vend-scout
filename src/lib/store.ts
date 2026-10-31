@@ -5,6 +5,7 @@ import { tally } from "./vote";
 import type { Listing, ListingStatus, Machine, MachineProfile, Note, PackageStatus, PickupOrder, Report, Sale, ShelfKind, SitePackage, Slot, SlotKind, Stage, VoteOption } from "./types";
 import { EMPTY_PROFILE, APPLICANT_STAGES, CREW_ROLES, OUTREACH_HOW, TRANSPORT } from "./types";
 import { validLightning } from "./lightning";
+import { npubToHex } from "./operator";
 import { rateFeed } from "./rate";
 import { satsFor } from "./crew";
 import { GIG } from "./gig";
@@ -109,7 +110,8 @@ export type Action =
   | { action: "runAi"; id: string }
   | { action: "setLeaderboard"; id: string; on: boolean }
   | { action: "outreach"; id: string; who: string; how: OutreachHow; outcome: string; note: string }
-  | { action: "apply"; hp?: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
+  | { action: "attachNpub"; id: string; npub: string }
+  | { action: "apply"; hp?: string; npub?: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
   | { action: "applicantStep"; id: string; stage: ApplicantStage; note: string }
   | { action: "createRoute"; name: string; runner?: string; stops: string[] }
   | { action: "routeRunner"; id: string; runner: string }
@@ -262,13 +264,29 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       if (!name || !reach) return { ok: false, error: "A name and a way to reach you are needed" };
       if (!reach.includes("@") && reach.replace(/\D/g, "").length < 7) return { ok: false, error: "Give an email or a phone number we can use" };
       if (a.lightning && str(a.lightning, 200)) { const ln = validLightning(a.lightning); if (!ln.ok) return { ok: false, error: ln.error }; }
+      let npub: string | undefined;
+      if (a.npub && str(a.npub, 100)) {
+        const hex = npubToHex(a.npub);
+        if (!hex) return { ok: false, error: "That does not look like an npub. It starts with npub1" };
+        if (st.applicants.some((x) => x.npub && npubToHex(x.npub) === hex)) return { ok: false, error: "That npub is already linked to an application" };
+        npub = a.npub.trim();
+      }
       const roles = (a.roles ?? []).filter((r) => CREW_ROLES.includes(r));
       if (roles.length === 0) return { ok: false, error: "Pick at least one role" };
       const n = ++st.counter;
       const lat = Number.isFinite(a.lat) ? Number(a.lat) : undefined, lon = Number.isFinite(a.lon) ? Number(a.lon) : undefined;
-      st.applicants.push({ id: `a${n}`, name, reach, area: str(a.area, 80), lat, lon, roles, transport: (a.transport ?? []).filter((t) => (TRANSPORT as readonly string[]).includes(t)), hours: str(a.hours, 120), why, lightning: a.lightning && str(a.lightning, 200) ? validLightning(a.lightning).value : undefined, stage: "Applied", notes: [], createdAt: today(), h });
+      st.applicants.push({ id: `a${n}`, npub, name, reach, area: str(a.area, 80), lat, lon, roles, transport: (a.transport ?? []).filter((t) => (TRANSPORT as readonly string[]).includes(t)), hours: str(a.hours, 120), why, lightning: a.lightning && str(a.lightning, 200) ? validLightning(a.lightning).value : undefined, stage: "Applied", notes: [], createdAt: today(), h });
       await write(st);
       return { ok: true, id: `a${n}` };
+    }
+    case "attachNpub": {
+      const ap = st.applicants.find((x) => x.id === a.id);
+      const hex = npubToHex(a.npub ?? "");
+      if (!ap) return { ok: false, error: "No such applicant" };
+      if (!hex) return { ok: false, error: "That does not look like an npub. It starts with npub1" };
+      if (st.applicants.some((x) => x.id !== ap.id && x.npub && npubToHex(x.npub) === hex)) return { ok: false, error: "That npub is already linked to someone else" };
+      ap.npub = a.npub.trim();
+      break;
     }
     case "applicantStep": {
       const ap = st.applicants.find((x) => x.id === a.id);

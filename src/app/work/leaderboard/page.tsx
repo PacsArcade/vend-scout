@@ -1,3 +1,4 @@
+import { resolveCrewId } from "@/lib/crewsession";
 import Link from "next/link";
 import { CrewSwitch } from "@/components/CrewSwitch";
 import { PhoneBar } from "@/components/PhoneBar";
@@ -8,7 +9,8 @@ import { readState } from "@/lib/store";
 export const dynamic = "force-dynamic";
 
 export default async function Leaderboard({ searchParams }: { searchParams: Promise<{ crew?: string }> }) {
-  const { crew } = await searchParams;
+  const { crew: crewParam } = await searchParams;
+  const { id: crew, who } = await resolveCrewId(crewParam);
   const st = await readState();
   const people = st.applicants.filter((a) => a.stage === "On the crew");
   const me = people.find((a) => a.id === crew);
@@ -19,7 +21,7 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
       <div className="phone">
         <PhoneBar right="leaderboard" />
         <h1>City leaderboard</h1>
-        <CrewSwitch crew={people.map((a) => ({ id: a.id, name: a.name }))} current={me?.id} />
+        <CrewSwitch crew={people.map((a) => ({ id: a.id, name: a.name }))} current={me?.id} locked={who.gate && !who.operator} />
         {!me ? <p className="muted">Pick your name.</p> : (
           <>
             <p className="muted small">{city || "Your city"}. Only people who opted in show here, as first name and last initial. Points are for how well you fill. {NEVER_SPEED_LINE}</p>

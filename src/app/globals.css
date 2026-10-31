@@ -375,3 +375,18 @@ details.edit summary::-webkit-details-marker{display:none}
 .aipanel .ok{color:var(--good)}.aipanel .no{color:var(--bad)}.aipanel .un{color:var(--warn)}
 .suggest{font-size:11px;color:var(--gild);border:1px solid var(--gild);border-radius:999px;padding:1px 8px;margin-left:6px}
 .hpfield{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+
+/* round 9: nothing clips on the right */
+html,body{max-width:100%;overflow-x:clip}
+.top{max-width:100vw}
+.top>*{min-width:0;max-width:100%}
+.brand,.brand small{overflow-wrap:anywhere}
+.who,.who .stamp,.stamp{overflow-wrap:anywhere;word-break:normal}
+.clockline .unit{max-width:100%}
+.sitefoot{padding:18px 28px 28px;color:var(--dim);font-size:13px;display:flex;gap:6px 18px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:24px}
+.sitefoot a,.contactline a{color:var(--gild)}
+.contactline{margin:0}
+@media (max-width:900px){.sitefoot{padding:16px}}
+.scanhint{padding:10px 12px;border-radius:12px;border:1px dashed var(--gild);font-size:13px}
+.scanhint a{color:var(--gild);text-decoration:underline;white-space:nowrap}
+.gl{color:var(--gild);text-decoration:underline}

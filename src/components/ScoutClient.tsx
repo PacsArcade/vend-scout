@@ -224,10 +224,13 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
         <p className="muted small placeline">{place.name}</p>
         <label className="check muted small"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> Search as I move the map</label>
         <div className="actions">
-          {operator && current && <Link href={`/prospects/${current.id}`} className="btn gild">Open prospect</Link>}
-          {operator && <button className="btn" onClick={scan} disabled={busy}>Scan this place</button>}
+          {operator && current && <Link href={`/prospects/${current.id}`} className={"btn" + (hasData ? " gild" : "")}>Open prospect</Link>}
+          {operator && <button className={"btn" + (hasData ? "" : " gild")} onClick={scan} disabled={busy}>Scan this place</button>}
           {operator && top20.length > 0 && <button className="btn" onClick={top} disabled={busy}>Find contacts for the top {top20.length}</button>}
         </div>
+        {!hasData && (operator
+          ? <p className="scanhint">This place has no scan yet. Press Scan this place and it fills in a few minutes.</p>
+          : <p className="scanhint">No scan here yet. An operator scans each city once. <Link href="/signin?next=/scout" className="small">Operator sign in</Link></p>)}
         {status && <p className="muted small" role="status">{status}</p>}
         <div className="rows">
           {list.map((p) => (
@@ -240,7 +243,7 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
               </div>
             </button>
           ))}
-          {list.length === 0 && <p className="muted">{hasData ? "Nothing in this part of the map. Zoom out or pan." : "No data for this place yet. An operator scans it first."}</p>}
+          {list.length === 0 && hasData && <p className="muted">Nothing in this part of the map. Zoom out or pan.</p>}
         </div>
       </div>
     </div>

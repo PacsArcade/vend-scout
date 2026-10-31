@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { whoAmI } from "@/lib/crewsession";
 import { Bft } from "@/components/Bft";
 import { PhoneBar } from "@/components/PhoneBar";
 import { PopHost } from "@/components/PopHost";
@@ -14,6 +15,8 @@ export default async function RunPage({ params }: { params: Promise<{ route: str
   const st = await readState();
   const r = st.routes.find((x) => x.id === route);
   if (!r) notFound();
+  const who = await whoAmI();
+  if (who.gate && !who.operator && r.runner !== who.crew?.id) redirect("/run");
   const runner = st.applicants.find((a) => a.id === r.runner);
   const nextId = r.stops.find((id) => !r.done.some((d) => d.machine === id));
   const m = nextId ? st.machines.find((x) => x.id === nextId) : undefined;

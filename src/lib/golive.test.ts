@@ -17,9 +17,9 @@ describe("operator gate", () => {
     expect(actionAllowed("reviewProof", false).ok).toBe(false);
     expect(actionAllowed("addInventory", true).ok).toBe(true);
   });
-  it("crew actions say crew sign-in is coming soon, and the public ones pass", () => {
+  it("crew actions say sign in with nostr, and the public ones pass", () => {
     setEnv();
-    for (const a of ["claimJob", "submitProof", "goOnline"]) expect(actionAllowed(a, false)).toMatchObject({ ok: false, error: "Crew sign-in is coming soon." });
+    for (const a of ["claimJob", "submitProof", "goOnline"]) expect(actionAllowed(a, false)).toMatchObject({ ok: false, error: "Sign in with nostr." });
     expect(actionAllowed("apply", false).ok).toBe(true);
     expect(actionAllowed("hostPick", false).ok).toBe(true);
   });

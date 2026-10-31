@@ -1,3 +1,4 @@
+import { resolveCrewId } from "@/lib/crewsession";
 import { PhoneBar } from "@/components/PhoneBar";
 import { PointsPanel } from "@/components/PointsPanel";
 import { PopHost } from "@/components/PopHost";
@@ -14,7 +15,8 @@ import { readState } from "@/lib/store";
 export const dynamic = "force-dynamic";
 
 export default async function WorkPage({ searchParams }: { searchParams: Promise<{ crew?: string }> }) {
-  const { crew } = await searchParams;
+  const { crew: crewParam } = await searchParams;
+  const { id: crew, who } = await resolveCrewId(crewParam);
   const st = await readState();
   const people = st.applicants.filter((a) => a.stage === "On the crew");
   const me = people.find((a) => a.id === crew);
@@ -29,7 +31,7 @@ export default async function WorkPage({ searchParams }: { searchParams: Promise
       <div className="phone">
         <PhoneBar right="crew" />
         <h1>Crew home</h1>
-        <CrewSwitch crew={people.map((a) => ({ id: a.id, name: a.name }))} current={me?.id} />
+        <CrewSwitch crew={people.map((a) => ({ id: a.id, name: a.name }))} current={me?.id} locked={who.gate && !who.operator} />
         {!me ? (
           <p className="muted">{people.length === 0 ? "No one is On the crew yet. Once you finish a ride-along and are moved to On the crew, this is your home." : "Pick your name to go online."}</p>
         ) : (

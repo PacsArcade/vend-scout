@@ -20,7 +20,7 @@ export function ApplyForm({ initialRole, center }: { initialRole?: CrewRole; cen
     setBusy(true); setErr("");
     try {
       const r = await fetch("/api/do", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        action: "apply", hp: fd.get("website"), name: fd.get("name"), reach: fd.get("reach"), area: fd.get("area"), lat: pin?.lat, lon: pin?.lon,
+        action: "apply", hp: fd.get("website"), npub: fd.get("npub"), name: fd.get("name"), reach: fd.get("reach"), area: fd.get("area"), lat: pin?.lat, lon: pin?.lon,
         roles, transport, hours: fd.get("hours"), why: fd.get("why"), lightning: fd.get("lightning"),
       }) });
       const j = (await r.json()) as { ok: boolean; error?: string };
@@ -62,6 +62,7 @@ export function ApplyForm({ initialRole, center }: { initialRole?: CrewRole; cen
       </fieldset>
       <label className="wide"><span>Hours you like</span><input name="hours" maxLength={120} placeholder="Early mornings, weekends" /></label>
       <label className="wide"><span>Why this?</span><textarea name="why" rows={4} maxLength={1000} /></label>
+      <label className="wide"><span>Your nostr npub (optional, lets you sign in to the crew pages)</span><input name="npub" maxLength={100} placeholder="npub1..." /></label>
       <label className="wide"><span>Lightning address (optional, where your pay would go)</span><input name="lightning" maxLength={120} placeholder="you@wallet.example" /></label>
       <p className="hint wide">We will never ask for your seed words or keys.</p>
       <p className="hint wide">We only use this to talk with you about the crew.</p>

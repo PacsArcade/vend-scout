@@ -1,3 +1,4 @@
+import { resolveCrewId } from "@/lib/crewsession";
 import { PhoneBar } from "@/components/PhoneBar";
 import { CrewSwitch } from "@/components/CrewSwitch";
 import { stampString } from "@/components/Bft";
@@ -8,7 +9,8 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function Earnings({ searchParams }: { searchParams: Promise<{ crew?: string }> }) {
-  const { crew } = await searchParams;
+  const { crew: crewParam } = await searchParams;
+  const { id: crew, who } = await resolveCrewId(crewParam);
   const st = await readState();
   const people = st.applicants.filter((a) => a.stage === "On the crew");
   const me = people.find((a) => a.id === crew);
@@ -22,7 +24,7 @@ export default async function Earnings({ searchParams }: { searchParams: Promise
       <div className="phone">
         <PhoneBar right="earnings" />
         <h1>My earnings</h1>
-        <CrewSwitch crew={people.map((a) => ({ id: a.id, name: a.name }))} current={me?.id} />
+        <CrewSwitch crew={people.map((a) => ({ id: a.id, name: a.name }))} current={me?.id} locked={who.gate && !who.operator} />
         {!me ? <p className="muted">Pick your name.</p> : (
           <>
             <div className="strip">
