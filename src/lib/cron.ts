@@ -34,3 +34,12 @@ export async function runDailyScan(d: CronDeps): Promise<CronSummary> {
   }
   return out;
 }
+
+/**
+ * The cities that come from our own OpenStreetMap copy (the repo) never need the daily scan. Only the other places people searched for do,
+ * and an Illinois one among those is cut from the copy, which is quick. When there are none, the cron has nothing to do.
+ */
+export function cronPlaces(all: Place[], builtInSlugs: string[]): Place[] {
+  const skip = new Set(builtInSlugs);
+  return all.filter((p) => !skip.has(p.slug));
+}

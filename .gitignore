@@ -11,3 +11,4 @@ data/items
 *.tsbuildinfo
 .env*
 !.env.example
+osm-source/

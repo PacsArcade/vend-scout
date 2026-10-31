@@ -1,0 +1,11 @@
+{
+  "chicago": {"south": 41.64, "west": -87.94, "north": 42.03, "east": -87.52},
+  "aurora-il": {"south": 41.6606, "west": -88.4501, "north": 41.8606, "east": -88.1901},
+  "naperville-il": {"south": 41.6508, "west": -88.2835, "north": 41.8508, "east": -88.0235},
+  "joliet-il": {"south": 41.425, "west": -88.2117, "north": 41.625, "east": -87.9517},
+  "rockford-il": {"south": 42.1711, "west": -89.224, "north": 42.3711, "east": -88.964},
+  "springfield-il": {"south": 39.6817, "west": -89.7801, "north": 39.8817, "east": -89.5201},
+  "peoria-il": {"south": 40.5936, "west": -89.719, "north": 40.7936, "east": -89.459},
+  "elgin-il": {"south": 41.9354, "west": -88.4126, "north": 42.1354, "east": -88.1526},
+  "champaign-il": {"south": 40.0164, "west": -88.3734, "north": 40.2164, "east": -88.1134}
+}

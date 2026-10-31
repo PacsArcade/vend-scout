@@ -23,9 +23,9 @@ describe("storage failures are logged and never silent", () => {
   it("a failed write throws, logs the path and the reason, and never prints the token", async () => {
     mode.putFails = true;
     const b = await import("./blobstore");
-    await expect(b.writeText("cache/chicago/overpass-gym.json", "{}")).rejects.toThrow();
+    await expect(b.writeText("cache/denver/overpass-gym.json", "{}")).rejects.toThrow();
     const line = errs.find((l) => l.includes("[vend-store] write failed"))!;
-    expect(line).toContain("cache/chicago/overpass-gym.json");
+    expect(line).toContain("cache/denver/overpass-gym.json");
     expect(line).toContain("BlobError");
     expect(line).not.toContain("AbC123");
   });
@@ -33,7 +33,7 @@ describe("storage failures are logged and never silent", () => {
     mode.putFails = true;
     const o = await import("./overpass");
     const f = (async () => new Response(JSON.stringify({ elements: [{ id: 1, type: "node", lat: 41.9, lon: -87.6, tags: { shop: "laundry", name: "A" } }] }))) as unknown as typeof fetch;
-    const r = await o.scanPlace({ slug: "chicago", name: "Chicago", bbox: { south: 41, west: -88, north: 42, east: -87 } }, { fetchImpl: f });
+    const r = await o.scanPlace({ slug: "denver", name: "Denver", bbox: { south: 39.6, west: -105.1, north: 39.9, east: -104.6 } }, { fetchImpl: f });
     expect(r.ok).toBe(false);
     expect(r.failed.length).toBe(7);
     expect(r.errors[0]).toContain("BlobError");
@@ -43,11 +43,11 @@ describe("storage failures are logged and never silent", () => {
   it("a successful scan write logs one line per category with the driver", async () => {
     const o = await import("./overpass");
     const f = (async () => new Response(JSON.stringify({ elements: [{ id: 1, type: "node", lat: 41.9, lon: -87.6, tags: { shop: "laundry", name: "A" } }] }))) as unknown as typeof fetch;
-    const r = await o.scanPlace({ slug: "chicago", name: "Chicago", bbox: { south: 41, west: -88, north: 42, east: -87 } }, { fetchImpl: f });
+    const r = await o.scanPlace({ slug: "denver", name: "Denver", bbox: { south: 39.6, west: -105.1, north: 39.9, east: -104.6 } }, { fetchImpl: f });
     expect(r.ok).toBe(true);
-    expect(infos.filter((l) => l.startsWith("[vend-scan] wrote cache/chicago/overpass-")).length).toBe(7);
+    expect(infos.filter((l) => l.startsWith("[vend-scan] wrote cache/denver/overpass-")).length).toBe(7);
     expect(infos.some((l) => l.includes("overpass-laundry.json 1 items driver=blob"))).toBe(true);
-    const counts = await o.cacheCounts("chicago");
+    const counts = await o.cacheCounts("denver");
     expect(counts.laundry).toBe(1);
   });
   it("if the origin read errors, it logs and still finds the saved file with a normal read", async () => {

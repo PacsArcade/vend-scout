@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6" generator="vend-scout-test">
+  <node id="1" version="1" lat="41.9000000" lon="-87.6000000"><tag k="shop" v="laundry"/><tag k="name" v="Suds Test"/><tag k="phone" v="+1 312 555 0100"/><tag k="opening_hours" v="24/7"/><tag k="addr:housenumber" v="12"/><tag k="addr:street" v="Main Street"/></node>
+  <node id="2" version="1" lat="41.8000000" lon="-87.7000000"/>
+  <node id="3" version="1" lat="41.8000000" lon="-87.6000000"/>
+  <node id="4" version="1" lat="41.7000000" lon="-87.6000000"/>
+  <node id="5" version="1" lat="41.7000000" lon="-87.7000000"/>
+  <node id="6" version="1" lat="41.9500000" lon="-87.5500000"><tag k="amenity" v="vending_machine"/></node>
+  <node id="7" version="1" lat="40.0000000" lon="-80.0000000"><tag k="shop" v="laundry"/></node>
+  <node id="8" version="1" lat="41.9100000" lon="-87.6100000"><tag k="shop" v="bakery"/></node>
+  <way id="100" version="1"><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="5"/><nd ref="2"/><tag k="leisure" v="fitness_centre"/><tag k="name" v="Gym Test"/><tag k="contact:website" v="https://gym.example"/></way>
+  <way id="101" version="1"><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="5"/><nd ref="2"/><tag k="shop" v="convenience"/><tag k="amenity" v="fast_food"/></way>
+</osm>

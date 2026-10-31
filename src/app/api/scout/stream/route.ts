@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { errText } from "@/lib/blobstore";
+import { stampString } from "@/components/Bft";
 import { isOperatorNow } from "@/lib/auth";
 import { STORAGE_MISSING, storageMissing } from "@/lib/blobstore";
 import { scanPlace } from "@/lib/overpass";
@@ -23,8 +24,8 @@ export async function GET(req: Request) {
       const send = (o: unknown) => { if (!open) return; try { ctl.enqueue(enc.encode(JSON.stringify(o) + "\n")); } catch { open = false; } };
       try {
         send({ t: "start" });
-        const r = await scanPlace(place, { force: u.searchParams.get("force") === "1", onCategory: (c, count) => send({ t: "cat", c, count }), onNote: (msg) => send({ t: "note", msg }) });
-        send({ t: "done", ok: r.ok, skipped: r.skipped, usedUnion: r.usedUnion, failed: r.failed, errors: r.errors });
+        const r = await scanPlace(place, { force: u.searchParams.get("force") === "1", dropMs: 140, onCategory: (c, count) => send({ t: "cat", c, count }), onNote: (msg) => send({ t: "note", msg }) });
+        send({ t: "done", ok: r.ok, skipped: r.skipped, usedUnion: r.usedUnion, failed: r.failed, errors: r.errors, source: r.source, stamp: r.extractedAt ? await stampString(new Date(r.extractedAt).toISOString()) : undefined });
       } catch (e) { console.error(`[vend-scan] stream for ${place.slug} crashed ${errText(e)}`); send({ t: "done", ok: false, failed: ["all"], errors: [errText(e)] }); }
       try { ctl.close(); } catch { /* already closed */ }
     },

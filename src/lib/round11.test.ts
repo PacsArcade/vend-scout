@@ -9,7 +9,7 @@ vi.mock("@vercel/blob", () => ({
 
 beforeEach(() => { vi.resetModules(); });
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
-const place = { slug: "chicago", name: "Chicago", bbox: { south: 41, west: -88, north: 42, east: -87 } };
+const place = { slug: "denver", name: "Denver", bbox: { south: 39.6, west: -105.1, north: 39.9, east: -104.6 } };
 const ok = (elements: unknown[]) => new Response(JSON.stringify({ elements }));
 
 describe("storage missing fails loud", () => {

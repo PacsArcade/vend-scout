@@ -395,11 +395,11 @@ html,body{max-width:100%;overflow-x:clip}
 .foundcount{font-weight:800;font-size:22px;color:var(--gild);text-shadow:0 0 14px rgba(255,100,0,.45)}
 .drop{animation:dropin .7s cubic-bezier(.2,1.2,.35,1) both}
 .scorepop{animation:scorepop .9s ease-out both}
-.leaflet-interactive.droppin{animation:pindrop .8s cubic-bezier(.2,1.3,.4,1) both;transform-box:fill-box;transform-origin:center}
+.pin.droppin{animation:pindrop .8s cubic-bezier(.2,1.3,.4,1) both;transform-box:fill-box;transform-origin:center}
 @keyframes dropin{0%{transform:translateY(-70px);opacity:0}60%{transform:translateY(8px);opacity:1}80%{transform:translateY(-3px)}100%{transform:translateY(0)}}
 @keyframes pindrop{0%{transform:translateY(-120px);opacity:0}65%{transform:translateY(6px);opacity:1}82%{transform:translateY(-3px)}100%{transform:translateY(0)}}
 @keyframes scorepop{0%{transform:scale(.4)}55%{transform:scale(1.35);box-shadow:0 0 22px rgba(255,100,0,.7)}100%{transform:scale(1)}}
-@media (prefers-reduced-motion:reduce){.drop,.scorepop,.leaflet-interactive.droppin{animation:none}}
+@media (prefers-reduced-motion:reduce){.drop,.scorepop,.pin.droppin{animation:none}}
 .askbox{border:1px solid #d9cfbe;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
 .askline{border-bottom:1px solid #bfb39d;height:26px}
 .pro .chiprow{min-height:58px}
@@ -426,3 +426,25 @@ html,body{max-width:100%;overflow-x:clip}
 @keyframes blfall{0%{transform:translateY(calc(var(--pitch) * -6));opacity:0}8%{opacity:1}30%{transform:translateY(0)}86%{transform:translateY(0);opacity:1}100%{transform:translateY(0);opacity:0}}
 @keyframes blflash{0%{filter:brightness(2.2)}100%{filter:none}}
 @media (prefers-reduced-motion:reduce){.bl-block{animation:none;opacity:.55}.bl-block.on{animation:none;opacity:1}}
+.copyline{margin:0 0 4px;font-size:12px}
+
+/* r12 pins: every single pin is a solid dot with a dark border and a soft glow. The 44 px box around it is the tap target. */
+.pinbox{display:flex;align-items:center;justify-content:center;background:none;border:0}
+.pin{display:inline-block;box-sizing:border-box;width:16px;height:16px;border-radius:50%;border:2px solid #0a0810;vertical-align:middle;flex:none}
+.pin.strong{background:#d4a843;box-shadow:0 0 0 1px rgba(212,168,67,.55),0 0 10px 3px rgba(212,168,67,.55)}
+.pin.maybe{background:#f0d08a;box-shadow:0 0 0 1px rgba(240,208,138,.5),0 0 9px 2px rgba(240,208,138,.45)}
+.pin.there{background:#8a9bb0;border-color:#ffffff;box-shadow:0 0 8px 2px rgba(160,180,205,.5)}
+.pin.ours{background:#5fd38a;box-shadow:0 0 0 1px rgba(95,211,138,.55),0 0 10px 3px rgba(95,211,138,.55)}
+.legend .pin{width:14px;height:14px}
+.pinglow{display:block;width:52px;height:52px;border-radius:50%;background:radial-gradient(circle,rgba(255,100,0,.38),rgba(255,100,0,0) 70%);pointer-events:none}
+.pinring{display:block;box-sizing:border-box;border-radius:50%;pointer-events:none}
+.pinring.sel{width:30px;height:30px;border:3px solid #fff;box-shadow:0 0 8px rgba(255,255,255,.5)}
+.pinring.hov{width:34px;height:34px;border:4px solid #ff6400;background:rgba(212,168,67,.25)}
+/* pins and rings are placed by the middle of their 44 px box, not by flex, so every one sits exactly on its point */
+.pinbox{position:absolute;display:block}
+.pinbox>i{position:absolute;left:50%;top:50%}
+.pin{margin:-8px 0 0 -8px}
+.legend .pin{position:static;margin:0}
+.pinring.sel{margin:-15px 0 0 -15px}
+.pinring.hov{margin:-17px 0 0 -17px}
+.pinglow{margin:-26px 0 0 -26px}

@@ -23,7 +23,7 @@ const FILTERS: { key: VenueCategory; label: string }[] = [
 const CHIP: Record<VenueCategory, string> = { laundry: "laundromat", gym: "gym", car_wash: "car wash", car_repair: "auto shop" };
 const CAT_NAME: Record<Category, string> = { laundry: "Laundromats", gym: "Gyms", car_wash: "Car washes", car_repair: "Auto shops", vending: "Vending machines", convenience: "Convenience shops", fast_food: "Fast food" };
 
-export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total, hasData, top20, initialView, initialTab, cities, operator, demoDrop }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: Pt[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; cities: { slug: string; name: string; scanned: boolean }[]; operator: boolean; demoDrop?: boolean }) {
+export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total, hasData, top20, initialView, initialTab, cities, operator, demoDrop, copyStamp }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: Pt[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; cities: { slug: string; name: string; scanned: boolean }[]; operator: boolean; demoDrop?: boolean; copyStamp?: string }) {
   const router = useRouter();
   const [on, setOn] = useState<Record<string, boolean>>({ laundry: true, gym: true, car_wash: true, car_repair: true });
   const [lateOnly, setLateOnly] = useState(false);
@@ -116,8 +116,9 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
     if (!ready || !L || !map) return;
     const g = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45, disableClusteringAtZoom: 15, showCoverageOnHover: false,
       iconCreateFunction: (c) => L.divIcon({ html: `<span>${c.getChildCount()}</span>`, className: "cl cl-machine", iconSize: [30, 30] }) });
-    for (const m of existing) g.addLayer(L.circleMarker([m.lat, m.lon], { radius: 4, color: "#a79fb4", weight: 1.5, fillColor: "#0a0810", fillOpacity: 0.9 }));
-    for (const m of ours) g.addLayer(L.circleMarker([m.lat, m.lon], { radius: 8, color: "#5fd38a", fillColor: "#5fd38a", fillOpacity: 1, weight: 2 }).bindTooltip("Our machine"));
+    const pin = (cls: string) => L.divIcon({ className: "pinbox", html: `<i class="pin ${cls}"></i>`, iconSize: [44, 44], iconAnchor: [22, 22] });
+    for (const m of existing) g.addLayer(L.marker([m.lat, m.lon], { icon: pin("there"), keyboard: false }));
+    for (const m of ours) g.addLayer(L.marker([m.lat, m.lon], { icon: pin("ours") }).bindTooltip("Our machine"));
     map.addLayer(g);
     return () => { map.removeLayer(g); };
   }, [ready, existing, ours]);
@@ -130,14 +131,14 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
       iconCreateFunction: (c) => L.divIcon({ html: `<span>${c.getChildCount()}</span>`, className: "cl cl-gild", iconSize: [38, 38] }) });
     for (const p of shown) {
       const strong = p.score >= 70;
-      g.addLayer(L.circleMarker([p.lat, p.lon], { radius: strong ? 9 : 7, color: "#d4a843", weight: 2.5, fillColor: "#d4a843", fillOpacity: strong ? 1 : 0, className: fresh.includes(p.id) ? "droppin" : undefined })
-        .on("click", () => setSel(p.id)).bindTooltip(`${p.name} · ${p.score}`));
+      const icon = L.divIcon({ className: "pinbox", html: `<i class="pin ${strong ? "strong" : "maybe"}${fresh.includes(p.id) ? " droppin" : ""}"></i>`, iconSize: [44, 44], iconAnchor: [22, 22] });
+      g.addLayer(L.marker([p.lat, p.lon], { icon, keyboard: false }).on("click", () => setSel(p.id)).bindTooltip(`${p.name} · ${p.score}`));
     }
     map.addLayer(g);
     clusterRef.current = g;
     const glow = glowRef.current;
     glow?.clearLayers();
-    for (const p of shown.filter((x) => x.late && x.score >= 70).slice(0, 60)) L.circleMarker([p.lat, p.lon], { radius: 24, stroke: false, fillColor: "#ff6400", fillOpacity: 0.2, interactive: false }).addTo(glow!);
+    for (const p of shown.filter((x) => x.late && x.score >= 70).slice(0, 60)) L.marker([p.lat, p.lon], { icon: L.divIcon({ className: "pinbox", html: '<i class="pinglow"></i>', iconSize: [52, 52], iconAnchor: [26, 26] }), interactive: false, keyboard: false, zIndexOffset: -1000 }).addTo(glow!);
     return () => { map.removeLayer(g); };
   }, [ready, shown.map((p) => p.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -147,9 +148,9 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
     if (!ready || !L || !ring) return;
     ring.clearLayers();
     const s = current && byId.get(current.id);
-    if (s) L.circleMarker([s.lat, s.lon], { radius: 13, color: "#ffffff", weight: 3, fill: false, interactive: false }).addTo(ring);
+    if (s) L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "pinbox", html: '<i class="pinring sel"></i>', iconSize: [44, 44], iconAnchor: [22, 22] }), interactive: false, keyboard: false, zIndexOffset: 1000 }).addTo(ring);
     const h = hover ? byId.get(hover) : null;
-    if (h) L.circleMarker([h.lat, h.lon], { radius: 17, color: "#ff6400", weight: 4, fillColor: "#d4a843", fillOpacity: 0.5, interactive: false }).addTo(ring);
+    if (h) L.marker([h.lat, h.lon], { icon: L.divIcon({ className: "pinbox", html: '<i class="pinring hov"></i>', iconSize: [44, 44], iconAnchor: [22, 22] }), interactive: false, keyboard: false, zIndexOffset: 1000 }).addTo(ring);
   }, [ready, current?.id, hover]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (tab === "map") setTimeout(() => mapRef.current?.invalidateSize(), 50); }, [tab]);
@@ -213,10 +214,10 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
           while ((nl = buf.indexOf("\n")) >= 0) {
             const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
             if (!line.trim()) continue;
-            const ev = JSON.parse(line) as { t: string; c?: Category; count?: number; msg?: string; usedUnion?: boolean; failed?: string[]; errors?: string[] };
+            const ev = JSON.parse(line) as { t: string; c?: Category; count?: number; msg?: string; usedUnion?: boolean; source?: string; stamp?: string; failed?: string[]; errors?: string[] };
             if (ev.t === "note") setNote(ev.msg ?? "");
             if (ev.t === "cat") { setNote(""); setLanded((l) => ({ ...l, [ev.c as Category]: ev.count ?? 0 })); await pullPins(); }
-            if (ev.t === "done") { how = ev.usedUnion ? "in one query" : "one kind at a time"; for (const f of ev.failed ?? []) failed.push(CAT_NAME[f as Category] ?? "Some places"); if (ev.errors?.length) errs.push(...ev.errors); }
+            if (ev.t === "done") { how = ev.source === "bundle" ? `from our own OpenStreetMap copy, updated ${ev.stamp ?? "recently"}` : ev.usedUnion ? "in one query" : "one kind at a time"; for (const f of ev.failed ?? []) failed.push(CAT_NAME[f as Category] ?? "Some places"); if (ev.errors?.length) errs.push(...ev.errors); }
           }
         }
       }
@@ -233,7 +234,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
       }
     }
     if (failed.length) setStatus(`${failed.join(", ")} did not load, try again.${errs.length ? " Reason: " + errs.slice(0, 2).join(" | ") : ""}`);
-    else { setStatus(`Scan finished${how ? ` (${how})` : ""}. Anything already fresh today came from the saved copy.`); { if (lastTotal.current === 0) await pullPins(); setFoundCount(lastTotal.current); } }
+    else { setStatus(`Scan finished${how ? `: ${how}` : ""}. Anything already fresh today came from the saved copy.`); { if (lastTotal.current === 0) await pullPins(); setFoundCount(lastTotal.current); } }
     router.refresh();
     setBusy(false);
   }
@@ -283,10 +284,10 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
           )}
         </div>
         <div className="legend">
-          <span><i className="dot" style={{ background: "var(--gild)" }} />Strong prospect</span>
-          <span><i className="dot" style={{ border: "2px solid var(--gild)" }} />Maybe</span>
-          <span><i className="dot" style={{ border: "2px solid var(--dim)" }} />Machine already there</span>
-          <span><i className="dot" style={{ background: "var(--good)" }} />Our machine</span>
+          <span><i className="pin strong" />Strong prospect</span>
+          <span><i className="pin maybe" />Maybe</span>
+          <span><i className="pin there" />Machine already there</span>
+          <span><i className="pin ours" />Our machine</span>
           <span>Numbers are groups. Zoom to split them.</span>
         </div>
       </div>
@@ -303,6 +304,8 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
         </label>
         <div className="rowflex"><h2 style={{ margin: 0 }}>Best prospects</h2><span className="muted small num">{inView.length} in view of {total}</span></div>
         <p className="muted small placeline">{place.name}</p>
+        {copyStamp && <p className="muted small copyline">From our own OpenStreetMap copy, updated {copyStamp}.</p>}
+        <p className="muted small copyline">Place data © OpenStreetMap contributors, ODbL.</p>
         {loading && <BlockLoader landed={landed} elapsed={elapsed} note={note} />}
         {!loading && foundCount !== null && <p className="foundcount num" role="status" aria-live="polite"><Ticker value={foundCount} /> places found</p>}
         <label className="check muted small"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> Search as I move the map</label>

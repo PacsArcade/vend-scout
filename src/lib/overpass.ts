@@ -2,6 +2,7 @@ import { driver, errText, readText, storageMissing, STORAGE_MISSING, writeText }
 import { listPlaces } from "./places";
 import { distM, scorePlace, latestClose } from "./score";
 import type { ScoutCheck } from "./types";
+import { bundleMeta, bundledCity, cutState, inIllinois } from "./bundled";
 import type { Bbox, Category, OsmContactTags, Place, Prospect, Scored, ScoredProspect } from "./types";
 import { ALL_CATEGORIES, CATEGORY_LABEL, VENUE_CATEGORIES } from "./types";
 
@@ -23,16 +24,22 @@ const FILTER: Record<Category, string> = {
 export interface OsmElement { id: number; type: string; lat: number; lon: number; name?: string; opening_hours?: string; street?: string; tags?: OsmContactTags }
 // v2 adds contact tags. A v1 file still reads, but counts as stale so the next scan refreshes it.
 const SCHEMA = 2;
-interface CacheFile { v?: number; fetchedAt: number; items: OsmElement[] }
+interface CacheFile { v?: number; fetchedAt: number; items: OsmElement[]; src?: "bundle" }
 
 const file = (slug: string, c: Category) => `cache/${slug}/overpass-${c}.json`;
 
-export async function readCache(slug: string, c: Category): Promise<CacheFile | null> {
+async function readStored(slug: string, c: Category): Promise<CacheFile | null> {
   try {
     return JSON.parse((await readText(file(slug, c))) ?? "") as CacheFile;
   } catch {
     return null;
   }
+}
+/** The saved scan for one place and kind. For the nine built-in cities our own OpenStreetMap copy (in the repo) wins when it is newer. */
+export async function readCache(slug: string, c: Category): Promise<CacheFile | null> {
+  const [b, k] = await Promise.all([bundledCity(slug, c), readStored(slug, c)]);
+  if (b && (!k || b.fetchedAt >= k.fetchedAt)) return { v: b.v, fetchedAt: b.fetchedAt, items: b.items, src: "bundle" };
+  return k;
 }
 
 type RawEl = { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
@@ -112,9 +119,13 @@ export function splitUnion(elements: RawEl[]): Record<Category, OsmElement[]> {
 }
 export const unionQueryText = (b: Bbox) => `[out:json][timeout:125];(${LAND_ORDER.map((c) => `nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});`).join("")});out center tags;`;
 
-const isFresh = (c: CacheFile | null) => !!c && (c.v ?? 1) >= SCHEMA && Date.now() - c.fetchedAt < DAY;
+let extractMs = 0; // when our own copy was extracted (0 = no copy)
+const loadMeta = async () => { extractMs = (await bundleMeta())?.extractedAt ?? 0; };
+/** Fresh = under a day old, or taken from our own copy and not older than the copy we have now. */
+const isFresh = (c: CacheFile | null) => !!c && (c.v ?? 1) >= SCHEMA && (c.src === "bundle" ? c.fetchedAt >= extractMs : Date.now() - c.fetchedAt < DAY);
 /** True when all seven caches for a place are under a day old. */
 export async function placeIsFresh(slug: string): Promise<boolean> {
+  await loadMeta();
   for (const c of LAND_ORDER) if (!isFresh(await readCache(slug, c))) return false;
   return true;
 }
@@ -125,15 +136,20 @@ export async function placeAge(slug: string): Promise<number> {
   return oldest;
 }
 
-export interface ScanResult { ok: boolean; skipped: boolean; usedUnion: boolean; failed: Category[]; error?: string; errors: string[] }
+export interface ScanResult { ok: boolean; skipped: boolean; usedUnion: boolean; failed: Category[]; error?: string; errors: string[]; source?: "bundle" | "overpass"; extractedAt?: number }
 /**
  * Scan one place. One union query for all seven categories, split on our side and saved into the per-category caches.
  * If the union query fails or times out, fall back to the per-category queries. Categories that are still fresh are not asked again
  * (one live query per category per day). onCategory fires as each category lands, so the screen can fill in as it goes.
  * A failed WRITE is never hidden: it is logged, counted as failed, and its text is returned in errors.
  */
-export async function scanPlace(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; onNote?: (msg: string) => void; fetchImpl?: typeof fetch; force?: boolean; pauseMs?: number; budgetMs?: number } = {}): Promise<ScanResult> {
+export async function scanPlace(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; onNote?: (msg: string) => void; fetchImpl?: typeof fetch; force?: boolean; pauseMs?: number; budgetMs?: number; dropMs?: number } = {}): Promise<ScanResult> {
   const deadline = Date.now() + (opts.budgetMs ?? 270_000);
+  await loadMeta();
+  // 1. Our own OpenStreetMap copy: instant, no network. The nine built-in cities read straight from the repo; another Illinois place is cut from the statewide files.
+  const fromCopy = await scanFromCopy(place, opts);
+  if (fromCopy) return fromCopy;
+  // 2. Anywhere else (or no copy built yet): Overpass, which needs somewhere to save the answer.
   if (storageMissing()) { console.error("[vend-scan] refused: storage is not connected"); return { ok: false, skipped: false, usedUnion: false, failed: [...LAND_ORDER], errors: [STORAGE_MISSING], error: STORAGE_MISSING }; }
   const stale: Category[] = [];
   for (const c of LAND_ORDER) if (opts.force || !isFresh(await readCache(place.slug, c))) stale.push(c);
@@ -171,10 +187,34 @@ export async function scanPlace(place: Place, opts: { onCategory?: (c: Category,
   return { ok: failed.length === 0, skipped: false, usedUnion: false, failed, errors, error: errors[0] };
 }
 
+async function scanFromCopy(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; dropMs?: number }): Promise<ScanResult | null> {
+  const meta = await bundleMeta();
+  if (!meta) return null;
+  const builtIn = !!(await bundledCity(place.slug, "laundry"));
+  if (!builtIn && !inIllinois(place.bbox)) return null;
+  if (!builtIn && !(await cutState("laundry", place.bbox))) return null;
+  if (!builtIn && storageMissing()) return { ok: false, skipped: false, usedUnion: false, failed: [...LAND_ORDER], errors: [STORAGE_MISSING], error: STORAGE_MISSING, source: "bundle", extractedAt: meta.extractedAt };
+  const failed: Category[] = [], errors: string[] = [];
+  for (const c of LAND_ORDER) {
+    let items: OsmElement[];
+    if (builtIn) items = (await bundledCity(place.slug, c))?.items ?? [];
+    else {
+      items = (await cutState(c, place.bbox)) ?? [];
+      try { await writeText(file(place.slug, c), JSON.stringify({ v: SCHEMA, fetchedAt: meta.extractedAt, items, src: "bundle" } satisfies CacheFile)); }
+      catch (e) { console.error(`[vend-scan] could not save ${c} for ${place.slug} ${errText(e)}`); failed.push(c); errors.push(`${c}: ${errText(e)}`); continue; }
+    }
+    console.info(`[vend-scan] ${place.slug} ${c} ${items.length} items from our own copy`);
+    await opts.onCategory?.(c, items.length);
+    if ((opts.dropMs ?? 140) > 0) await new Promise((r) => setTimeout(r, opts.dropMs ?? 140)); // a beat between kinds, so the loader shows each one landing
+  }
+  return { ok: failed.length === 0, skipped: false, usedUnion: false, failed, errors, error: errors[0], source: "bundle", extractedAt: meta.extractedAt };
+}
+
 /** Cached items. Goes live only when allowed and the cache is missing or older than a day (one live query per category per day). */
 export async function getCategory(place: Place, c: Category, allowLive: boolean) {
+  await loadMeta();
   const cached = await readCache(place.slug, c);
-  const fresh = cached && (cached.v ?? 1) >= SCHEMA && Date.now() - cached.fetchedAt < DAY;
+  const fresh = isFresh(cached);
   if (fresh || !allowLive) return { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? null, live: false, error: undefined as string | undefined };
   try {
     const items = await liveQuery(c, place.bbox);
