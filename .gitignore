@@ -8,3 +8,6 @@ data/state.seed.json
 data/labels
 data/stops
 data/items
+*.tsbuildinfo
+.env*
+!.env.example

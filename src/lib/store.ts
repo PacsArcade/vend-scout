@@ -1,5 +1,4 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { readStateText, writeStateText } from "./blobstore";
 import { findProspect } from "./overpass";
 import { currentHeight } from "./time";
 import { tally } from "./vote";
@@ -13,14 +12,13 @@ import { openJobs } from "./jobs";
 import { ILLINOIS } from "./places";
 import { payout } from "./payout";
 import type { AiLogEntry, AiVerdict, Block, Item, PayoutRec, Proof } from "./types";
-import { checkProof } from "./autoCheck";
+import { checkProof, ollamaUrl, skippedVerdict } from "./autoCheck";
 import { comboBonus, scoreStop, streakDays } from "./arcade";
 import type { Claim, HostPick, JobKind, MachineStatus, MachineType } from "./types";
 import { MACHINE_STATUSES, MACHINE_TYPES } from "./types";
 import type { Applicant, ApplicantStage, CrewRole, Outreach, OutreachHow, Route } from "./types";
 import { FOOD_KINDS, SHELF_KINDS, STAGES } from "./types";
 
-const STATE = process.env.VEND_STATE_FILE || path.join(process.cwd(), "data", "state.json");
 
 export interface State {
   tracked: Record<string, Stage>;
@@ -51,7 +49,7 @@ const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}
 
 export async function readState(): Promise<State> {
   try {
-    const st = { ...empty(), ...(JSON.parse(await fs.readFile(STATE, "utf8")) as State) };
+    const st = { ...empty(), ...(JSON.parse((await readStateText()) ?? "{}") as State) };
     // Older records had no status or type: a machine with a host was placed, one without is in storage.
     for (const m of st.machines) {
       m.prospectId ??= ""; m.hostName ??= "";
@@ -66,8 +64,7 @@ export async function readState(): Promise<State> {
   }
 }
 async function write(s: State) {
-  await fs.mkdir(path.dirname(STATE), { recursive: true });
-  await fs.writeFile(STATE, JSON.stringify(s, null, 1));
+  await writeStateText(JSON.stringify(s, null, 1));
 }
 const today = () => new Date().toISOString().slice(0, 10);
 const str = (v: unknown, max = 120) => String(v ?? "").trim().slice(0, max);
@@ -112,7 +109,7 @@ export type Action =
   | { action: "runAi"; id: string }
   | { action: "setLeaderboard"; id: string; on: boolean }
   | { action: "outreach"; id: string; who: string; how: OutreachHow; outcome: string; note: string }
-  | { action: "apply"; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
+  | { action: "apply"; hp?: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
   | { action: "applicantStep"; id: string; stage: ApplicantStage; note: string }
   | { action: "createRoute"; name: string; runner?: string; stops: string[] }
   | { action: "routeRunner"; id: string; runner: string }
@@ -260,6 +257,7 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       break;
     }
     case "apply": {
+      if (a.hp) return { ok: true }; // honeypot: a bot filled the hidden field. Pretend it worked, save nothing.
       const name = str(a.name, 80), reach = str(a.reach, 120), why = str(a.why, 1000);
       if (!name || !reach) return { ok: false, error: "A name and a way to reach you are needed" };
       if (!reach.includes("@") && reach.replace(/\D/g, "").length < 7) return { ok: false, error: "Give an email or a phone number we can use" };
@@ -326,9 +324,9 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       else { p = { id: `p${++st.counter}`, kind: a.kind, ref, route: a.route, machine: machineId, by, jobKind, soldOutAtVisit: soldOut, status: "sent", history: [ev], sentAt: now, ...body }; st.proofs.push(p); }
       // Shadow mode: the AI check runs in the background and only suggests. Nothing here approves or pays.
       p.loadItems = m ? m.slots.filter((s) => s.kind !== "pickup" && s.level < 0.45).map((s) => { const it = s.itemId ? st.items.find((x) => x.id === s.itemId) : undefined; return { slot: s.code, item: it?.name ?? s.name, ref: it?.photo }; }) : [];
-      p.ai = undefined;
+      p.ai = ollamaUrl() ? undefined : skippedVerdict(); // no checker here: straight to a person, no waiting
       await write(st);
-      if (process.env.VEND_AI_CHECK !== "off") void perform({ action: "runAi", id: p.id });
+      if (ollamaUrl() && process.env.VEND_AI_CHECK !== "off") void perform({ action: "runAi", id: p.id });
       return { ok: true, id: p.id, note: "Proof sent. You are paid after it is checked." };
     }
     case "reviewProof": {

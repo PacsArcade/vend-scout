@@ -1,8 +1,7 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { readText, writeText } from "./blobstore";
 
 const URL_ = "https://time.pacsarcade.org/height";
-const FILE = path.join(process.cwd(), "data", "cache", "height.json");
+const FILE = "cache/height.json";
 let mem: { h: number; at: number } | null = null;
 
 export interface Height { h: number; live: boolean; at: number }
@@ -15,12 +14,11 @@ export async function currentHeight(): Promise<Height> {
     const j = (await r.json()) as { height: number };
     if (!r.ok || !Number.isFinite(j.height)) throw new Error("bad height");
     mem = { h: j.height, at: Date.now() };
-    await fs.mkdir(path.dirname(FILE), { recursive: true });
-    await fs.writeFile(FILE, JSON.stringify(mem));
+    await writeText(FILE, JSON.stringify(mem)).catch(() => undefined);
     return { h: j.height, live: true, at: mem.at };
   } catch {
     try {
-      const last = JSON.parse(await fs.readFile(FILE, "utf8")) as { h: number; at: number };
+      const last = JSON.parse((await readText(FILE)) ?? "") as { h: number; at: number };
       return { h: last.h, live: false, at: last.at };
     } catch {
       return { h: 0, live: false, at: 0 };

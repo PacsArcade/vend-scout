@@ -4,12 +4,14 @@ import { CREW_ROLES } from "@/lib/types";
 import { CONTRACTOR_NOTE, JOB_NOUN, PAY_TERMS, ROLE_COPY, ROLE_JOB, SHARED_LINE, satsFor } from "@/lib/crew";
 import { rateFeed } from "@/lib/rate";
 
-export default async function CrewPage() {
+export default async function CrewPage({ searchParams }: { searchParams: Promise<{ soon?: string }> }) {
+  const { soon } = await searchParams;
   const rate = await rateFeed.rate();
   return (
     <>
       <Nav on="crew" />
       <main className="page">
+        {soon && <p className="toast" role="status">Crew sign-in is coming soon. You can apply now and we will be in touch.</p>}
         <div className="crewhead">
           <h1>Join the crew</h1>
           <p className="lead">{SHARED_LINE}</p>

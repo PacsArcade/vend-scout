@@ -1,10 +1,8 @@
 import { createHash } from "crypto";
-import { promises as fs } from "fs";
-import path from "path";
+import { readText, writeText } from "./blobstore";
 import type { Contact, OsmContactTags } from "./types";
 
-const UA = "VendScout/0.3 (local prototype for Pac's Arcade; reads a business's own public contact page; pac@pacsarcade.org)";
-const DIR = path.join(process.cwd(), "data", "cache", "contacts");
+const UA = "VendScout/0.3 (Pac's Arcade; reads a business's own public contact page; pac@pacsarcade.org)";
 const WEEK = 7 * 24 * 3600 * 1000;
 const PAGE_MS = 10_000;
 const MAX_PAGES = 3;
@@ -123,7 +121,7 @@ export function contactLink(html: string, base: string): string | null {
 const keyOf = (u: string) => createHash("sha1").update(u).digest("hex").slice(0, 20);
 export async function readCached(url: string): Promise<SiteResult | null> {
   try {
-    return JSON.parse(await fs.readFile(path.join(DIR, keyOf(url) + ".json"), "utf8")) as SiteResult;
+    return JSON.parse((await readText(`cache/contacts/${keyOf(url)}.json`)) ?? "") as SiteResult;
   } catch {
     return null;
   }
@@ -143,8 +141,7 @@ async function crawl(url: string, force: boolean): Promise<SiteResult> {
   const result: SiteResult = { url, fetchedAt: Date.now(), pages: [], contacts: [] };
   const finish = async (note?: string) => {
     result.note = note;
-    await fs.mkdir(DIR, { recursive: true });
-    await fs.writeFile(path.join(DIR, keyOf(url) + ".json"), JSON.stringify(result));
+    await writeText(`cache/contacts/${keyOf(url)}.json`, JSON.stringify(result)).catch(() => undefined);
     return result;
   };
   const origin = new URL(url);

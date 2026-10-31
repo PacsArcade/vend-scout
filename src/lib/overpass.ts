@@ -1,13 +1,12 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { readText, writeText } from "./blobstore";
+import { listPlaces } from "./places";
 import { distM, scorePlace, latestClose } from "./score";
 import type { Bbox, Category, OsmContactTags, Place, Prospect, Scored, ScoredProspect } from "./types";
 import { ALL_CATEGORIES, CATEGORY_LABEL, VENUE_CATEGORIES } from "./types";
 
 // The public server is shared and often busy. Try it first, then a second public mirror.
 const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
-const UA = "VendScout/0.2 (local prototype; pac@pacsarcade.org)";
-const CACHE_ROOT = path.join(process.cwd(), "data", "cache");
+const UA = "VendScout/0.2 (Pac's Arcade, pac@pacsarcade.org)";
 const DAY = 24 * 60 * 60 * 1000;
 
 const FILTER: Record<Category, string> = {
@@ -25,11 +24,11 @@ export interface OsmElement { id: number; type: string; lat: number; lon: number
 const SCHEMA = 2;
 interface CacheFile { v?: number; fetchedAt: number; items: OsmElement[] }
 
-const file = (slug: string, c: Category) => path.join(CACHE_ROOT, slug, `overpass-${c}.json`);
+const file = (slug: string, c: Category) => `cache/${slug}/overpass-${c}.json`;
 
 export async function readCache(slug: string, c: Category): Promise<CacheFile | null> {
   try {
-    return JSON.parse(await fs.readFile(file(slug, c), "utf8")) as CacheFile;
+    return JSON.parse((await readText(file(slug, c))) ?? "") as CacheFile;
   } catch {
     return null;
   }
@@ -83,9 +82,8 @@ export async function getCategory(place: Place, c: Category, allowLive: boolean)
   if (fresh || !allowLive) return { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? null, live: false, error: undefined as string | undefined };
   try {
     const items = await liveQuery(c, place.bbox);
-    await fs.mkdir(path.join(CACHE_ROOT, place.slug), { recursive: true });
     const data: CacheFile = { v: SCHEMA, fetchedAt: Date.now(), items };
-    await fs.writeFile(file(place.slug, c), JSON.stringify(data));
+    await writeText(file(place.slug, c), JSON.stringify(data));
     return { items, fetchedAt: data.fetchedAt, live: false || true, error: undefined as string | undefined };
   } catch (e) {
     return { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? null, live: false, error: String(e) };
@@ -141,11 +139,8 @@ export async function placeProspects(slug: string): Promise<{ list: Detailed[]; 
 }
 
 export async function findProspect(id: string): Promise<Detailed | null> {
-  let dirs: string[] = [];
-  try { dirs = await fs.readdir(CACHE_ROOT); } catch { return null; }
-  for (const d of dirs) {
-    if (d.endsWith(".json")) continue;
-    const { list } = await placeProspects(d);
+  for (const pl of await listPlaces()) {
+    const { list } = await placeProspects(pl.slug);
     const hit = list.find((x) => x.prospect.id === id);
     if (hit) return hit;
   }

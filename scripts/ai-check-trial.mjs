@@ -1,5 +1,5 @@
 // Runs the photo checker on the seeded proofs and prints verdicts and timings.
-// Needs the app running (BASE, default http://localhost:4310) on the seeded state, and Ollama on this box.
+// Needs the app running (BASE, default http://localhost:4310) on the seeded state, started with OLLAMA_URL=http://127.0.0.1:11434.
 // The checker only SUGGESTS. This script approves nothing and pays nothing.
 const BASE = process.env.BASE || "http://localhost:4310";
 const ids = (process.env.PROOFS || "p300,p301").split(",");

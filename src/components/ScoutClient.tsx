@@ -21,7 +21,7 @@ const FILTERS: { key: VenueCategory; label: string }[] = [
 const CHIP: Record<VenueCategory, string> = { laundry: "laundromat", gym: "gym", car_wash: "car wash", car_repair: "auto shop" };
 const CAT_NAME: Record<Category, string> = { laundry: "Laundromats", gym: "Gyms", car_wash: "Car washes", car_repair: "Auto shops", vending: "Vending machines", convenience: "Convenience shops", fast_food: "Fast food" };
 
-export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData, top20, initialView, initialTab, cities }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: Pt[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; cities: { slug: string; name: string; scanned: boolean }[] }) {
+export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData, top20, initialView, initialTab, cities, operator }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: Pt[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; cities: { slug: string; name: string; scanned: boolean }[]; operator: boolean }) {
   const router = useRouter();
   const [on, setOn] = useState<Record<string, boolean>>({ laundry: true, gym: true, car_wash: true, car_repair: true });
   const [lateOnly, setLateOnly] = useState(false);
@@ -224,9 +224,9 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
         <p className="muted small placeline">{place.name}</p>
         <label className="check muted small"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> Search as I move the map</label>
         <div className="actions">
-          {current && <Link href={`/prospects/${current.id}`} className="btn gild">Open prospect</Link>}
-          <button className="btn" onClick={scan} disabled={busy}>Scan this place</button>
-          {top20.length > 0 && <button className="btn" onClick={top} disabled={busy}>Find contacts for the top {top20.length}</button>}
+          {operator && current && <Link href={`/prospects/${current.id}`} className="btn gild">Open prospect</Link>}
+          {operator && <button className="btn" onClick={scan} disabled={busy}>Scan this place</button>}
+          {operator && top20.length > 0 && <button className="btn" onClick={top} disabled={busy}>Find contacts for the top {top20.length}</button>}
         </div>
         {status && <p className="muted small" role="status">{status}</p>}
         <div className="rows">
@@ -240,7 +240,7 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
               </div>
             </button>
           ))}
-          {list.length === 0 && <p className="muted">{hasData ? "Nothing in this part of the map. Zoom out or pan." : "No data for this place yet. Press Scan this place to ask OpenStreetMap."}</p>}
+          {list.length === 0 && <p className="muted">{hasData ? "Nothing in this part of the map. Zoom out or pan." : "No data for this place yet. An operator scans it first."}</p>}
         </div>
       </div>
     </div>

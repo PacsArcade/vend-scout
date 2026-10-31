@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isOperatorNow } from "@/lib/auth";
 import { cacheCounts, getCategory } from "@/lib/overpass";
 import { getPlace } from "@/lib/places";
 import { ALL_CATEGORIES, type Category } from "@/lib/types";
@@ -14,7 +15,9 @@ export async function GET(req: Request) {
   const cat = u.searchParams.get("cat") as Category | null;
   if (cat) {
     if (!ALL_CATEGORIES.includes(cat)) return NextResponse.json({ ok: false, error: "Unknown category" }, { status: 400 });
-    const r = await getCategory(place, cat, u.searchParams.get("refresh") === "1");
+    const refresh = u.searchParams.get("refresh") === "1";
+    if (refresh && !(await isOperatorNow())) return NextResponse.json({ ok: false, error: "Operators only. Sign in first." }, { status: 401 });
+    const r = await getCategory(place, cat, refresh);
     return NextResponse.json({ ok: !r.error, count: r.items.length, live: r.live, error: r.error });
   }
   return NextResponse.json({ ok: true, counts: await cacheCounts(place.slug) });

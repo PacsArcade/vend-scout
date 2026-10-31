@@ -1,5 +1,4 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { readBin } from "./blobstore";
 import type { AiSlot, AiVerdict, Proof, Tri } from "./types";
 
 // THE PHOTO CHECKER. SHADOW MODE: it suggests, a person still approves, and nothing is paid on its word.
@@ -7,10 +6,11 @@ import type { AiSlot, AiVerdict, Proof, Tri } from "./types";
 export const AUTO_APPROVE = false as const;
 
 export const MODEL = process.env.VEND_AI_MODEL || "gemma3:12b";
-const OLLAMA = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
+/** Ollama runs on the home box only. OLLAMA_URL unset (as on Vercel) means the checker is skipped. */
+export const ollamaUrl = () => (process.env.OLLAMA_URL ?? "").trim().replace(/\/+$/, "");
+export const SKIP_REASON = "AI checker runs on the home box";
+export const skippedVerdict = (): AiVerdict => nv(SKIP_REASON, 0);
 export const TIMEOUT_MS = 90_000;
-const STOPS = path.join(process.cwd(), "data", "stops");
-const ITEMS = path.join(process.cwd(), "data", "items");
 
 export interface CheckInput { before: string; after: string; loadItems: { slot: string; item: string; ref?: string }[] }
 export interface CheckOpts { fetchImpl?: typeof fetch; timeoutMs?: number; readPhoto?: (kind: "stop" | "item", file: string) => Promise<string | null> }
@@ -19,7 +19,7 @@ const nv = (error: string, ms: number, slots: AiSlot[] = [], reasons: string[] =
 
 async function readB64(kind: "stop" | "item", file: string): Promise<string | null> {
   if (!/^[\w.-]+$/.test(file)) return null;
-  try { return (await fs.readFile(path.join(kind === "stop" ? STOPS : ITEMS, file))).toString("base64"); } catch { return null; }
+  return (await readBin(`${kind === "stop" ? "stops" : "items"}/${file}`))?.toString("base64") ?? null;
 }
 const tri = (v: unknown): Tri => (v === "yes" || v === "no" || v === "unsure" ? v : "unsure");
 
@@ -48,6 +48,7 @@ export async function checkProof(input: CheckInput, opts: CheckOpts = {}): Promi
   const t0 = Date.now();
   const f = opts.fetchImpl ?? fetch, timeout = opts.timeoutMs ?? TIMEOUT_MS, read = opts.readPhoto ?? readB64;
   try {
+    if (!ollamaUrl()) return skippedVerdict();
     if (input.loadItems.length === 0) return nv("No load list to check", Date.now() - t0);
     const before = await read("stop", input.before), after = await read("stop", input.after);
     if (!before || !after) return nv("A proof photo could not be read", Date.now() - t0);
@@ -65,7 +66,7 @@ export async function checkProof(input: CheckInput, opts: CheckOpts = {}): Promi
       '{"slots":[{"slot":"A1","expected_item":"...","looks_stocked":"yes|no|unsure","matches_item":"yes|no|unsure"}],"glass_clean":"yes|no|unsure","overall":"pass|needs-human","reasons":["short reason"]}',
       'Include every listed slot. Use "unsure" whenever you cannot clearly see. overall is "pass" only if every slot is clearly stocked with the right item and the glass is clean.',
     ].join("\n");
-    const res = await f(`${OLLAMA}/api/chat`, {
+    const res = await f(`${ollamaUrl()}/api/chat`, {
       method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(timeout),
       body: JSON.stringify({ model: MODEL, stream: false, format: "json", options: { temperature: 0 }, messages: [{ role: "user", content: prompt, images }] }),
     });

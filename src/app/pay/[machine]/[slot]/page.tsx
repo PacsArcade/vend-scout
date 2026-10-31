@@ -20,7 +20,7 @@ export default async function PayPage({ params }: { params: Promise<{ machine: s
     <div className="phonewrap">
       <div className="phone">
         <PhoneBar right="at the machine" />
-        <span className="testtag">TEST MODE · NO REAL PAYMENT</span>
+        <span className="testtag">PREVIEW · TEST MODE · NO REAL PAYMENT</span>
         <h1>Pay with bitcoin</h1>
         <p className="muted small">{m.name}. Scan the QR on the glass.</p>
         <div className="glass tile center">

@@ -1,10 +1,8 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { readText, writeText } from "./blobstore";
 import type { Bbox, Place } from "./types";
 
-const DIR = path.join(process.cwd(), "data", "cache");
-const FILE = path.join(DIR, "places.json");
-const UA = "VendScout/0.2 (local prototype; pac@pacsarcade.org)";
+const FILE = "cache/places.json";
+const UA = "VendScout/0.2 (Pac's Arcade, pac@pacsarcade.org)";
 
 export const CHICAGO: Place = { slug: "chicago", name: "Chicago, Illinois, United States", bbox: { south: 41.64, west: -87.94, north: 42.03, east: -87.52 } };
 
@@ -14,7 +12,7 @@ interface File { places: Store; queries: Queries }
 
 async function read(): Promise<File> {
   try {
-    return JSON.parse(await fs.readFile(FILE, "utf8")) as File;
+    return JSON.parse((await readText(FILE)) ?? "") as File;
   } catch {
     return { places: {}, queries: {} };
   }
@@ -62,8 +60,7 @@ export async function searchPlace(q: string): Promise<Place | null> {
   if (place.slug === "chicago-illinois-united-states" || place.slug.startsWith("chicago-cook")) place.slug = "chicago";
   if (place.slug !== "chicago") f.places[place.slug] = place;
   f.queries[key] = place.slug;
-  await fs.mkdir(DIR, { recursive: true });
-  await fs.writeFile(FILE, JSON.stringify(f));
+  await writeText(FILE, JSON.stringify(f));
   return place.slug === "chicago" ? CHICAGO : place;
 }
 

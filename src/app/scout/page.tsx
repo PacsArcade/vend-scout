@@ -3,6 +3,7 @@ import { ScoutClient, type Pin } from "@/components/ScoutClient";
 import { cacheCounts, placeProspects } from "@/lib/overpass";
 import { ILLINOIS } from "@/lib/places";
 import { getPlace, CHICAGO } from "@/lib/places";
+import { isOperatorNow } from "@/lib/auth";
 import { readState } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function ScoutPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <Nav on="scout" />
-      <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} total={list.length} top20={top20} initialView={initialView} initialTab={tab === "list" ? "list" : "map"} cities={cities} hasData={Object.values(counts).some((c) => c !== null)} />
+      <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} total={list.length} top20={top20} initialView={initialView} initialTab={tab === "list" ? "list" : "map"} cities={cities} hasData={Object.values(counts).some((c) => c !== null)} operator={await isOperatorNow()} />
     </>
   );
 }

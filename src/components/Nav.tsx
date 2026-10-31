@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { NavTabs } from "./NavTabs";
+import { isOperatorNow } from "@/lib/auth";
 import { LiveBft } from "./LiveBft";
 
 const TABS = [
@@ -15,11 +16,13 @@ const TABS = [
   { key: "admin", label: "Admin", href: "/admin" },
 ];
 
-export function Nav({ on }: { on: string }) {
+export async function Nav({ on }: { on: string }) {
+  const op = await isOperatorNow();
+  const tabs = op ? TABS : [TABS[0], TABS.find((t) => t.key === "crew")!, { key: "signin", label: "Operator sign-in", href: "/signin" }];
   return (
     <header className="top">
       <Link href="/scout" className="brand">frens.earth · Machines<small>working name</small></Link>
-      <NavTabs tabs={TABS} on={on} />
+      <NavTabs tabs={tabs} on={on} />
       <span className="who">
         a Pac&apos;s Arcade project
         <LiveBft />

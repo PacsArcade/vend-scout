@@ -374,3 +374,4 @@ details.edit summary::-webkit-details-marker{display:none}
 .aipanel{padding:10px;font-size:13px;border:1px dashed var(--gild);border-radius:12px;display:flex;flex-direction:column;gap:6px}
 .aipanel .ok{color:var(--good)}.aipanel .no{color:var(--bad)}.aipanel .un{color:var(--warn)}
 .suggest{font-size:11px;color:var(--gild);border:1px solid var(--gild);border-radius:999px;padding:1px 8px;margin-left:6px}
+.hpfield{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}

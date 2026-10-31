@@ -1,3 +1,4 @@
+if (process.env.VERCEL === "1") { console.error("Refusing to write test data on Vercel."); process.exit(1); }
 // LOCAL TESTING ONLY. Off by default: nothing runs this unless you do.
 // Writes a state file full of obviously fake TEST data. Never point production at it.
 //   node scripts/seed-local-test.mjs [out-file]      default: data/state.seed.json

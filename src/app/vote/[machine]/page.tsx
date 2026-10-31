@@ -14,6 +14,7 @@ export default async function VotePage({ params }: { params: Promise<{ machine: 
     <div className="phonewrap">
       <div className="phone">
         <PhoneBar right="scanned from the machine" />
+        <span className="testtag">PREVIEW · NOT LIVE YET</span>
         <h1>What should go in here?</h1>
         <p className="muted small">{m.name}. Top picks go in on the next restock.</p>
         <VoteClient machine={machine} rows={rows} />

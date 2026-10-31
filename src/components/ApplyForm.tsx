@@ -20,7 +20,7 @@ export function ApplyForm({ initialRole, center }: { initialRole?: CrewRole; cen
     setBusy(true); setErr("");
     try {
       const r = await fetch("/api/do", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        action: "apply", name: fd.get("name"), reach: fd.get("reach"), area: fd.get("area"), lat: pin?.lat, lon: pin?.lon,
+        action: "apply", hp: fd.get("website"), name: fd.get("name"), reach: fd.get("reach"), area: fd.get("area"), lat: pin?.lat, lon: pin?.lon,
         roles, transport, hours: fd.get("hours"), why: fd.get("why"), lightning: fd.get("lightning"),
       }) });
       const j = (await r.json()) as { ok: boolean; error?: string };
@@ -39,6 +39,7 @@ export function ApplyForm({ initialRole, center }: { initialRole?: CrewRole; cen
 
   return (
     <form className="form glass card" onSubmit={submit}>
+      <input name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="hpfield" />
       <label><span>Your name</span><input name="name" required maxLength={80} autoComplete="name" /></label>
       <label><span>How to reach you (email or phone)</span><input name="reach" required maxLength={120} autoComplete="email" /></label>
       <label className="wide"><span>Your area, a neighborhood is fine</span><input name="area" required maxLength={80} placeholder="Pilsen, Rogers Park, Fruita" /></label>
