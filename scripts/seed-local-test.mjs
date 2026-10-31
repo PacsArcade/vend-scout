@@ -44,6 +44,8 @@ const state = {
     { id: "i403", name: "TEST trail mix, small", size: "small", priceSats: 4000, photo: "i0-2000003.png" },
   ],
   aiLog: [],
+  checks: { [PROSPECT]: { inside: "combo", who: "TEST Vending Co, 555 0100", state: "Worn", room: "yes", by: "a201", at: now.slice(0, 10), h: 973999 } },
+  scoutAwards: [{ id: "sa500", by: "a201", prospect: PROSPECT, points: 140, breakdown: [{ label: "Named who runs it", points: 40 }, { label: "Machine state", points: 40 }, { label: "Room for another", points: 60 }], at: now }],
   proofs: [
     { id: "p300", kind: "job", ref: "restock:m211", by: "a201", machine: "m211", jobKind: "restock", before: "r0-1000001.png", after: "r0-1000002.png", ticked: ["A1"], loadTotal: 1, loadItems: [{ slot: "A1", item: "TEST hot chips, 2 oz bag", ref: "i0-2000001.png" }], soldOutAtVisit: false, status: "sent", history: [{ status: "sent", at: now }], sentAt: now },
     { id: "p301", kind: "job", ref: "restock:m212", by: "a201", machine: "m212", jobKind: "restock", before: "r0-1000003.png", after: "r0-1000004.png", ticked: [], loadTotal: 1, loadItems: [{ slot: "A1", item: "TEST hot chips, 2 oz bag", ref: "i0-2000001.png" }], soldOutAtVisit: false, status: "retake", reason: "The glass photo is blurry. Please retake it in daylight.", history: [{ status: "sent", at: now }, { status: "retake", at: now, note: "blurry" }], sentAt: now },

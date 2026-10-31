@@ -8,7 +8,7 @@ const PAGE_MS = 10_000;
 const MAX_PAGES = 3;
 const MAX_BYTES = 600_000;
 
-export interface SiteResult { url: string; fetchedAt: number; pages: string[]; contacts: Contact[]; note?: string }
+export interface SiteResult { url: string; fetchedAt: number; pages: string[]; contacts: Contact[]; note?: string; mentionsVending?: boolean }
 
 export function normalizeUrl(u: string): string | null {
   let t = u.trim();
@@ -105,6 +105,12 @@ export function extract(html: string, pageUrl: string): Contact[] {
   return out;
 }
 
+/** Does the page text talk about vending, snack or drink machines? A hint for the scout only. It does not change the score. */
+export function mentionsVending(html: string): boolean {
+  const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
+  return /\bvending\b|\b(snack|soda|drink|beverage|coffee)\s+(machines?|vending)\b|\bsnack\s+bar\b/i.test(text);
+}
+
 export function contactLink(html: string, base: string): string | null {
   for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const label = m[2].replace(/<[^>]+>/g, " ");
@@ -165,6 +171,7 @@ async function crawl(url: string, force: boolean): Promise<SiteResult> {
       if (!page.ok) { if (tried === 1) return finish(`The site answered with status ${page.status}.`); continue; }
       result.pages.push(u);
       result.contacts.push(...extract(page.text, u));
+      if (mentionsVending(page.text)) result.mentionsVending = true;
       if (!contactTried) {
         contactTried = true;
         const link = contactLink(page.text, page.finalUrl);

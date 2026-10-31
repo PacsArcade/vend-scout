@@ -2,7 +2,7 @@ import { resolveCrewId } from "@/lib/crewsession";
 import Link from "next/link";
 import { CrewSwitch } from "@/components/CrewSwitch";
 import { PhoneBar } from "@/components/PhoneBar";
-import { boardName, levelOf, totalPoints } from "@/lib/arcade";
+import { scoutPoints, boardName, levelOf, totalPoints } from "@/lib/arcade";
 import { NEVER_SPEED_LINE } from "@/lib/gig";
 import { readState } from "@/lib/store";
 
@@ -15,7 +15,7 @@ export default async function Leaderboard({ searchParams }: { searchParams: Prom
   const people = st.applicants.filter((a) => a.stage === "On the crew");
   const me = people.find((a) => a.id === crew);
   const city = me?.area ?? "";
-  const rows = me ? people.filter((a) => a.leaderboard && a.area.toLowerCase() === city.toLowerCase()).map((a) => ({ id: a.id, name: boardName(a.name), pts: totalPoints(st.proofs, a.id) })).sort((a, b) => b.pts - a.pts) : [];
+  const rows = me ? people.filter((a) => a.leaderboard && a.area.toLowerCase() === city.toLowerCase()).map((a) => ({ id: a.id, name: boardName(a.name), pts: totalPoints(st.proofs, a.id) + scoutPoints(st.scoutAwards, a.id) })).sort((a, b) => b.pts - a.pts) : [];
   return (
     <div className="phonewrap">
       <div className="phone">

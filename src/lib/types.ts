@@ -21,6 +21,7 @@ export interface Bbox { south: number; west: number; north: number; east: number
 export interface Place { slug: string; name: string; bbox: Bbox }
 
 export interface PlaceInput {
+  scout?: { inside: string; state?: string; room: string; stamp: string };
   category: VenueCategory;
   openingHours?: string;
   hasName: boolean;
@@ -195,3 +196,14 @@ export interface AiVerdict {
 }
 export interface LoadItem2 { slot: string; item: string; ref?: string }
 export interface AiLogEntry { proof: string; at: string; h?: number; aiOverall: "pass" | "needs-human"; aiGlass: Tri; aiLoad: Tri; humanDecision: "approve" | "retake"; humanGlass: boolean; humanLoad: boolean; agree: boolean; before: string; after: string; title: string }
+
+// ---- Scout check: what is already inside ----
+export type Inside = "none" | "soap" | "snacks" | "drinks" | "combo";
+export const INSIDE_LABEL: Record<Inside, string> = { none: "None", soap: "Soap only", snacks: "Snacks", drinks: "Drinks", combo: "Full combo" };
+export type MachineState = "Works well" | "Worn" | "Broken" | "Empty";
+export const MACHINE_STATES: MachineState[] = ["Works well", "Worn", "Broken", "Empty"];
+export interface ScoutCheck {
+  inside: Inside; who: string; state?: MachineState; room: Tri; photo?: string; by?: string; at: string; h?: number;
+  stamp?: string; // BFT text, filled in by the page that shows it
+}
+export interface ScoutAward { id: string; by: string; prospect: string; points: number; breakdown: { label: string; points: number }[]; at: string }

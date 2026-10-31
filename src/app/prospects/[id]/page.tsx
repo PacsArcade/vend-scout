@@ -2,24 +2,27 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { Bft } from "@/components/Bft";
+import { ScoutCheckForm } from "@/components/ScoutCheckForm";
 import { ContactsPanel } from "@/components/ContactsPanel";
 import { ActionForm } from "@/components/Actions";
 import { ProspectActions } from "@/components/ProspectActions";
 import { findProspect } from "@/lib/overpass";
 import { normalizeUrl, osmContacts, readCached } from "@/lib/contacts";
+import { checksWithStamps } from "@/lib/scoutcheck";
 import { readState } from "@/lib/store";
 import { typeLabel } from "@/lib/machineTypes";
 import { openLateValue } from "@/lib/score";
-import { STAGES, CATEGORY_LABEL, OUTREACH_HOW, OUTREACH_OUTCOME } from "@/lib/types";
+import { INSIDE_LABEL, STAGES, CATEGORY_LABEL, OUTREACH_HOW, OUTREACH_OUTCOME } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProspectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const hit = await findProspect(id);
+  const st = await readState();
+  const checks = await checksWithStamps(st);
+  const hit = await findProspect(id, checks);
   if (!hit) notFound();
   const { prospect: p, scored } = hit;
-  const st = await readState();
   const stage = st.tracked[id] ?? null;
   const notes = st.notes[id] ?? [];
   const pkg = st.packages[id];
@@ -27,6 +30,7 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
   const siteUrl = normalizeUrl(p.tags.website ?? "");
   const cached = siteUrl ? await readCached(siteUrl) : null;
   const machine = st.machines.find((m) => m.prospectId === id);
+  const check = st.checks[id];
   const log = st.outreach[id] ?? [];
   return (
     <>
@@ -62,6 +66,12 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
               {notes.length === 0 && <div className="muted">No notes yet.</div>}
               {await Promise.all(notes.map(async (n, i) => <div key={i}><Bft iso={n.date} h={n.h} /> · {n.text}</div>))}
             </div>
+          </div>
+          <div className="glass card">
+            <h2>Already inside</h2>
+            {cached?.mentionsVending && <p className="small"><span className="chip">Mentions vending on their site</span> A hint only. It does not change the score. Look when you visit.</p>}
+            {check ? <p className="small">Last scout check <Bft iso={check.at} h={check.h} />: {INSIDE_LABEL[check.inside]}{check.who ? `, run by ${check.who}` : ""}{check.state ? `, ${check.state.toLowerCase()}` : ""}, room for another: {check.room}.</p> : <p className="muted small">Not checked yet. Look inside on your visit and fill this in. It replaces the map guess in the score.</p>}
+            <ScoutCheckForm id={id} initial={check ? { inside: check.inside, who: check.who, state: check.state, room: check.room } : undefined} crew={st.applicants.filter((a) => a.stage === "On the crew").map((a) => ({ id: a.id, name: a.name }))} />
           </div>
           <ContactsPanel id={id} osm={osmContacts(p.tags)} site={cached?.contacts ?? []} siteUrl={siteUrl} note={cached?.note} hasSite={!!siteUrl} />
           {st.hostPicks[id] && (
@@ -100,6 +110,7 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
         <div>
           <div className="sheet">
             <h3>A snack machine for {p.name}, at no cost to you</h3>
+            <div className="askbox"><b>First question: do you have machines now, and who runs them?</b><div className="askline" /><div className="askline" /></div>
             <p>We place, stock and clean it. You get a share of every sale, paid monthly in bitcoin.</p>
             <div className="row"><span>Your share</span><b>10% of sales</b></div>
             <div className="row"><span>Space it needs</span><b>3 ft wide, one outlet</b></div>

@@ -26,6 +26,11 @@ export const ARCADE = {
   streakStep: 20, // per extra day in a row, up to streakMaxDays
   streakMaxDays: 6,
   comboMultiplier: 1.5, // a whole route approved with no retakes
+  // Scout "Already inside" check. TEST values. No speed scoring here either.
+  scoutPhoto: 120, // the check has a photo
+  scoutWho: 40, // names who runs the machine
+  scoutState: 40, // gives the machine state
+  scoutRoom: 60, // answers "room for another machine" yes or no
 };
 export const SPEED_SCORING = false as const; // never turn this on
 export const NEVER_SPEED_LINE = "We never score speed. Drive safe.";

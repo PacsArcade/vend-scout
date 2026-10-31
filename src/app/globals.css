@@ -390,3 +390,19 @@ html,body{max-width:100%;overflow-x:clip}
 .scanhint{padding:10px 12px;border-radius:12px;border:1px dashed var(--gild);font-size:13px}
 .scanhint a{color:var(--gild);text-decoration:underline;white-space:nowrap}
 .gl{color:var(--gild);text-decoration:underline}
+
+/* round 10: things drop in from the ceiling */
+.foundcount{font-weight:800;font-size:22px;color:var(--gild);text-shadow:0 0 14px rgba(255,100,0,.45)}
+.drop{animation:dropin .7s cubic-bezier(.2,1.2,.35,1) both}
+.scorepop{animation:scorepop .9s ease-out both}
+.leaflet-interactive.droppin{animation:pindrop .8s cubic-bezier(.2,1.3,.4,1) both;transform-box:fill-box;transform-origin:center}
+@keyframes dropin{0%{transform:translateY(-70px);opacity:0}60%{transform:translateY(8px);opacity:1}80%{transform:translateY(-3px)}100%{transform:translateY(0)}}
+@keyframes pindrop{0%{transform:translateY(-120px);opacity:0}65%{transform:translateY(6px);opacity:1}82%{transform:translateY(-3px)}100%{transform:translateY(0)}}
+@keyframes scorepop{0%{transform:scale(.4)}55%{transform:scale(1.35);box-shadow:0 0 22px rgba(255,100,0,.7)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.drop,.scorepop,.leaflet-interactive.droppin{animation:none}}
+.askbox{border:1px solid #d9cfbe;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
+.askline{border-bottom:1px solid #bfb39d;height:26px}
+.pro .chiprow{min-height:58px}
+.pro b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.9em}
+.pro .why{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.9em}
+.pro .chiprow{max-height:58px;overflow:hidden}

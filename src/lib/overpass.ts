@@ -1,6 +1,7 @@
-import { readText, writeText } from "./blobstore";
+import { driver, errText, readText, writeText } from "./blobstore";
 import { listPlaces } from "./places";
 import { distM, scorePlace, latestClose } from "./score";
+import type { ScoutCheck } from "./types";
 import type { Bbox, Category, OsmContactTags, Place, Prospect, Scored, ScoredProspect } from "./types";
 import { ALL_CATEGORIES, CATEGORY_LABEL, VENUE_CATEGORIES } from "./types";
 
@@ -34,45 +35,124 @@ export async function readCache(slug: string, c: Category): Promise<CacheFile | 
   }
 }
 
-async function liveQuery(c: Category, b: Bbox): Promise<OsmElement[]> {
-  const q = `[out:json][timeout:60];nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});out center tags;`;
+type RawEl = { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
+type Body = { remark?: string; elements: RawEl[] };
+
+/** One POST to Overpass with failover to the second mirror. A busy server, a timeout or a "ran out of time" remark moves on; a partial answer is never returned. */
+async function postOverpass(q: string, timeoutMs: number, fetchImpl: typeof fetch = fetch): Promise<Body> {
   let last = "OpenStreetMap did not answer";
-  let res: Response | null = null;
-  type Body = { remark?: string; elements: { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }[] };
-  let body: Body | null = null;
   for (const endpoint of ENDPOINTS) {
     try {
-      res = await fetch(endpoint, { method: "POST", headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(q), signal: AbortSignal.timeout(65_000) });
+      const res = await fetchImpl(endpoint, { method: "POST", headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(q), signal: AbortSignal.timeout(timeoutMs) });
+      if (!res.ok) console.error(`[vend-scan] overpass ${endpoint} answered ${res.status}`);
       if (res.status === 429 || res.status >= 500) { last = res.status === 429 ? "The map server is busy" : "The map server had a problem"; continue; }
       if (!res.ok) { last = `The map server refused the request (${res.status})`; continue; }
       const j = (await res.json()) as Body;
       // Overpass answers 200 with a remark when the query ran out of time or memory. That result is partial, so it must not be cached.
       if (j.remark && /runtime error|timed out|out of memory/i.test(j.remark)) { last = "The map server ran out of time on this area"; continue; }
-      body = j;
-      break;
+      return j;
     } catch (e) {
       last = (e as Error).name === "TimeoutError" ? "The map server took too long" : "Could not reach the map server";
+      console.error(`[vend-scan] overpass ${endpoint} failed ${errText(e)}`);
     }
   }
-  if (!body) throw new Error(last);
-  const json = body;
-  return json.elements
-    .map((e): OsmElement | null => {
-      const lat = e.lat ?? e.center?.lat;
-      const lon = e.lon ?? e.center?.lon;
-      if (lat === undefined || lon === undefined) return null;
-      const t = e.tags ?? {};
-      const street = [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" ");
-      const tags: OsmContactTags = {
-        phone: t.phone ?? t["contact:phone"] ?? t["contact:mobile"],
-        email: t.email ?? t["contact:email"],
-        website: t.website ?? t["contact:website"] ?? t.url,
-        facebook: t["contact:facebook"] ?? t.facebook,
-        instagram: t["contact:instagram"] ?? t.instagram,
-      };
-      return { id: e.id, type: e.type, lat, lon, name: t.name, opening_hours: t.opening_hours, street: street || undefined, tags };
-    })
-    .filter((x): x is OsmElement => x !== null);
+  throw new Error(last);
+}
+
+function toElement(e: RawEl): OsmElement | null {
+  const lat = e.lat ?? e.center?.lat;
+  const lon = e.lon ?? e.center?.lon;
+  if (lat === undefined || lon === undefined) return null;
+  const t = e.tags ?? {};
+  const street = [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" ");
+  const tags: OsmContactTags = {
+    phone: t.phone ?? t["contact:phone"] ?? t["contact:mobile"],
+    email: t.email ?? t["contact:email"],
+    website: t.website ?? t["contact:website"] ?? t.url,
+    facebook: t["contact:facebook"] ?? t.facebook,
+    instagram: t["contact:instagram"] ?? t.instagram,
+  };
+  return { id: e.id, type: e.type, lat, lon, name: t.name, opening_hours: t.opening_hours, street: street || undefined, tags };
+}
+
+async function liveQuery(c: Category, b: Bbox, fetchImpl?: typeof fetch): Promise<OsmElement[]> {
+  const body = await postOverpass(`[out:json][timeout:60];nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});out center tags;`, 65_000, fetchImpl);
+  return body.elements.map(toElement).filter((x): x is OsmElement => x !== null);
+}
+
+/** Order the seven categories land in: the places we pitch first, then the context that scores them. */
+export const LAND_ORDER: Category[] = ["laundry", "gym", "car_wash", "car_repair", "vending", "convenience", "fast_food"];
+
+/** Which categories a raw OSM element belongs to. An element can belong to more than one. */
+export function categoriesOf(tags: Record<string, string> | undefined): Category[] {
+  const t = tags ?? {};
+  return LAND_ORDER.filter((c) => { const [k, v] = FILTER[c].split("="); return t[k] === v; });
+}
+/** Split one union answer into the per-category lists, exactly as seven separate queries would have returned them. */
+export function splitUnion(elements: RawEl[]): Record<Category, OsmElement[]> {
+  const out = Object.fromEntries(LAND_ORDER.map((c) => [c, [] as OsmElement[]])) as Record<Category, OsmElement[]>;
+  for (const e of elements) {
+    const el = toElement(e);
+    if (!el) continue;
+    for (const c of categoriesOf(e.tags)) out[c].push(el);
+  }
+  return out;
+}
+export const unionQueryText = (b: Bbox) => `[out:json][timeout:120];(${LAND_ORDER.map((c) => `nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});`).join("")});out center tags;`;
+
+const isFresh = (c: CacheFile | null) => !!c && (c.v ?? 1) >= SCHEMA && Date.now() - c.fetchedAt < DAY;
+/** True when all seven caches for a place are under a day old. */
+export async function placeIsFresh(slug: string): Promise<boolean> {
+  for (const c of LAND_ORDER) if (!isFresh(await readCache(slug, c))) return false;
+  return true;
+}
+/** The oldest fetch time across a place's caches (0 when any is missing). Used to scan the stalest city first. */
+export async function placeAge(slug: string): Promise<number> {
+  let oldest = Infinity;
+  for (const c of LAND_ORDER) { const k = await readCache(slug, c); if (!k) return 0; oldest = Math.min(oldest, k.fetchedAt); }
+  return oldest;
+}
+
+export interface ScanResult { ok: boolean; skipped: boolean; usedUnion: boolean; failed: Category[]; error?: string; errors: string[] }
+/**
+ * Scan one place. One union query for all seven categories, split on our side and saved into the per-category caches.
+ * If the union query fails or times out, fall back to the per-category queries. Categories that are still fresh are not asked again
+ * (one live query per category per day). onCategory fires as each category lands, so the screen can fill in as it goes.
+ * A failed WRITE is never hidden: it is logged, counted as failed, and its text is returned in errors.
+ */
+export async function scanPlace(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; fetchImpl?: typeof fetch; force?: boolean } = {}): Promise<ScanResult> {
+  const stale: Category[] = [];
+  for (const c of LAND_ORDER) if (opts.force || !isFresh(await readCache(place.slug, c))) stale.push(c);
+  if (stale.length === 0) return { ok: true, skipped: true, usedUnion: false, failed: [], errors: [] };
+  const errors: string[] = [], failed: Category[] = [];
+  const save = async (c: Category, items: OsmElement[]) => {
+    try {
+      await writeText(file(place.slug, c), JSON.stringify({ v: SCHEMA, fetchedAt: Date.now(), items } satisfies CacheFile));
+      console.info(`[vend-scan] wrote ${file(place.slug, c)} ${items.length} items driver=${driver()}`);
+    } catch (e) {
+      console.error(`[vend-scan] could not save ${c} for ${place.slug} ${errText(e)}`);
+      failed.push(c); errors.push(`${c}: ${errText(e)}`);
+      return;
+    }
+    await opts.onCategory?.(c, items.length);
+  };
+  let split: Record<Category, OsmElement[]> | null = null;
+  try {
+    split = splitUnion((await postOverpass(unionQueryText(place.bbox), 100_000, opts.fetchImpl)).elements);
+  } catch (e) {
+    console.error(`[vend-scan] union query for ${place.slug} failed, trying one kind at a time: ${errText(e)}`);
+  }
+  if (split) {
+    for (const c of LAND_ORDER) if (stale.includes(c)) await save(c, split[c]);
+    return { ok: failed.length === 0, skipped: false, usedUnion: true, failed, errors, error: errors[0] };
+  }
+  for (const c of LAND_ORDER) {
+    if (!stale.includes(c)) continue;
+    let items: OsmElement[];
+    try { items = await liveQuery(c, place.bbox, opts.fetchImpl); } catch (e) { console.error(`[vend-scan] ${c} for ${place.slug} failed ${errText(e)}`); failed.push(c); errors.push(`${c}: ${errText(e)}`); continue; }
+    await save(c, items);
+  }
+  return { ok: failed.length === 0, skipped: false, usedUnion: false, failed, errors, error: errors[0] };
 }
 
 /** Cached items. Goes live only when allowed and the cache is missing or older than a day (one live query per category per day). */
@@ -84,9 +164,11 @@ export async function getCategory(place: Place, c: Category, allowLive: boolean)
     const items = await liveQuery(c, place.bbox);
     const data: CacheFile = { v: SCHEMA, fetchedAt: Date.now(), items };
     await writeText(file(place.slug, c), JSON.stringify(data));
-    return { items, fetchedAt: data.fetchedAt, live: false || true, error: undefined as string | undefined };
+    console.info(`[vend-scan] wrote ${file(place.slug, c)} ${items.length} items driver=${driver()}`);
+    return { items, fetchedAt: data.fetchedAt, live: true, error: undefined as string | undefined };
   } catch (e) {
-    return { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? null, live: false, error: String(e) };
+    console.error(`[vend-scan] ${c} for ${place.slug} failed ${errText(e)}`);
+    return { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? null, live: false, error: errText(e) };
   }
 }
 
@@ -98,7 +180,7 @@ export async function cacheCounts(slug: string) {
 
 export interface Detailed { prospect: ScoredProspect; scored: Scored }
 
-export async function placeProspects(slug: string): Promise<{ list: Detailed[]; machines: { lat: number; lon: number }[] }> {
+export async function placeProspects(slug: string, checks: Record<string, ScoutCheck> = {}): Promise<{ list: Detailed[]; machines: { lat: number; lon: number }[] }> {
   const read = async (c: Category) => (await readCache(slug, c))?.items ?? [];
   const machines = await read("vending");
   const food = [...(await read("convenience")), ...(await read("fast_food"))];
@@ -123,7 +205,8 @@ export async function placeProspects(slug: string): Promise<{ list: Detailed[]; 
         const close = latestClose(f.opening_hours);
         foodLate += close === null ? 0.5 : close >= 22 * 60 ? 1 : 0;
       }
-      const scored = scorePlace({ category: c, openingHours: e.opening_hours, hasName: !!e.name, hasAddress: !!e.street, nearestMachineM: nearest, sameNear: same, foodLateNear: foodLate });
+      const chk = checks[`osm-${e.type[0]}${e.id}`];
+      const scored = scorePlace({ scout: chk ? { inside: chk.inside, state: chk.state, room: chk.room, stamp: chk.stamp ?? chk.at } : undefined, category: c, openingHours: e.opening_hours, hasName: !!e.name, hasAddress: !!e.street, nearestMachineM: nearest, sameNear: same, foodLateNear: foodLate });
       const p: Prospect = {
         id: `osm-${e.type[0]}${e.id}`,
         name: e.name ?? `${CATEGORY_LABEL[c]} (unnamed)`,
@@ -138,9 +221,9 @@ export async function placeProspects(slug: string): Promise<{ list: Detailed[]; 
   return { list, machines };
 }
 
-export async function findProspect(id: string): Promise<Detailed | null> {
+export async function findProspect(id: string, checks: Record<string, ScoutCheck> = {}): Promise<Detailed | null> {
   for (const pl of await listPlaces()) {
-    const { list } = await placeProspects(pl.slug);
+    const { list } = await placeProspects(pl.slug, checks);
     const hit = list.find((x) => x.prospect.id === id);
     if (hit) return hit;
   }

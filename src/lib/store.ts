@@ -12,6 +12,9 @@ import { GIG } from "./gig";
 import { openJobs } from "./jobs";
 import { ILLINOIS } from "./places";
 import { payout } from "./payout";
+import type { ScoutAward, ScoutCheck, Inside, MachineState } from "./types";
+import { INSIDE_LABEL, MACHINE_STATES } from "./types";
+import { scoutAward } from "./arcade";
 import type { AiLogEntry, AiVerdict, Block, Item, PayoutRec, Proof } from "./types";
 import { checkProof, ollamaUrl, skippedVerdict } from "./autoCheck";
 import { comboBonus, scoreStop, streakDays } from "./arcade";
@@ -34,6 +37,8 @@ export interface State {
   payouts: PayoutRec[];
   proofs: Proof[];
   items: Item[];
+  checks: Record<string, ScoutCheck>;
+  scoutAwards: ScoutAward[];
   aiLog: AiLogEntry[];
   claims: Claim[];
   applicants: Applicant[];
@@ -46,7 +51,7 @@ export interface State {
   suggestions: Record<string, VoteOption[]>;
   counter: number;
 }
-const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], proofs: [], items: [], aiLog: [], claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
+const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], proofs: [], items: [], checks: {}, scoutAwards: [], aiLog: [], claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
 
 export async function readState(): Promise<State> {
   try {
@@ -67,6 +72,7 @@ export async function readState(): Promise<State> {
 async function write(s: State) {
   await writeStateText(JSON.stringify(s, null, 1));
 }
+const nowIso = () => new Date().toISOString();
 const today = () => new Date().toISOString().slice(0, 10);
 const str = (v: unknown, max = 120) => String(v ?? "").trim().slice(0, max);
 const cleanProfile = (p: MachineProfile): MachineProfile => ({
@@ -110,6 +116,7 @@ export type Action =
   | { action: "runAi"; id: string }
   | { action: "setLeaderboard"; id: string; on: boolean }
   | { action: "outreach"; id: string; who: string; how: OutreachHow; outcome: string; note: string }
+  | { action: "scoutCheck"; id: string; inside: Inside; who: string; state?: MachineState; room: "yes" | "no" | "unsure"; photo?: string; by?: string }
   | { action: "attachNpub"; id: string; npub: string }
   | { action: "apply"; hp?: string; npub?: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
   | { action: "applicantStep"; id: string; stage: ApplicantStage; note: string }
@@ -278,6 +285,18 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       st.applicants.push({ id: `a${n}`, npub, name, reach, area: str(a.area, 80), lat, lon, roles, transport: (a.transport ?? []).filter((t) => (TRANSPORT as readonly string[]).includes(t)), hours: str(a.hours, 120), why, lightning: a.lightning && str(a.lightning, 200) ? validLightning(a.lightning).value : undefined, stage: "Applied", notes: [], createdAt: today(), h });
       await write(st);
       return { ok: true, id: `a${n}` };
+    }
+    case "scoutCheck": {
+      if (!(a.inside in INSIDE_LABEL)) return { ok: false, error: "Pick what is already inside" };
+      if (!(await findProspect(a.id))) return { ok: false, error: "No such place" };
+      const hasMachine = ["snacks", "drinks", "combo"].includes(a.inside);
+      const chk: ScoutCheck = { inside: a.inside, who: str(a.who, 80), state: hasMachine && MACHINE_STATES.includes(a.state as MachineState) ? a.state : undefined, room: ["yes", "no", "unsure"].includes(a.room) ? a.room : "unsure", photo: a.photo && /^[\w.-]+$/.test(a.photo) ? a.photo : st.checks[a.id]?.photo, by: a.by && st.applicants.some((x) => x.id === a.by) ? a.by : undefined, at: today(), h };
+      st.checks[a.id] = chk;
+      st.tracked[a.id] ??= "Found";
+      // Points for a scout who did the check. One award per place and scout, rewritten when the check is updated. Never for speed.
+      st.scoutAwards = st.scoutAwards.filter((x) => !(x.prospect === a.id));
+      if (chk.by) { const sc = scoutAward(chk); st.scoutAwards.push({ id: `sa${++st.counter}`, by: chk.by, prospect: a.id, points: sc.points, breakdown: sc.breakdown, at: nowIso() }); }
+      break;
     }
     case "attachNpub": {
       const ap = st.applicants.find((x) => x.id === a.id);

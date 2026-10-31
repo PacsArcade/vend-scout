@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { driver } from "@/lib/blobstore";
 import { isOperatorNow } from "@/lib/auth";
 import { cacheCounts, getCategory } from "@/lib/overpass";
 import { getPlace } from "@/lib/places";
@@ -18,7 +19,8 @@ export async function GET(req: Request) {
     const refresh = u.searchParams.get("refresh") === "1";
     if (refresh && !(await isOperatorNow())) return NextResponse.json({ ok: false, error: "Operators only. Sign in first." }, { status: 401 });
     const r = await getCategory(place, cat, refresh);
+    if (r.error) console.error(`[vend-scan] /api/scout ${cat} for ${place.slug} -> ${r.error}`);
     return NextResponse.json({ ok: !r.error, count: r.items.length, live: r.live, error: r.error });
   }
-  return NextResponse.json({ ok: true, counts: await cacheCounts(place.slug) });
+  return NextResponse.json({ ok: true, driver: driver(), counts: await cacheCounts(place.slug) });
 }

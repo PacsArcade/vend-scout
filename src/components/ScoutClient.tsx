@@ -8,7 +8,8 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import type { Bbox, Category, VenueCategory } from "@/lib/types";
 import { ALL_CATEGORIES } from "@/lib/types";
 
-export interface Pin { id: string; name: string; area: string; lat: number; lon: number; category: VenueCategory; score: number; late: boolean; site: boolean }
+export type { Pin } from "@/lib/pins";
+import type { Pin } from "@/lib/pins";
 type Pt = { lat: number; lon: number };
 type View = { s: number; w: number; n: number; e: number };
 
@@ -21,11 +22,14 @@ const FILTERS: { key: VenueCategory; label: string }[] = [
 const CHIP: Record<VenueCategory, string> = { laundry: "laundromat", gym: "gym", car_wash: "car wash", car_repair: "auto shop" };
 const CAT_NAME: Record<Category, string> = { laundry: "Laundromats", gym: "Gyms", car_wash: "Car washes", car_repair: "Auto shops", vending: "Vending machines", convenience: "Convenience shops", fast_food: "Fast food" };
 
-export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData, top20, initialView, initialTab, cities, operator }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: Pt[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; cities: { slug: string; name: string; scanned: boolean }[]; operator: boolean }) {
+export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total, hasData, top20, initialView, initialTab, cities, operator, demoDrop }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: Pt[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; cities: { slug: string; name: string; scanned: boolean }[]; operator: boolean; demoDrop?: boolean }) {
   const router = useRouter();
   const [on, setOn] = useState<Record<string, boolean>>({ laundry: true, gym: true, car_wash: true, car_repair: true });
   const [lateOnly, setLateOnly] = useState(false);
-  const [sel, setSel] = useState(pins[0]?.id);
+  const [livePins, setLivePins] = useState<Pin[] | null>(null);
+  const [fresh, setFresh] = useState<string[]>([]);
+  const pins = livePins ?? pinsProp;
+  const [sel, setSel] = useState(pinsProp[0]?.id);
   const [hover, setHover] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
   const [view, setView] = useState<View | null>(null);
@@ -42,6 +46,21 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
   const ringRef = useRef<Leaflet.LayerGroup | null>(null);
   const [ready, setReady] = useState(false);
 
+  const [demoOn, setDemoOn] = useState(false);
+  // Proof only (VEND_DEMO_DROP=1 and ?demoDrop=1): replay the saved pins landing kind by kind, so the drop can be seen without a live scan.
+  useEffect(() => {
+    if (!demoDrop) return;
+    const order: Pin["category"][] = ["laundry", "gym", "car_wash", "car_repair"];
+    let k = 0; setDemoOn(true); setLivePins([]);
+    const t = setInterval(() => {
+      const have = order.slice(0, ++k);
+      const batch = pinsProp.filter((p) => p.category === order[k - 1]);
+      setLivePins(pinsProp.filter((p) => have.includes(p.category)));
+      setFresh(batch.map((p) => p.id));
+      if (k >= order.length) { clearInterval(t); setDemoOn(false); }
+    }, 900);
+    return () => clearInterval(t);
+  }, [demoDrop]); // eslint-disable-line react-hooks/exhaustive-deps
   const shown = pins.filter((p) => on[p.category] && (!lateOnly || p.late));
   const inView = follow && view ? shown.filter((p) => p.lat >= view.s && p.lat <= view.n && p.lon >= view.w && p.lon <= view.e) : shown;
   const list = inView.slice(0, 15);
@@ -95,7 +114,7 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
       iconCreateFunction: (c) => L.divIcon({ html: `<span>${c.getChildCount()}</span>`, className: "cl cl-gild", iconSize: [38, 38] }) });
     for (const p of shown) {
       const strong = p.score >= 70;
-      g.addLayer(L.circleMarker([p.lat, p.lon], { radius: strong ? 9 : 7, color: "#d4a843", weight: 2.5, fillColor: "#d4a843", fillOpacity: strong ? 1 : 0 })
+      g.addLayer(L.circleMarker([p.lat, p.lon], { radius: strong ? 9 : 7, color: "#d4a843", weight: 2.5, fillColor: "#d4a843", fillOpacity: strong ? 1 : 0, className: fresh.includes(p.id) ? "droppin" : undefined })
         .on("click", () => setSel(p.id)).bindTooltip(`${p.name} · ${p.score}`));
     }
     map.addLayer(g);
@@ -139,20 +158,59 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
     setBusy(false);
   }
 
+  /** Pull the pins again and let the new ones drop in. Never blocks: the map and list stay usable while it runs. */
+  async function pullPins() {
+    try {
+      const r = await fetch(`/api/scout/pins?place=${place.slug}`, { cache: "no-store" });
+      const j = (await r.json()) as { ok: boolean; pins: Pin[] };
+      if (!j.ok) return;
+      setLivePins((prev) => {
+        const have = new Set((prev ?? pinsProp).map((p) => p.id));
+        const added = j.pins.filter((p) => !have.has(p.id)).map((p) => p.id);
+        if (added.length) { setFresh(added); setTimeout(() => setFresh([]), 1800); }
+        return j.pins;
+      });
+    } catch { /* the next category tries again */ }
+  }
+
   async function scan() {
     setBusy(true);
-    const failed: string[] = [];
-    let i = 0;
-    for (const c of ALL_CATEGORIES) {
-      i++;
-      setStatus(`Asking OpenStreetMap for ${CAT_NAME[c].toLowerCase()} (${i} of ${ALL_CATEGORIES.length}).`);
-      try {
-        const r = await fetch(`/api/scout?place=${place.slug}&cat=${c}&refresh=1`);
-        const j = (await r.json()) as { ok: boolean };
-        if (!j.ok) failed.push(CAT_NAME[c]);
-      } catch { failed.push(CAT_NAME[c]); }
+    setStatus("Asking OpenStreetMap. Places drop onto the map as each kind lands.");
+    const failed: string[] = [], errs: string[] = [];
+    let streamed = false;
+    try {
+      const res = await fetch(`/api/scout/stream?place=${place.slug}`);
+      if (res.ok && res.body) {
+        streamed = true;
+        const reader = res.body.getReader(), dec = new TextDecoder();
+        let buf = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buf.indexOf("\n")) >= 0) {
+            const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+            if (!line.trim()) continue;
+            const ev = JSON.parse(line) as { t: string; c?: Category; failed?: string[]; errors?: string[] };
+            if (ev.t === "cat") { setStatus(`${CAT_NAME[ev.c as Category]} landed.`); await pullPins(); }
+            if (ev.t === "done") { for (const f of ev.failed ?? []) failed.push(CAT_NAME[f as Category] ?? "Some places"); if (ev.errors?.length) errs.push(...ev.errors); }
+          }
+        }
+      }
+    } catch { /* fall back below */ }
+    if (!streamed) {
+      // The stream was not available: ask one kind at a time, as before.
+      for (const c of ALL_CATEGORIES) {
+        setStatus(`Asking OpenStreetMap for ${CAT_NAME[c].toLowerCase()}.`);
+        try {
+          const r = await fetch(`/api/scout?place=${place.slug}&cat=${c}&refresh=1`);
+          const j = (await r.json()) as { ok: boolean; error?: string };
+          if (!j.ok) { failed.push(CAT_NAME[c]); if (j.error) errs.push(`${c}: ${j.error}`); } else await pullPins();
+        } catch { failed.push(CAT_NAME[c]); }
+      }
     }
-    setStatus(failed.length ? `${failed.join(", ")} did not load, try again. The rest did.` : "Scan finished. Anything already fresh today came from the saved copy.");
+    setStatus(failed.length ? `${failed.join(", ")} did not load, try again. The rest did.${errs.length ? " Reason: " + errs.slice(0, 2).join(" | ") : ""}` : "Scan finished. Anything already fresh today came from the saved copy.");
     router.refresh();
     setBusy(false);
   }
@@ -222,6 +280,7 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
         </label>
         <div className="rowflex"><h2 style={{ margin: 0 }}>Best prospects</h2><span className="muted small num">{inView.length} in view of {total}</span></div>
         <p className="muted small placeline">{place.name}</p>
+        {(busy || demoOn || fresh.length > 0) && <p className="foundcount num" role="status" aria-live="polite">{pins.length.toLocaleString("en-US")} places found</p>}
         <label className="check muted small"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> Search as I move the map</label>
         <div className="actions">
           {operator && current && <Link href={`/prospects/${current.id}`} className={"btn" + (hasData ? " gild" : "")}>Open prospect</Link>}
@@ -233,13 +292,13 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
           : <p className="scanhint">No scan here yet. An operator scans each city once. <Link href="/signin?next=/scout" className="small">Operator sign in</Link></p>)}
         {status && <p className="muted small" role="status">{status}</p>}
         <div className="rows">
-          {list.map((p) => (
-            <button key={p.id} className={"pro" + (current?.id === p.id ? " sel" : "")} onClick={() => pickFromList(p)} onMouseEnter={() => setHover(p.id)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(p.id)} onBlur={() => setHover(null)}>
-              <div className="score">{p.score}</div>
+          {list.map((p, i) => (
+            <button key={p.id} style={fresh.includes(p.id) ? { animationDelay: `${Math.min(i, 8) * 70}ms` } : undefined} className={"pro" + (current?.id === p.id ? " sel" : "") + (fresh.includes(p.id) ? " drop" : "")} onClick={() => pickFromList(p)} onMouseEnter={() => setHover(p.id)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(p.id)} onBlur={() => setHover(null)}>
+              <div className={"score" + (fresh.includes(p.id) && p.score >= 85 ? " scorepop" : "")}>{p.score}</div>
               <div>
                 <b>{p.name}</b>
                 <div className="why">{p.area}</div>
-                <div><span className="chip">{CHIP[p.category]}</span>{p.late && <span className="chip">open late</span>}{p.site && <span className="chip">has website</span>}</div>
+                <div className="chiprow"><span className="chip">{CHIP[p.category]}</span>{p.late && <span className="chip">open late</span>}{p.checked && <span className="chip">scout checked</span>}{p.site && <span className="chip">has website</span>}</div>
               </div>
             </button>
           ))}

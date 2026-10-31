@@ -62,3 +62,14 @@ export function boardName(full: string): string {
   const parts = full.trim().split(/\s+/);
   return parts.length < 2 ? parts[0] : `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
 }
+
+/** Points for a scout's "Already inside" check. A photo is the base. Naming who runs it, the machine state and the room answer add more. Never for speed. */
+export function scoutAward(c: { photo?: string; who: string; state?: string; room: string }): { points: number; breakdown: Breakdown[] } {
+  const b: Breakdown[] = [];
+  if (c.photo) b.push({ label: "Check with photo", points: ARCADE.scoutPhoto });
+  if (c.who.trim()) b.push({ label: "Named who runs it", points: ARCADE.scoutWho });
+  if (c.state) b.push({ label: "Machine state", points: ARCADE.scoutState });
+  if (c.room === "yes" || c.room === "no") b.push({ label: "Room for another", points: ARCADE.scoutRoom });
+  return { points: b.reduce((a, x) => a + x.points, 0), breakdown: b };
+}
+export const scoutPoints = (awards: { by: string; points: number }[], by: string) => awards.filter((x) => x.by === by).reduce((a, x) => a + x.points, 0);

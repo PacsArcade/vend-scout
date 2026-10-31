@@ -44,6 +44,20 @@ export function noMachineValue(distanceM: number | null): { value: number; note:
   return { value, note: `Nearest mapped machine ${Math.round(distanceM)} m away` };
 }
 
+const INSIDE_VALUE: Record<string, number> = { none: 100, soap: 90, snacks: 25, drinks: 25, combo: 5 };
+const INSIDE_NAME: Record<string, string> = { none: "no machine", soap: "soap machines only", snacks: "a snack machine", drinks: "a drink machine", combo: "a full combo machine" };
+/** A scout's own look replaces the map guess. Room for another machine softens the penalty when one is already inside. */
+export function scoutMachineValue(s: { inside: string; state?: string; room: string; stamp: string }): { value: number; note: string } {
+  let value = INSIDE_VALUE[s.inside] ?? 100;
+  const machinesInside = ["snacks", "drinks", "combo"].includes(s.inside);
+  const bits = [`Scout check ${s.stamp}: ${INSIDE_NAME[s.inside] ?? s.inside} inside`];
+  if (machinesInside && (s.state === "Broken" || s.state === "Empty")) { value += 20; bits.push(`it is ${s.state?.toLowerCase()}`); }
+  else if (machinesInside && s.state === "Worn") { value += 10; bits.push("it is worn"); }
+  if (machinesInside && s.room === "yes") { value += 35; bits.push("room for another"); }
+  else if (machinesInside && s.room === "no") bits.push("no room for another");
+  return { value: Math.min(100, value), note: bits.join(", ") };
+}
+
 export function densityValue(same: number, c: VenueCategory): { value: number; note: string } {
   const value = Math.max(0, 100 - same * 25);
   return { value, note: same === 0 ? `No other ${CATEGORY_PLURAL[c]} within 400 m` : `${same} other ${CATEGORY_PLURAL[c]} within 400 m` };
@@ -63,7 +77,7 @@ export function completeValue(hasName: boolean, hours: string | undefined, hasAd
 
 export function scorePlace(p: PlaceInput): Scored {
   const late = openLateValue(p.openingHours);
-  const nm = noMachineValue(p.nearestMachineM);
+  const nm = p.scout ? scoutMachineValue(p.scout) : noMachineValue(p.nearestMachineM);
   const dn = densityValue(p.sameNear, p.category);
   const fd = foodValue(p.foodLateNear);
   const cp = completeValue(p.hasName, p.openingHours, p.hasAddress);
