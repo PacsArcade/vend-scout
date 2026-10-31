@@ -4,6 +4,7 @@ import { cacheCounts } from "@/lib/overpass";
 import { buildPins } from "@/lib/pins";
 import { ILLINOIS } from "@/lib/places";
 import { getPlace, CHICAGO } from "@/lib/places";
+import { StorageBanner } from "@/components/StorageBanner";
 import { isOperatorNow } from "@/lib/auth";
 import { readState } from "@/lib/store";
 
@@ -22,6 +23,7 @@ export default async function ScoutPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <Nav on="scout" />
+      <StorageBanner />
       <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} total={total} top20={top20} initialView={initialView} initialTab={tab === "list" ? "list" : "map"} cities={cities} hasData={Object.values(counts).some((c) => c !== null)} operator={await isOperatorNow()} demoDrop={process.env.VEND_DEMO_DROP === "1" && demo === "1"} />
     </>
   );

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StorageBanner } from "@/components/StorageBanner";
 import { Nav } from "@/components/Nav";
 import { ActionButton } from "@/components/Actions";
 import { CityFilter } from "@/components/CityFilter";
@@ -43,6 +44,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <Nav on="admin" />
+      <StorageBanner />
       <main className="page wide-page">
         <div className="rowflex"><h1>Admin</h1><Link className="btn" href="/admin/ai-check">AI check results</Link></div>
         <div className="strip strip5">{strip.map(([k, v]) => <div key={k} className="glass kpi"><span className="muted">{k}</span><div className="v num">{v}</div></div>)}</div>

@@ -9,7 +9,7 @@ Names only. Never put values in this file or in the repo.
 ## Environment names the live site needs
 | Name | Needed | What it does |
 |---|---|---|
-| `BLOB_READ_WRITE_TOKEN` | yes | Gives the app a Vercel Blob store. All state, scan caches and photos are kept there as PRIVATE blobs under `vend/`. Without it the app falls back to local files, which Vercel does not allow. Create the Blob store as a private store. |
+| `BLOB_STORE_ID` or `BLOB_READ_WRITE_TOKEN` | yes (one of them) | Connecting a Blob store to the project provides one of these. Newer stores connect with OIDC: Vercel adds `BLOB_STORE_ID` (and `BLOB_WEBHOOK_PUBLIC_KEY`) and supplies the sign-in token at runtime, with no read-write token. Older stores add `BLOB_READ_WRITE_TOKEN`. Either counts as connected; the app never passes a token itself. All state, scan caches and photos are kept as PRIVATE blobs under `vend/`. On Vercel with neither, the app refuses to scan and shows "Storage is not connected" (it never falls back to files). Create the Blob store as a private store. |
 | `OPERATOR_NPUBS` | yes | Comma separated npubs allowed to sign in as operator. Nobody can open admin until at least one is set. |
 | `VEND_SESSION_SECRET` | yes | Signs the operator and crew session cookies. A long random string. |
 | `CRON_SECRET` | yes | Vercel sends it as `Authorization: Bearer ...` on the daily scan-ahead (`/api/cron/scan`, set in `vercel.json`, once a day on Hobby). With no secret set the route refuses every call. |
@@ -24,7 +24,7 @@ Names only. Never put values in this file or in the repo.
 | `VEND_REQUIRE_OPERATOR` | Set to `1` to turn the operator gate on outside Vercel (for a home-box trial of the live behaviour). |
 
 ## Dev and test only (never set on Vercel)
-`VEND_STATE_FILE` (use a local JSON file instead of Blob), `VEND_DEMO_CLOCK` (the clock demo switch), `VEND_DEMO_DROP` (replays saved pins dropping in, for screenshots), `VEND_AI_CHECK` (set `off` to stop the background checker).
+`VEND_STATE_FILE` (use a local JSON file instead of Blob), `VEND_DEMO_CLOCK` (the clock demo switch), `VEND_DEMO_DROP` (replays saved pins dropping in, for screenshots), `VEND_FORCE_NO_STORAGE` (pretends storage is missing, for screenshots), `VEND_AI_CHECK` (set `off` to stop the background checker).
 
 ## What is public and what is not
 Public with no sign-in: the scout map (read-only, no contacts), `/crew`, `/crew/apply` (rate limited, with a honeypot field), `/host/[prospect]`, `/api/crew/postings`, and the `/vote` and `/pay` preview pages.

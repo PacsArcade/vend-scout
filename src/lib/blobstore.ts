@@ -11,7 +11,25 @@ import { get, put } from "@vercel/blob";
 const ROOT = path.join(process.cwd(), "data");
 const PREFIX = "vend/";
 
-export const driver = (): "file" | "blob" => (process.env.BLOB_READ_WRITE_TOKEN && !process.env.VEND_STATE_FILE ? "blob" : "file");
+export const STORAGE_MISSING = "Storage is not connected. Connect the Blob store to this project in Vercel, then redeploy.";
+/**
+ * "blob" with a token, "file" for dev and tests, and "none" on Vercel with no token: there the file system is read-only,
+ * so falling back to files would only fail later with a confusing error. "none" fails loudly and early instead.
+ */
+export type Credentials = "read-write token" | "store id (OIDC)" | "none";
+/**
+ * How the Blob library will sign in. Newer Vercel Blob stores connect with OIDC: the project gets BLOB_STORE_ID and Vercel supplies
+ * the token at runtime. Older ones give BLOB_READ_WRITE_TOKEN. We never pass a token option: the library finds whichever is there
+ * (it prefers OIDC with BLOB_STORE_ID, then falls back to the read-write token). Names only, never values.
+ */
+export const credentials = (): Credentials => (process.env.BLOB_READ_WRITE_TOKEN ? "read-write token" : process.env.BLOB_STORE_ID ? "store id (OIDC)" : "none");
+export const driver = (): "file" | "blob" | "none" => {
+  if (process.env.VEND_FORCE_NO_STORAGE === "1") return "none"; // proof only: lets a local screenshot show the missing-storage banner
+  if (process.env.VEND_STATE_FILE) return "file";
+  if (credentials() !== "none") return "blob";
+  return process.env.VERCEL === "1" ? "none" : "file";
+};
+export const storageMissing = () => driver() === "none";
 const safe = (rel: string) => rel.split("/").every((p) => /^[\w.@-]+$/.test(p) && p !== "..") && rel.length < 200;
 const abs = (rel: string) => path.join(ROOT, rel);
 
@@ -23,6 +41,7 @@ export function errText(e: unknown): string {
 
 export async function readBin(rel: string): Promise<Buffer | null> {
   if (!safe(rel)) { console.error(`[vend-store] read refused rel=${rel} reason=unsafe path`); return null; }
+  if (driver() === "none") return null;
   if (driver() === "file") {
     try { return await fs.readFile(abs(rel)); } catch (e) { if ((e as { code?: string }).code !== "ENOENT") console.error(`[vend-store] read failed rel=${rel} driver=file ${errText(e)}`); return null; }
   }
@@ -45,6 +64,7 @@ export async function readBin(rel: string): Promise<Buffer | null> {
 /** Writes THROW on failure (after logging) so a caller can never believe a lost write succeeded. */
 export async function writeBin(rel: string, data: Buffer | string, contentType = "application/octet-stream"): Promise<void> {
   if (!safe(rel)) { console.error(`[vend-store] write refused rel=${rel} reason=unsafe path`); throw new Error("bad path"); }
+  if (driver() === "none") { console.error(`[vend-store] write refused rel=${rel} reason=${STORAGE_MISSING}`); throw new Error(STORAGE_MISSING); }
   try {
     if (driver() === "file") {
       await fs.mkdir(path.dirname(abs(rel)), { recursive: true });
@@ -62,6 +82,7 @@ export async function writeBin(rel: string, data: Buffer | string, contentType =
 export async function storageProbe(): Promise<{ driver: string; wrote: boolean; read: boolean; match: boolean; error?: string }> {
   const rel = "cache/probe.json", body = JSON.stringify({ at: Date.now() });
   const out = { driver: driver(), wrote: false, read: false, match: false } as { driver: string; wrote: boolean; read: boolean; match: boolean; error?: string };
+  if (storageMissing()) { out.error = STORAGE_MISSING; return out; }
   try { await writeBin(rel, body, "application/json"); out.wrote = true; } catch (e) { out.error = `write: ${errText(e)}`; return out; }
   const back = await readText(rel);
   out.read = back !== null; out.match = back === body;
@@ -78,12 +99,14 @@ export const writeText = (rel: string, text: string) => writeBin(rel, text, "app
 
 /** The state document. The file driver honours VEND_STATE_FILE (any path). */
 export async function readStateText(): Promise<string | null> {
+  if (driver() === "none") return null;
   if (driver() === "file") {
     try { return await fs.readFile(process.env.VEND_STATE_FILE || abs("state.json"), "utf8"); } catch { return null; }
   }
   return readText("state.json");
 }
 export async function writeStateText(text: string): Promise<void> {
+  if (driver() === "none") throw new Error(STORAGE_MISSING);
   if (driver() === "file") {
     const f = process.env.VEND_STATE_FILE || abs("state.json");
     await fs.mkdir(path.dirname(f), { recursive: true });

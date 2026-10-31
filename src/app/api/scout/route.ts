@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { driver } from "@/lib/blobstore";
+import { driver, STORAGE_MISSING, storageMissing } from "@/lib/blobstore";
 import { isOperatorNow } from "@/lib/auth";
 import { cacheCounts, getCategory } from "@/lib/overpass";
 import { getPlace } from "@/lib/places";
@@ -17,6 +17,7 @@ export async function GET(req: Request) {
   if (cat) {
     if (!ALL_CATEGORIES.includes(cat)) return NextResponse.json({ ok: false, error: "Unknown category" }, { status: 400 });
     const refresh = u.searchParams.get("refresh") === "1";
+    if (refresh && storageMissing()) return NextResponse.json({ ok: false, error: STORAGE_MISSING, storageMissing: true }, { status: 503 });
     if (refresh && !(await isOperatorNow())) return NextResponse.json({ ok: false, error: "Operators only. Sign in first." }, { status: 401 });
     const r = await getCategory(place, cat, refresh);
     if (r.error) console.error(`[vend-scan] /api/scout ${cat} for ${place.slug} -> ${r.error}`);

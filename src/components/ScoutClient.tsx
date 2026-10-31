@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
+import { BlockLoader, Ticker } from "./BlockLoader";
 import type { Bbox, Category, VenueCategory } from "@/lib/types";
 import { ALL_CATEGORIES } from "@/lib/types";
 
@@ -26,6 +27,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
   const router = useRouter();
   const [on, setOn] = useState<Record<string, boolean>>({ laundry: true, gym: true, car_wash: true, car_repair: true });
   const [lateOnly, setLateOnly] = useState(false);
+  const lastTotal = useRef(0);
   const [livePins, setLivePins] = useState<Pin[] | null>(null);
   const [fresh, setFresh] = useState<string[]>([]);
   const pins = livePins ?? pinsProp;
@@ -47,17 +49,31 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
   const [ready, setReady] = useState(false);
 
   const [demoOn, setDemoOn] = useState(false);
+  const [landed, setLanded] = useState<Partial<Record<Category, number>>>({});
+  const [elapsed, setElapsed] = useState(0);
+  const [note, setNote] = useState("");
+  const [foundCount, setFoundCount] = useState<number | null>(null);
+  const loading = busy || demoOn;
+  // Elapsed seconds while a scan (or the demo replay) runs.
+  useEffect(() => {
+    if (!loading) return;
+    const t0 = Date.now();
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 500);
+    return () => clearInterval(t);
+  }, [loading]);
   // Proof only (VEND_DEMO_DROP=1 and ?demoDrop=1): replay the saved pins landing kind by kind, so the drop can be seen without a live scan.
   useEffect(() => {
     if (!demoDrop) return;
     const order: Pin["category"][] = ["laundry", "gym", "car_wash", "car_repair"];
-    let k = 0; setDemoOn(true); setLivePins([]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    let k = 0; setDemoOn(true); setLivePins([]); setFoundCount(null); setLanded({});
     const t = setInterval(() => {
       const have = order.slice(0, ++k);
       const batch = pinsProp.filter((p) => p.category === order[k - 1]);
       setLivePins(pinsProp.filter((p) => have.includes(p.category)));
       setFresh(batch.map((p) => p.id));
-      if (k >= order.length) { clearInterval(t); setDemoOn(false); }
+      setLanded((l) => ({ ...l, [order[k - 1]]: batch.length }));
+      if (k >= order.length) { clearInterval(t); setDemoOn(false); setFoundCount(pinsProp.length); }
     }, 900);
     return () => clearInterval(t);
   }, [demoDrop]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -164,6 +180,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
       const r = await fetch(`/api/scout/pins?place=${place.slug}`, { cache: "no-store" });
       const j = (await r.json()) as { ok: boolean; pins: Pin[] };
       if (!j.ok) return;
+      lastTotal.current = j.pins.length;
       setLivePins((prev) => {
         const have = new Set((prev ?? pinsProp).map((p) => p.id));
         const added = j.pins.filter((p) => !have.has(p.id)).map((p) => p.id);
@@ -174,12 +191,16 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
   }
 
   async function scan() {
-    setBusy(true);
-    setStatus("Asking OpenStreetMap. Places drop onto the map as each kind lands.");
+    setBusy(true); setLanded({}); setElapsed(0); setNote(""); setFoundCount(null);
+    setStatus("");
     const failed: string[] = [], errs: string[] = [];
-    let streamed = false;
+    let streamed = false, how = "";
     try {
       const res = await fetch(`/api/scout/stream?place=${place.slug}`);
+      if (res.status === 503) {
+        const j = (await res.json().catch(() => null)) as { error?: string } | null;
+        setStatus(j?.error ?? "Storage is not connected."); setBusy(false); return;
+      }
       if (res.ok && res.body) {
         streamed = true;
         const reader = res.body.getReader(), dec = new TextDecoder();
@@ -192,9 +213,10 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
           while ((nl = buf.indexOf("\n")) >= 0) {
             const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
             if (!line.trim()) continue;
-            const ev = JSON.parse(line) as { t: string; c?: Category; failed?: string[]; errors?: string[] };
-            if (ev.t === "cat") { setStatus(`${CAT_NAME[ev.c as Category]} landed.`); await pullPins(); }
-            if (ev.t === "done") { for (const f of ev.failed ?? []) failed.push(CAT_NAME[f as Category] ?? "Some places"); if (ev.errors?.length) errs.push(...ev.errors); }
+            const ev = JSON.parse(line) as { t: string; c?: Category; count?: number; msg?: string; usedUnion?: boolean; failed?: string[]; errors?: string[] };
+            if (ev.t === "note") setNote(ev.msg ?? "");
+            if (ev.t === "cat") { setNote(""); setLanded((l) => ({ ...l, [ev.c as Category]: ev.count ?? 0 })); await pullPins(); }
+            if (ev.t === "done") { how = ev.usedUnion ? "in one query" : "one kind at a time"; for (const f of ev.failed ?? []) failed.push(CAT_NAME[f as Category] ?? "Some places"); if (ev.errors?.length) errs.push(...ev.errors); }
           }
         }
       }
@@ -210,7 +232,8 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
         } catch { failed.push(CAT_NAME[c]); }
       }
     }
-    setStatus(failed.length ? `${failed.join(", ")} did not load, try again. The rest did.${errs.length ? " Reason: " + errs.slice(0, 2).join(" | ") : ""}` : "Scan finished. Anything already fresh today came from the saved copy.");
+    if (failed.length) setStatus(`${failed.join(", ")} did not load, try again.${errs.length ? " Reason: " + errs.slice(0, 2).join(" | ") : ""}`);
+    else { setStatus(`Scan finished${how ? ` (${how})` : ""}. Anything already fresh today came from the saved copy.`); { if (lastTotal.current === 0) await pullPins(); setFoundCount(lastTotal.current); } }
     router.refresh();
     setBusy(false);
   }
@@ -280,7 +303,8 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
         </label>
         <div className="rowflex"><h2 style={{ margin: 0 }}>Best prospects</h2><span className="muted small num">{inView.length} in view of {total}</span></div>
         <p className="muted small placeline">{place.name}</p>
-        {(busy || demoOn || fresh.length > 0) && <p className="foundcount num" role="status" aria-live="polite">{pins.length.toLocaleString("en-US")} places found</p>}
+        {loading && <BlockLoader landed={landed} elapsed={elapsed} note={note} />}
+        {!loading && foundCount !== null && <p className="foundcount num" role="status" aria-live="polite"><Ticker value={foundCount} /> places found</p>}
         <label className="check muted small"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> Search as I move the map</label>
         <div className="actions">
           {operator && current && <Link href={`/prospects/${current.id}`} className={"btn" + (hasData ? " gild" : "")}>Open prospect</Link>}

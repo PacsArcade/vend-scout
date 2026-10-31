@@ -1,4 +1,4 @@
-import { driver, errText, readText, writeText } from "./blobstore";
+import { driver, errText, readText, storageMissing, STORAGE_MISSING, writeText } from "./blobstore";
 import { listPlaces } from "./places";
 import { distM, scorePlace, latestClose } from "./score";
 import type { ScoutCheck } from "./types";
@@ -39,22 +39,34 @@ type RawEl = { id: number; type: string; lat?: number; lon?: number; center?: { 
 type Body = { remark?: string; elements: RawEl[] };
 
 /** One POST to Overpass with failover to the second mirror. A busy server, a timeout or a "ran out of time" remark moves on; a partial answer is never returned. */
-async function postOverpass(q: string, timeoutMs: number, fetchImpl: typeof fetch = fetch): Promise<Body> {
+async function postOverpass(q: string, timeoutMs: number, fetchImpl: typeof fetch = fetch, onNote?: (msg: string) => void, pauseMs = 2000, deadline = Infinity): Promise<Body> {
   let last = "OpenStreetMap did not answer";
-  for (const endpoint of ENDPOINTS) {
-    try {
-      const res = await fetchImpl(endpoint, { method: "POST", headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(q), signal: AbortSignal.timeout(timeoutMs) });
-      if (!res.ok) console.error(`[vend-scan] overpass ${endpoint} answered ${res.status}`);
-      if (res.status === 429 || res.status >= 500) { last = res.status === 429 ? "The map server is busy" : "The map server had a problem"; continue; }
-      if (!res.ok) { last = `The map server refused the request (${res.status})`; continue; }
-      const j = (await res.json()) as Body;
-      // Overpass answers 200 with a remark when the query ran out of time or memory. That result is partial, so it must not be cached.
-      if (j.remark && /runtime error|timed out|out of memory/i.test(j.remark)) { last = "The map server ran out of time on this area"; continue; }
-      return j;
-    } catch (e) {
-      last = (e as Error).name === "TimeoutError" ? "The map server took too long" : "Could not reach the map server";
-      console.error(`[vend-scan] overpass ${endpoint} failed ${errText(e)}`);
+  // Every server gets a try. If they were all busy (429 or a 5xx), wait a moment and go round once more before giving up.
+  for (let round = 0; round < 2; round++) {
+    let allBusy = true;
+    for (let i = 0; i < ENDPOINTS.length; i++) {
+      const endpoint = ENDPOINTS[i];
+      const t = Math.min(timeoutMs, deadline - Date.now());
+      if (t < 15_000) { last = "Out of time for this request"; throw new Error(last); }
+      try {
+        const res = await fetchImpl(endpoint, { method: "POST", headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(q), signal: AbortSignal.timeout(t) });
+        if (!res.ok) console.error(`[vend-scan] overpass ${endpoint} answered ${res.status}`);
+        const busy = res.status === 429 || res.status >= 500;
+        if (busy) { last = res.status === 429 ? "The map server is busy" : "The map server had a problem"; onNote?.("The map server is busy, trying another one"); continue; }
+        allBusy = false;
+        if (!res.ok) { last = `The map server refused the request (${res.status})`; continue; }
+        const j = (await res.json()) as Body;
+        // Overpass answers 200 with a remark when the query ran out of time or memory. That result is partial, so it must not be cached.
+        if (j.remark && /runtime error|timed out|out of memory/i.test(j.remark)) { last = "The map server ran out of time on this area"; onNote?.("The map server ran out of time, trying another one"); continue; }
+        return j;
+      } catch (e) {
+        allBusy = false;
+        last = (e as Error).name === "TimeoutError" ? "The map server took too long" : "Could not reach the map server";
+        console.error(`[vend-scan] overpass ${endpoint} failed ${errText(e)}`);
+        onNote?.("The map server did not answer, trying another one");
+      }
     }
+    if (round === 0 && allBusy && pauseMs >= 0) { onNote?.("Every map server is busy, trying again in a moment"); await new Promise((r) => setTimeout(r, pauseMs)); } else break;
   }
   throw new Error(last);
 }
@@ -75,8 +87,8 @@ function toElement(e: RawEl): OsmElement | null {
   return { id: e.id, type: e.type, lat, lon, name: t.name, opening_hours: t.opening_hours, street: street || undefined, tags };
 }
 
-async function liveQuery(c: Category, b: Bbox, fetchImpl?: typeof fetch): Promise<OsmElement[]> {
-  const body = await postOverpass(`[out:json][timeout:60];nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});out center tags;`, 65_000, fetchImpl);
+async function liveQuery(c: Category, b: Bbox, fetchImpl?: typeof fetch, onNote?: (msg: string) => void, pauseMs?: number, deadline?: number): Promise<OsmElement[]> {
+  const body = await postOverpass(`[out:json][timeout:60];nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});out center tags;`, 65_000, fetchImpl, onNote, pauseMs, deadline);
   return body.elements.map(toElement).filter((x): x is OsmElement => x !== null);
 }
 
@@ -98,7 +110,7 @@ export function splitUnion(elements: RawEl[]): Record<Category, OsmElement[]> {
   }
   return out;
 }
-export const unionQueryText = (b: Bbox) => `[out:json][timeout:120];(${LAND_ORDER.map((c) => `nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});`).join("")});out center tags;`;
+export const unionQueryText = (b: Bbox) => `[out:json][timeout:125];(${LAND_ORDER.map((c) => `nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});`).join("")});out center tags;`;
 
 const isFresh = (c: CacheFile | null) => !!c && (c.v ?? 1) >= SCHEMA && Date.now() - c.fetchedAt < DAY;
 /** True when all seven caches for a place are under a day old. */
@@ -120,7 +132,9 @@ export interface ScanResult { ok: boolean; skipped: boolean; usedUnion: boolean;
  * (one live query per category per day). onCategory fires as each category lands, so the screen can fill in as it goes.
  * A failed WRITE is never hidden: it is logged, counted as failed, and its text is returned in errors.
  */
-export async function scanPlace(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; fetchImpl?: typeof fetch; force?: boolean } = {}): Promise<ScanResult> {
+export async function scanPlace(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; onNote?: (msg: string) => void; fetchImpl?: typeof fetch; force?: boolean; pauseMs?: number; budgetMs?: number } = {}): Promise<ScanResult> {
+  const deadline = Date.now() + (opts.budgetMs ?? 270_000);
+  if (storageMissing()) { console.error("[vend-scan] refused: storage is not connected"); return { ok: false, skipped: false, usedUnion: false, failed: [...LAND_ORDER], errors: [STORAGE_MISSING], error: STORAGE_MISSING }; }
   const stale: Category[] = [];
   for (const c of LAND_ORDER) if (opts.force || !isFresh(await readCache(place.slug, c))) stale.push(c);
   if (stale.length === 0) return { ok: true, skipped: true, usedUnion: false, failed: [], errors: [] };
@@ -138,9 +152,10 @@ export async function scanPlace(place: Place, opts: { onCategory?: (c: Category,
   };
   let split: Record<Category, OsmElement[]> | null = null;
   try {
-    split = splitUnion((await postOverpass(unionQueryText(place.bbox), 100_000, opts.fetchImpl)).elements);
+    split = splitUnion((await postOverpass(unionQueryText(place.bbox), 130_000, opts.fetchImpl, opts.onNote, opts.pauseMs, deadline - 60_000)).elements); // keep a minute in hand for the per-kind fallback
   } catch (e) {
-    console.error(`[vend-scan] union query for ${place.slug} failed, trying one kind at a time: ${errText(e)}`);
+    console.error(`[vend-scan] union query for ${place.slug} failed on every server, trying one kind at a time: ${errText(e)}`);
+    opts.onNote?.("The one-shot query failed on every server. Asking one kind at a time.");
   }
   if (split) {
     for (const c of LAND_ORDER) if (stale.includes(c)) await save(c, split[c]);
@@ -148,8 +163,9 @@ export async function scanPlace(place: Place, opts: { onCategory?: (c: Category,
   }
   for (const c of LAND_ORDER) {
     if (!stale.includes(c)) continue;
+    if (deadline - Date.now() < 45_000) { failed.push(c); errors.push(`${c}: Out of time for this request. Press Scan again to continue; kinds already saved are kept.`); continue; }
     let items: OsmElement[];
-    try { items = await liveQuery(c, place.bbox, opts.fetchImpl); } catch (e) { console.error(`[vend-scan] ${c} for ${place.slug} failed ${errText(e)}`); failed.push(c); errors.push(`${c}: ${errText(e)}`); continue; }
+    try { items = await liveQuery(c, place.bbox, opts.fetchImpl, opts.onNote, opts.pauseMs, deadline); } catch (e) { console.error(`[vend-scan] ${c} for ${place.slug} failed ${errText(e)}`); failed.push(c); errors.push(`${c}: ${errText(e)}`); continue; }
     await save(c, items);
   }
   return { ok: failed.length === 0, skipped: false, usedUnion: false, failed, errors, error: errors[0] };

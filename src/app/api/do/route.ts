@@ -27,6 +27,8 @@ export async function POST(req: Request) {
     const ip = (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim();
     if (!allow(`apply:${ip}`)) return NextResponse.json({ ok: false, error: "That is a lot of applications from one place. Try again later." }, { status: 429 });
   }
-  const r = await perform(body);
+  let r: Awaited<ReturnType<typeof perform>>;
+  try { r = await perform(body); }
+  catch (e) { console.error(`[vend-store] action ${String(body?.action)} failed: ${String((e as Error).message).slice(0, 200)}`); return NextResponse.json({ ok: false, error: String((e as Error).message).slice(0, 200) }, { status: 500 }); }
   return NextResponse.json(r, { status: r.ok ? 200 : 400 });
 }
