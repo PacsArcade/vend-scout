@@ -7,6 +7,9 @@ const PAGES = ["/work/leaderboard?crew=a201", "/admin/place/PROSPECT", "/admin",
 
 // [matches label or href, what it does]
 const DOES = [
+  [/^Make a restock job$|^Restock job is open$/, "admin: opens a restock job for that placed machine on the jobs board"],
+  [/^Mark in repair$/, "admin: marks the placed machine In repair (it keeps its host)"],
+  [/^Back in service$/, "admin: returns the machine to Placed at its host"],
   [/^Send proof$|^Send the retake$/, "uploads the two glass photos and the ticked load list. Pay comes only after a person approves"],
   [/^Photo of the glass (before|after)$/, "opens the camera or file chooser for that photo"],
   [/^Approve$/, "admin: approves the proof, pays the stub payout once, scores the stop, finishes the job or stop"],

@@ -18,7 +18,7 @@ export async function openJobs(st: State): Promise<{ jobs: Job[]; bundles: Bundl
   for (const m of st.machines) {
     if (m.status === "Placed" && !inRoute.has(m.id)) {
       const low = m.slots.filter((s) => s.kind !== "pickup" && s.level < 0.45).length;
-      if (low > 0) jobs.push({ id: `restock:${m.id}`, kind: "restock", title: `Restock ${m.name}`, detail: `${low} slot${low === 1 ? "" : "s"} low at ${m.hostName}`, sats: pay("restock"), bonus: 0, lat: m.lat, lon: m.lon });
+      if (low > 0 || m.restockRequested) jobs.push({ id: `restock:${m.id}`, kind: "restock", title: `Restock ${m.name}`, detail: low > 0 ? `${low} slot${low === 1 ? "" : "s"} low at ${m.hostName}` : `Requested by admin at ${m.hostName}`, sats: pay("restock"), bonus: 0, lat: m.lat, lon: m.lon });
     }
     if (m.status === "In repair") jobs.push({ id: `tech:${m.id}`, kind: "tech", title: `Repair ${m.name}`, detail: "Marked In repair. Check it and report.", sats: pay("tech"), bonus: 0 });
   }

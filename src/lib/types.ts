@@ -85,6 +85,7 @@ export interface Machine {
   profile: MachineProfile;
   slots: Slot[];
   addedAt?: string;
+  restockRequested?: boolean;
 }
 export interface Sale { machine: string; slot: string; item: string; sats: number; at: string; h?: number; test: boolean; maker?: string }
 export interface PickupOrder { code: string; item: string; priceSats: number; machine: string; slot: string; createdAt: string; h?: number; source: string }

@@ -40,6 +40,8 @@ describe("pay after proof", () => {
     const a = await perform({ action: "reviewProof", id, decision: "approve" });
     expect(a.ok).toBe(true);
     expect(a.note).toContain("Paid 7,000 sats");
+    // a blind approve (flags not ticked) pays the base sats but awards only the base stop points
+    expect((await readState()).proofs[0].breakdown?.map((b) => b.label)).toEqual(["Stop done", "Stocked before sell-out"]);
     expect((await perform({ action: "reviewProof", id, decision: "approve" })).ok).toBe(false);
     const st = await readState();
     expect(st.payouts.length).toBe(1);

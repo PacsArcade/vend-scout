@@ -7,8 +7,8 @@ export interface ProofView { id: string; title: string; who: string; before: str
 
 export function ProofReview({ p }: { p: ProofView }) {
   const router = useRouter();
-  const [glass, setGlass] = useState(true);
-  const [load, setLoad] = useState(true);
+  const [glass, setGlass] = useState(false);
+  const [load, setLoad] = useState(false);
   const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);

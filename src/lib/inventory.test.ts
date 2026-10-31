@@ -28,6 +28,10 @@ describe("inventory first", () => {
     expect(m.hostName.length).toBeGreaterThan(0);
     expect((await perform({ action: "placeMachine", machine: id, prospectId: PLACE, hostSharePct: 10 })).ok).toBe(false);
     expect((await perform({ action: "machineStatus", machine: id, status: "In repair" })).ok).toBe(true);
+    expect((await readState()).machines[0].prospectId).toBe(PLACE); // repair keeps the host
+    expect((await perform({ action: "backInService", machine: id })).ok).toBe(true);
+    expect((await readState()).machines[0].status).toBe("Placed");
+    expect((await perform({ action: "machineStatus", machine: id, status: "In storage" })).ok).toBe(true);
     expect((await readState()).machines[0].prospectId).toBe("");
   });
   it("a host can pick machine types and the pick is saved on the prospect", async () => {

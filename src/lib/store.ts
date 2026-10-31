@@ -91,6 +91,8 @@ export type Action =
   | { action: "note"; id: string; text: string }
   | { action: "addInventory"; name: string; type: MachineType; typeOther?: string; profile?: Partial<MachineProfile> }
   | { action: "placeMachine"; machine: string; prospectId: string; hostSharePct: number }
+  | { action: "restockJob"; machine: string }
+  | { action: "backInService"; machine: string }
   | { action: "machineStatus"; machine: string; status: MachineStatus }
   | { action: "hostPick"; prospectId: string; types: MachineType[]; other: string; note: string }
   | { action: "seenJobs"; ids: string[] }
@@ -157,10 +159,22 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       st.tracked[a.prospectId] = "Placed";
       break;
     }
+    case "restockJob": {
+      const m = machine(a.machine);
+      if (!m || m.status !== "Placed") return { ok: false, error: "Only a placed machine can get a restock job" };
+      m.restockRequested = true;
+      break;
+    }
+    case "backInService": {
+      const m = machine(a.machine);
+      if (!m || m.status !== "In repair" || !m.prospectId) return { ok: false, error: "That machine is not in repair at a host" };
+      m.status = "Placed";
+      break;
+    }
     case "machineStatus": {
       const m = machine(a.machine);
       if (!m || !MACHINE_STATUSES.includes(a.status) || a.status === "Placed") return { ok: false, error: "Use Place a machine to place one" };
-      if (m.status === "Placed") Object.assign(m, { prospectId: "", hostName: "", lat: undefined, lon: undefined, placedAt: "" });
+      if (m.status === "Placed" && a.status !== "In repair") Object.assign(m, { prospectId: "", hostName: "", lat: undefined, lon: undefined, placedAt: "" });
       m.status = a.status;
       break;
     }
@@ -326,12 +340,12 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       const dates = st.proofs.filter((x) => x.by === p.by && x.status === "approved" && x.approvedAt).map((x) => x.approvedAt!.slice(0, 10));
       const sentMs = Date.parse(p.sentAt);
       const inBlock = st.blocks.some((b) => b.by === p.by && Date.parse(b.startAt) <= sentMs && sentMs <= Date.parse(b.endAt));
-      const sc = scoreStop({ loadTotal: p.loadTotal, ticked: p.ticked.length, checkerSaysLoadMatches: a.loadMatches !== false, checkerSaysGlassClean: a.glassClean !== false, soldOutAtVisit: p.soldOutAtVisit, localDelivered: p.jobKind === "shelf", inBlock, streakDays: streakDays([...dates, today0], today0) });
+      const sc = scoreStop({ loadTotal: p.loadTotal, ticked: p.ticked.length, checkerSaysLoadMatches: a.loadMatches === true, checkerSaysGlassClean: a.glassClean === true, soldOutAtVisit: p.soldOutAtVisit, localDelivered: p.jobKind === "shelf", inBlock, streakDays: streakDays([...dates, today0], today0) });
       p.points = sc.points; p.breakdown = sc.breakdown; p.status = "approved"; p.approvedAt = nowIso; p.approvedH = h; p.history.push({ status: "approved", at: nowIso, h });
       let sats = 0, note = "";
       if (p.kind === "job") {
         const c = st.claims.find((x) => x.job === p.ref);
-        if (c) { c.doneAt = nowIso; c.doneH = h; sats = c.sats; c.paidSats = sats; note = await payCrew(st, c.by, sats, c.title, c.job, h); }
+        if (c) { if (p.machine) { const pm = machine(p.machine); if (pm) pm.restockRequested = false; } c.doneAt = nowIso; c.doneH = h; sats = c.sats; c.paidSats = sats; note = await payCrew(st, c.by, sats, c.title, c.job, h); }
       } else {
         const r = st.routes.find((x) => x.id === p.route);
         if (r) {

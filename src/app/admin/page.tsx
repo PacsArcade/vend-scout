@@ -72,7 +72,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               {(["drafted", "offered", "accepted"] as const).map((s) => {
                 const ids = Object.entries(st.packages).filter(([id, p]) => p.status === s && inCity(id)).map(([id]) => id);
                 return (
-                  <div key={s} className="admcol"><h3><span>{s}</span><span className="muted num">{ids.length}</span></h3>
+                  <div key={s} className="admcol"><h3><span>{s[0].toUpperCase() + s.slice(1)}</span><span className="muted num">{ids.length}</span></h3>
                     {ids.map((id) => (
                       <div key={id} className="glass admcard"><Link href={`/prospects/${id}/site`}>{nameOf.get(id) ?? id}</Link>
                         {s !== "accepted" && <ActionButton label="Next step" payload={{ action: "advance", kind: "site", id }} />}
@@ -93,8 +93,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                     {ms.map((m) => (
                       <div key={m.id} className="glass admcard"><Link href={`/machines/${m.id}`}>{m.name}</Link>
                         {s === "In storage" && <Link className="btn" href="/machines/new">Place it</Link>}
-                        {s === "Placed" && <ActionButton label="Next step: In repair" payload={{ action: "machineStatus", machine: m.id, status: "In repair" }} />}
-                        {s === "In repair" && <ActionButton label="Next step: back to storage" payload={{ action: "machineStatus", machine: m.id, status: "In storage" }} />}
+                        {s === "Placed" && <ActionButton label={m.restockRequested ? "Restock job is open" : "Make a restock job"} gild={!m.restockRequested} payload={{ action: "restockJob", machine: m.id }} />}
+                        {s === "Placed" && <ActionButton label="Mark in repair" className="small2" payload={{ action: "machineStatus", machine: m.id, status: "In repair" }} />}
+                        {s === "In repair" && m.prospectId && <ActionButton label="Back in service" gild payload={{ action: "backInService", machine: m.id }} />}
+                        {s === "In repair" && !m.prospectId && <ActionButton label="Back to storage" payload={{ action: "machineStatus", machine: m.id, status: "In storage" }} />}
                       </div>
                     ))}
                   </div>

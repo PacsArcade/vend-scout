@@ -321,7 +321,7 @@ details.edit summary::-webkit-details-marker{display:none}
 .admboard{display:flex;flex-direction:column;gap:16px}
 .admrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
 .admcol h3{font-size:14px;display:flex;justify-content:space-between;margin-bottom:8px}
-.admcard{padding:10px 12px;margin-bottom:8px;font-size:13px;display:flex;flex-direction:column;gap:6px}
+.admcard{padding:10px 12px;margin-bottom:8px;font-size:13px;display:flex;flex-direction:column;gap:10px}
 .admcard a{font-weight:700;font-size:14px}
 .admcard .btn{height:44px;width:100%}
 .strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -367,3 +367,4 @@ details.edit summary::-webkit-details-marker{display:none}
 .board td.rank{width:36px;font-weight:700;color:var(--gild)}
 .reasonin{height:44px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);padding:0 16px;font:inherit;width:100%}
 .proofcard .btn{width:100%}
+.admcard .btn.small2{height:44px;font-size:12px;font-weight:500;background:transparent;color:var(--dim)}

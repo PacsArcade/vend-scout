@@ -70,8 +70,14 @@ state.machines.push(
   { id: "m205", name: "TEST Snack machine", status: "In storage", type: "snack", prospectId: "", hostName: "", hostSharePct: 10, placedAt: "", profile: { make: "TEST Make", model: "Spiral-9", serial: "TEST-0205", rawCode: "", cardReader: "", cash: true, lightning: false, telemetry: "none", notes: "" }, slots: [] },
   { id: "m206", name: "TEST Fridge", status: "In repair", type: "fresh", prospectId: "", hostName: "", hostSharePct: 10, placedAt: "", profile: { make: "TEST Make", model: "Cool-3", serial: "TEST-0206", rawCode: "", cardReader: "", cash: false, lightning: false, telemetry: "camera", notes: "Compressor noise." }, slots: [] },
 );
-for (const [i, [la, lo]] of [[41.825, -87.68], [41.83, -87.675], [41.835, -87.67]].entries()) {
-  state.machines.push({ id: "m21" + i, name: `TEST Machine 0${i + 2}`, status: "Placed", type: "snack", prospectId: PROSPECT, hostName: "Su Nueva Lavanderia", lat: la, lon: lo, hostSharePct: 10, placedAt: now.slice(0, 10), profile: { make: "", model: "", serial: "", rawCode: "", cardReader: "", cash: true, lightning: false, telemetry: "none", notes: "" }, slots: [slot("A1", "Test chips", "snack", 0.1, 3000)] });
+// Host the extra test machines at three other real places from the saved Chicago scan, so Places and Machines agree.
+import { readFileSync, existsSync } from "node:fs";
+const lc = "data/cache/chicago/overpass-laundry.json";
+const others = existsSync(lc) ? JSON.parse(readFileSync(lc, "utf8")).items.filter((e) => e.name && `osm-${e.type[0]}${e.id}` !== PROSPECT).slice(0, 3) : [];
+for (const [i, e] of others.entries()) {
+  const la = e.lat, lo = e.lon, pid = `osm-${e.type[0]}${e.id}`;
+  state.tracked[pid] = "Placed";
+  state.machines.push({ id: "m21" + i, name: `TEST Machine 0${i + 2}`, status: "Placed", type: "snack", prospectId: pid, hostName: e.name, lat: la, lon: lo, hostSharePct: 10, placedAt: now.slice(0, 10), profile: { make: "", model: "", serial: "", rawCode: "", cardReader: "", cash: true, lightning: false, telemetry: "none", notes: "" }, slots: [slot("A1", "Test chips", "snack", 0.1, 3000)] });
 }
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, JSON.stringify(state, null, 1));
