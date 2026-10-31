@@ -15,7 +15,7 @@ export default async function InventoryPage() {
     <>
       <Nav on="machines" />
       <main className="page">
-        <div className="rowflex"><h1>Machine inventory</h1><Link className="btn" href="/machines/new">Place a machine</Link></div>
+        <div className="rowflex"><h1>Machine inventory</h1><span className="btnrow"><Link className="btn" href="/machines/items">Item catalog</Link><Link className="btn" href="/machines/new">Place a machine</Link></span></div>
         <p className="muted measure">Every machine starts here, In storage. Only a machine In storage can be placed at a prospect.</p>
         {st.machines.length === 0 ? (
           <Empty title="No machines in inventory yet"><p className="muted">Add the first one below.</p></Empty>

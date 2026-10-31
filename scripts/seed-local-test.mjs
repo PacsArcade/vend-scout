@@ -16,6 +16,8 @@ function png(r, g, b, w = 64, h = 64) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
 mkdirSync("data/stops", { recursive: true });
+mkdirSync("data/items", { recursive: true });
+for (const [n, c] of [["i0-2000001", [220, 120, 60]], ["i0-2000002", [80, 160, 220]], ["i0-2000003", [200, 200, 80]]]) writeFileSync(`data/items/${n}.png`, png(...c));
 for (const [n, c] of [["r0-1000001", [90, 140, 200]], ["r0-1000002", [120, 200, 160]], ["r0-1000003", [200, 150, 90]], ["r0-1000004", [160, 110, 200]]]) writeFileSync(`data/stops/${n}.png`, png(...c));
 
 const out = process.argv[2] || "data/state.seed.json";
@@ -35,9 +37,15 @@ const state = {
       slot("P1", "Arcade mini print", "pickup", 1, 0),
     ],
   }],
+  items: [
+    { id: "i401", name: "TEST hot chips, 2 oz bag", size: "standard", priceSats: 3000, photo: "i0-2000001.png" },
+    { id: "i402", name: "TEST water, 16 oz", size: "large", priceSats: 2000, photo: "i0-2000002.png" },
+    { id: "i403", name: "TEST trail mix, small", size: "small", priceSats: 4000, photo: "i0-2000003.png" },
+  ],
+  aiLog: [],
   proofs: [
-    { id: "p300", kind: "job", ref: "restock:m211", by: "a201", machine: "m211", jobKind: "restock", before: "r0-1000001.png", after: "r0-1000002.png", ticked: ["A1"], loadTotal: 1, soldOutAtVisit: false, status: "sent", history: [{ status: "sent", at: now }], sentAt: now },
-    { id: "p301", kind: "job", ref: "restock:m212", by: "a201", machine: "m212", jobKind: "restock", before: "r0-1000003.png", after: "r0-1000004.png", ticked: [], loadTotal: 1, soldOutAtVisit: false, status: "retake", reason: "The glass photo is blurry. Please retake it in daylight.", history: [{ status: "sent", at: now }, { status: "retake", at: now, note: "blurry" }], sentAt: now },
+    { id: "p300", kind: "job", ref: "restock:m211", by: "a201", machine: "m211", jobKind: "restock", before: "r0-1000001.png", after: "r0-1000002.png", ticked: ["A1"], loadTotal: 1, loadItems: [{ slot: "A1", item: "TEST hot chips, 2 oz bag", ref: "i0-2000001.png" }], soldOutAtVisit: false, status: "sent", history: [{ status: "sent", at: now }], sentAt: now },
+    { id: "p301", kind: "job", ref: "restock:m212", by: "a201", machine: "m212", jobKind: "restock", before: "r0-1000003.png", after: "r0-1000004.png", ticked: [], loadTotal: 1, loadItems: [{ slot: "A1", item: "TEST hot chips, 2 oz bag", ref: "i0-2000001.png" }], soldOutAtVisit: false, status: "retake", reason: "The glass photo is blurry. Please retake it in daylight.", history: [{ status: "sent", at: now }, { status: "retake", at: now, note: "blurry" }], sentAt: now },
     { id: "p302", kind: "job", ref: "shelf:l1", by: "a201", machine: "m1", jobKind: "shelf", before: "r0-1000001.png", after: "r0-1000002.png", ticked: [], loadTotal: 0, soldOutAtVisit: false, status: "approved", history: [{ status: "sent", at: now }, { status: "approved", at: now }], sentAt: now, approvedAt: now, points: 700, breakdown: [{ label: "Stop done", points: 100 }, { label: "Clean glass", points: 150 }, { label: "Stocked before sell-out", points: 200 }, { label: "Local shelf delivered", points: 250 }], paidSats: 8750 },
     { id: "p303", kind: "job", ref: "restock:old", by: "a203", jobKind: "restock", before: "r0-1000001.png", after: "r0-1000002.png", ticked: [], loadTotal: 0, soldOutAtVisit: false, status: "approved", history: [{ status: "approved", at: now }], sentAt: now, approvedAt: now, points: 900, breakdown: [{ label: "Stop done", points: 100 }], paidSats: 7000, popSeen: true },
   ],

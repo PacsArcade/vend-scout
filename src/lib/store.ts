@@ -12,8 +12,8 @@ import { GIG } from "./gig";
 import { openJobs } from "./jobs";
 import { ILLINOIS } from "./places";
 import { payout } from "./payout";
-import type { Block, PayoutRec, Proof } from "./types";
-import { autoCheck } from "./autoCheck";
+import type { AiLogEntry, AiVerdict, Block, Item, PayoutRec, Proof } from "./types";
+import { checkProof } from "./autoCheck";
 import { comboBonus, scoreStop, streakDays } from "./arcade";
 import type { Claim, HostPick, JobKind, MachineStatus, MachineType } from "./types";
 import { MACHINE_STATUSES, MACHINE_TYPES } from "./types";
@@ -34,6 +34,8 @@ export interface State {
   blocks: Block[];
   payouts: PayoutRec[];
   proofs: Proof[];
+  items: Item[];
+  aiLog: AiLogEntry[];
   claims: Claim[];
   applicants: Applicant[];
   routes: Route[];
@@ -45,7 +47,7 @@ export interface State {
   suggestions: Record<string, VoteOption[]>;
   counter: number;
 }
-const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], proofs: [], claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
+const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], proofs: [], items: [], aiLog: [], claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
 
 export async function readState(): Promise<State> {
   try {
@@ -105,6 +107,9 @@ export type Action =
   | { action: "submitProof"; kind: "job" | "stop"; ref: string; route?: string; machine?: string; before: string; after: string; ticked: string[]; loadTotal: number }
   | { action: "reviewProof"; id: string; decision: "approve" | "retake"; reason?: string; glassClean?: boolean; loadMatches?: boolean }
   | { action: "ackPop"; id: string }
+  | { action: "addItem"; name: string; size: string; priceSats: number; photo?: string }
+  | { action: "recordAi"; id: string; verdict: AiVerdict }
+  | { action: "runAi"; id: string }
   | { action: "setLeaderboard"; id: string; on: boolean }
   | { action: "outreach"; id: string; who: string; how: OutreachHow; outcome: string; note: string }
   | { action: "apply"; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
@@ -113,7 +118,7 @@ export type Action =
   | { action: "routeRunner"; id: string; runner: string }
   | { action: "profile"; machine: string; profile: Partial<MachineProfile> }
   | { action: "package"; id: string; status: PackageStatus }
-  | { action: "addSlot"; machine: string; name: string; kind: SlotKind; priceSats: number; level: number; report?: Report }
+  | { action: "addSlot"; machine: string; name: string; kind: SlotKind; priceSats: number; level: number; report?: Report; itemId?: string }
   | { action: "restock"; machine: string }
   | { action: "pay"; machine: string; slot: string }
   | { action: "order"; machine: string; item: string; priceSats: number; orderRef?: string }
@@ -319,15 +324,21 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       const body = { before: a.before, after: a.after, ticked: (a.ticked ?? []).map((t) => str(t, 8)).slice(0, 60), loadTotal: int(a.loadTotal, 0, 60) };
       if (p) { Object.assign(p, body, { status: "sent" as const, reason: undefined }); p.history.push(ev); }
       else { p = { id: `p${++st.counter}`, kind: a.kind, ref, route: a.route, machine: machineId, by, jobKind, soldOutAtVisit: soldOut, status: "sent", history: [ev], sentAt: now, ...body }; st.proofs.push(p); }
-      // The seam for an automatic check. The stub always says needs-human, so this branch is unused for now.
-      if (autoCheck(p) === "pass") { await write(st); return perform({ action: "reviewProof", id: p.id, decision: "approve", glassClean: true, loadMatches: true }); }
+      // Shadow mode: the AI check runs in the background and only suggests. Nothing here approves or pays.
+      p.loadItems = m ? m.slots.filter((s) => s.kind !== "pickup" && s.level < 0.45).map((s) => { const it = s.itemId ? st.items.find((x) => x.id === s.itemId) : undefined; return { slot: s.code, item: it?.name ?? s.name, ref: it?.photo }; }) : [];
+      p.ai = undefined;
       await write(st);
+      if (process.env.VEND_AI_CHECK !== "off") void perform({ action: "runAi", id: p.id });
       return { ok: true, id: p.id, note: "Proof sent. You are paid after it is checked." };
     }
     case "reviewProof": {
       const p = st.proofs.find((x) => x.id === a.id);
       if (!p) return { ok: false, error: "No such proof" };
       if (p.status !== "sent") return { ok: false, error: "Already handled. Nothing paid twice." };
+      if (p.ai) {
+        const humanGood = a.decision === "approve" && a.glassClean === true && a.loadMatches === true;
+        st.aiLog.push({ proof: p.id, at: new Date().toISOString(), h, aiOverall: p.ai.overall, aiGlass: p.ai.glassClean, aiLoad: p.ai.loadMatches, humanDecision: a.decision, humanGlass: a.glassClean === true, humanLoad: a.loadMatches === true, agree: (p.ai.overall === "pass") === humanGood, before: p.before, after: p.after, title: st.claims.find((c) => c.job === p.ref)?.title ?? `Stop on ${st.routes.find((r) => r.id === p.route)?.name ?? "a route"}` });
+      }
       if (a.decision === "retake") {
         const reason = str(a.reason, 300);
         if (!reason) return { ok: false, error: "Say what to retake" };
@@ -363,6 +374,27 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       await write(st);
       return { ok: true, note };
     }
+    case "runAi": {
+      const id = a.id;
+      const p0 = st.proofs.find((x) => x.id === id);
+      if (!p0) return { ok: false, error: "No such proof" };
+      const verdict = await checkProof({ before: p0.before, after: p0.after, loadItems: p0.loadItems ?? [] });
+      return perform({ action: "recordAi", id, verdict });
+    }
+    case "recordAi": {
+      const p0 = st.proofs.find((x) => x.id === a.id);
+      if (!p0 || p0.status === "approved") return { ok: false, error: "Not recorded" };
+      p0.ai = a.verdict; // a suggestion only. No payout, no approval, ever, from this path.
+      break;
+    }
+    case "addItem": {
+      const name = str(a.name, 60);
+      if (!name) return { ok: false, error: "Give the item a name" };
+      const id = `i${++st.counter}`;
+      st.items.push({ id, name, size: str(a.size, 40) || "standard", priceSats: int(a.priceSats, 1, 100_000_000), photo: a.photo && /^[\w.-]+$/.test(a.photo) ? a.photo : undefined });
+      await write(st);
+      return { ok: true, id };
+    }
     case "ackPop": {
       const p = st.proofs.find((x) => x.id === a.id);
       if (p) p.popSeen = true;
@@ -388,12 +420,13 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
     }
     case "addSlot": {
       const m = machine(a.machine);
-      const name = str(a.name, 40);
+      const name = str(a.name, 40) || (a.itemId ? st.items.find((x) => x.id === a.itemId)?.name ?? "" : "");
       if (!m || !name) return { ok: false, error: "A machine and an item name are needed" };
+      const it = a.itemId ? st.items.find((x) => x.id === a.itemId) : undefined;
       const kind: SlotKind = a.kind === "merch" ? "merch" : "snack";
       const n = m.slots.filter((s) => s.kind !== "pickup").length;
       const code = `${"ABCD"[Math.floor(n / 6)] ?? "E"}${(n % 6) + 1}`;
-      m.slots.push({ code, name, kind, level: int(a.level, 0, 100) / 100, priceSats: int(a.priceSats, 1, 100_000_000), report: a.report === "sensor" ? "sensor" : "hand" });
+      m.slots.push({ code, name: it?.name ?? name, kind, level: int(a.level, 0, 100) / 100, priceSats: it ? it.priceSats : int(a.priceSats, 1, 100_000_000), report: a.report === "sensor" ? "sensor" : "hand", itemId: it?.id });
       break;
     }
     case "restock": {

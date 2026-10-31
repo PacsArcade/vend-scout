@@ -368,3 +368,9 @@ details.edit summary::-webkit-details-marker{display:none}
 .reasonin{height:44px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);padding:0 16px;font:inherit;width:100%}
 .proofcard .btn{width:100%}
 .admcard .btn.small2{height:44px;font-size:12px;font-weight:500;background:transparent;color:var(--dim)}
+
+/* round 7 */
+.itemimg{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;background:#15111d}
+.aipanel{padding:10px;font-size:13px;border:1px dashed var(--gild);border-radius:12px;display:flex;flex-direction:column;gap:6px}
+.aipanel .ok{color:var(--good)}.aipanel .no{color:var(--bad)}.aipanel .un{color:var(--warn)}
+.suggest{font-size:11px;color:var(--gild);border:1px solid var(--gild);border-radius:999px;padding:1px 8px;margin-left:6px}

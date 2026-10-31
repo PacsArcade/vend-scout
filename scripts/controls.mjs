@@ -3,10 +3,16 @@
 import { execFileSync } from "node:child_process";
 
 const BASE = process.env.BASE || "http://localhost:4310";
-const PAGES = ["/work/leaderboard?crew=a201", "/admin/place/PROSPECT", "/admin", "/work?crew=a201", "/work/earnings?crew=a201", "/jobs", "/run", "/run?crew=a201", "/machines/inventory", "/host/PROSPECT", "/shelf/mine", "/crew", "/crew/apply?role=runner", "/crew/applicants", "/routes", "/run/r203", "/scout", "/prospects", "/prospects/PROSPECT", "/prospects/PROSPECT/site", "/machines", "/machines/new", "/machines/m1", "/shelf", "/shelf/new", "/shelf/l2", "/shelf/l1", "/orders", "/pickup/4219", "/vote/m1", "/pay/m1/A2", "/pay/m1/L1"];
+const PAGES = ["/machines/items", "/admin/ai-check", "/work/leaderboard?crew=a201", "/admin/place/PROSPECT", "/admin", "/work?crew=a201", "/work/earnings?crew=a201", "/jobs", "/run", "/run?crew=a201", "/machines/inventory", "/host/PROSPECT", "/shelf/mine", "/crew", "/crew/apply?role=runner", "/crew/applicants", "/routes", "/run/r203", "/scout", "/prospects", "/prospects/PROSPECT", "/prospects/PROSPECT/site", "/machines", "/machines/new", "/machines/m1", "/shelf", "/shelf/new", "/shelf/l2", "/shelf/l1", "/orders", "/pickup/4219", "/vote/m1", "/pay/m1/A2", "/pay/m1/L1"];
 
 // [matches label or href, what it does]
 const DOES = [
+  [/^Add to catalog$/, "adds the item with its reference photo to the catalog"],
+  [/^Add a reference photo$/, "opens the camera or file chooser for the item photo"],
+  [/^Item catalog$/, "link to the item catalog"],
+  [/^AI check results$/, "link to the shadow-mode agreement page"],
+  [/^Approve for the shelf$/, "approves the local shelf item for the machine"],
+  [/^Move to /, "moves the record to the named step"],
   [/^Make a restock job$|^Restock job is open$/, "admin: opens a restock job for that placed machine on the jobs board"],
   [/^Mark in repair$/, "admin: marks the placed machine In repair (it keeps its host)"],
   [/^Back in service$/, "admin: returns the machine to Placed at its host"],

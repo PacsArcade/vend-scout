@@ -49,7 +49,7 @@ export type ScoredProspect = Prospect & { score: number; late: boolean; stage?: 
 export interface Note { date: string; h?: number; text: string }
 export type SlotKind = "snack" | "merch" | "pickup";
 export type Report = "hand" | "sensor";
-export interface Slot { code: string; name: string; kind: SlotKind; level: number; priceSats: number; report?: Report }
+export interface Slot { code: string; name: string; kind: SlotKind; level: number; priceSats: number; report?: Report; itemId?: string }
 export type Telemetry = "none" | "card" | "camera" | "sensors";
 export const TELEMETRY_LABEL: Record<Telemetry, string> = { none: "None, counted by hand", card: "Card reader reports", camera: "Camera inside", sensors: "Shelf sensors" };
 export interface MachineProfile {
@@ -172,6 +172,8 @@ export interface Proof {
   reason?: string; // why a retake was asked
   history: ProofEvent[];
   sentAt: string;
+  loadItems?: { slot: string; item: string; ref?: string }[];
+  ai?: AiVerdict;
   paidSats?: number;
   points?: number;
   breakdown?: { label: string; points: number }[];
@@ -179,3 +181,16 @@ export interface Proof {
   approvedAt?: string;
   approvedH?: number;
 }
+
+// ---- Item catalog and the AI photo checker (shadow mode) ----
+export interface Item { id: string; name: string; size: string; photo?: string; priceSats: number }
+export type Tri = "yes" | "no" | "unsure";
+export interface AiSlot { slot: string; expected_item: string; looks_stocked: Tri; matches_item: Tri }
+export interface AiVerdict {
+  overall: "pass" | "needs-human";
+  glassClean: Tri; loadMatches: Tri;
+  slots: AiSlot[]; reasons: string[];
+  model: string; ms: number; at: string; error?: string;
+}
+export interface LoadItem2 { slot: string; item: string; ref?: string }
+export interface AiLogEntry { proof: string; at: string; h?: number; aiOverall: "pass" | "needs-human"; aiGlass: Tri; aiLoad: Tri; humanDecision: "approve" | "retake"; humanGlass: boolean; humanLoad: boolean; agree: boolean; before: string; after: string; title: string }

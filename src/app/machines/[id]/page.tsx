@@ -128,7 +128,8 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
           <div className="glass card">
             <h2>Add a slot</h2>
             <ActionForm action="addSlot" extra={{ machine: id }} submit="Add slot" doneText="Slot added." fields={[
-              { name: "name", label: "Item", placeholder: "Hot chips" },
+              { name: "itemId", label: "Catalog item (optional)", type: "select", optional: true, value: "", options: [{ value: "", label: "Not from the catalog" }, ...st.items.map((i) => ({ value: i.id, label: i.name }))] },
+              { name: "name", label: "Item name (if not from the catalog)", placeholder: "Hot chips", optional: true },
               { name: "kind", label: "Kind", type: "select", value: "snack", options: [{ value: "snack", label: "Snack or drink" }, { value: "merch", label: "Arcade merch" }] },
               { name: "priceSats", label: "Price (sats)", type: "number", value: 3000, min: 1 },
               { name: "level", label: "Stocked (%)", type: "number", value: 100, min: 0, max: 100 },
@@ -138,6 +139,7 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
           <div className="actions" style={{ marginTop: 0 }}>
             <Link href={`/vote/${m.id}`} className="btn gild">See the votes</Link>
             <Link href={`/shelf/new?machine=${m.id}`} className="btn">List a local item</Link>
+            <Link href="/machines/items" className="btn">Item catalog</Link>
             <Link href="/orders" className="btn">Add a pickup order</Link>
           </div>
         </div>

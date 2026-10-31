@@ -34,7 +34,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const waiting = st.listings.filter((l) => l.status === "pending" && (!city || slugOf.get(st.machines.find((m) => m.id === l.machine)?.prospectId ?? "") === city));
   const claimedOpen = st.claims.filter((c) => !c.doneAt);
   const toCheck = st.proofs.filter((x) => x.status === "sent");
-  const proofViews: ProofView[] = await Promise.all(toCheck.map(async (x) => ({ id: x.id, title: st.claims.find((c) => c.job === x.ref)?.title ?? `Stop on ${st.routes.find((r) => r.id === x.route)?.name ?? "a route"}`, who: st.applicants.find((a) => a.id === x.by)?.name ?? x.by, before: x.before, after: x.after, ticked: x.ticked, loadTotal: x.loadTotal, sentStamp: await stampString(x.history[x.history.length - 1]?.at, x.history[x.history.length - 1]?.h), resent: x.history.some((e) => e.status === "retake") })));
+  const proofViews: ProofView[] = await Promise.all(toCheck.map(async (x) => ({ id: x.id, title: st.claims.find((c) => c.job === x.ref)?.title ?? `Stop on ${st.routes.find((r) => r.id === x.route)?.name ?? "a route"}`, who: st.applicants.find((a) => a.id === x.by)?.name ?? x.by, before: x.before, after: x.after, ticked: x.ticked, loadTotal: x.loadTotal, sentStamp: await stampString(x.history[x.history.length - 1]?.at, x.history[x.history.length - 1]?.h), resent: x.history.some((e) => e.status === "retake"), ai: x.ai ?? null })));
   const who = (id: string) => st.applicants.find((a) => a.id === id)?.name ?? id;
   const strip: [string, string][] = [
     ["Jobs open", String(jobs.length + bundles.length)], ["Proof to check", String(toCheck.length)], ["Stops done today", String(stopsToday)], ["Sats paid out (test)", paidToday.toLocaleString("en-US")],
@@ -44,7 +44,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     <>
       <Nav on="admin" />
       <main className="page wide-page">
-        <h1>Admin</h1>
+        <div className="rowflex"><h1>Admin</h1><Link className="btn" href="/admin/ai-check">AI check results</Link></div>
         <div className="strip strip5">{strip.map(([k, v]) => <div key={k} className="glass kpi"><span className="muted">{k}</span><div className="v num">{v}</div></div>)}</div>
         <CityFilter cities={places.map((p) => ({ slug: p.slug, name: p.name }))} current={city} />
         <div className="admboard">
@@ -75,7 +75,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <div key={s} className="admcol"><h3><span>{s[0].toUpperCase() + s.slice(1)}</span><span className="muted num">{ids.length}</span></h3>
                     {ids.map((id) => (
                       <div key={id} className="glass admcard"><Link href={`/prospects/${id}/site`}>{nameOf.get(id) ?? id}</Link>
-                        {s !== "accepted" && <ActionButton label="Next step" payload={{ action: "advance", kind: "site", id }} />}
+                        {s !== "accepted" && <ActionButton label={s === "drafted" ? "Move to Offered" : "Move to Accepted"} payload={{ action: "advance", kind: "site", id }} />}
                       </div>
                     ))}
                   </div>
@@ -110,7 +110,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <div className="admcol"><h3><span>Waiting for host</span><span className="muted num">{waiting.length}</span></h3>
                 {waiting.map((l) => (
                   <div key={l.id} className="glass admcard"><Link href={`/shelf/${l.id}`}>{l.item}</Link>
-                    <ActionButton label="Next step: approve" payload={{ action: "decide", id: l.id, status: "approved" }} />
+                    <ActionButton label="Approve for the shelf" payload={{ action: "decide", id: l.id, status: "approved" }} />
                   </div>
                 ))}
               </div>
@@ -125,7 +125,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <div key={s} className="admcol"><h3><span>{s}</span><span className="muted num">{as.length}</span></h3>
                     {as.map((a) => (
                       <div key={a.id} className="glass admcard"><Link href="/crew/applicants">{a.name}</Link><span className="muted">{a.area}</span>
-                        {s !== "On the crew" && <ActionButton label="Next step" payload={{ action: "advance", kind: "applicant", id: a.id }} />}
+                        {s !== "On the crew" && <ActionButton label={`Move to ${s === "Applied" ? "Chatted" : s === "Chatted" ? "Ride-along" : "On the crew"}`} payload={{ action: "advance", kind: "applicant", id: a.id }} />}
                       </div>
                     ))}
                   </div>
