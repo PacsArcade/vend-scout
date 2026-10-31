@@ -3,10 +3,25 @@
 import { execFileSync } from "node:child_process";
 
 const BASE = process.env.BASE || "http://localhost:4310";
-const PAGES = ["/scout", "/prospects", "/prospects/PROSPECT", "/machines", "/machines/new", "/machines/m1", "/shelf", "/shelf/new", "/shelf/l2", "/shelf/l1", "/orders", "/pickup/4219", "/vote/m1", "/pay/m1/A2", "/pay/m1/L1"];
+const PAGES = ["/scout", "/prospects", "/prospects/PROSPECT", "/prospects/PROSPECT/site", "/machines", "/machines/new", "/machines/m1", "/shelf", "/shelf/new", "/shelf/l2", "/shelf/l1", "/orders", "/pickup/4219", "/vote/m1", "/pay/m1/A2", "/pay/m1/L1"];
 
 // [matches label or href, what it does]
 const DOES = [
+  [/^Map$/, "phone only: shows the map tab"],
+  [/^List \( ?\d+ ?\)$/, "phone only: shows the list tab (what is inside the map view)"],
+  [/^Find contacts for the top \d+$/, "reads each top place's own website, one site at a time (robots.txt respected, 3 pages at most, cached)"],
+  [/^Find contacts$/, "reads this place's own website (home page plus one contact page) and lists what it publishes"],
+  [/^Build them a site$|^Open their site package$/, "opens the one-page site preview for a place with no website"],
+  [/^Save as drafted$|^Mark offered$|^Mark accepted$/, "saves the site package status on the prospect"],
+  [/^Back to the prospect$/, "link to the prospect page"],
+  [/^Scan the machine's label$/, "opens the camera (BarcodeDetector, else zxing) and fills the label code"],
+  [/^Stop the camera$/, "closes the camera"],
+  [/^Track a new place$/, "link to the map to find and track a place"],
+  [/^Place machine$/, "creates the machine at the chosen prospect, moves it to Placed, opens the machine"],
+  [/^Place a machine$/, "link to the place-a-machine page"],
+  [/^Save profile$/, "saves make, model, serial, label code, payment, telemetry, notes and the label photo"],
+  [/^Edit the profile$|^Close the editor$/, "opens the profile editor"],
+  [/^their page$|^mailto:|^tel:|^https?:\/\//, "contact link: email, phone or the page it came from"],
   [/^frens\.earth · Machines/, "link to /scout"],
   [/^(Scout|Prospects|Machines|Local shelf|Orders)$/, "main nav link to that section"],
   [/^(Laundromats|Gyms|Car washes|Auto shops|Open late)$/, "toggles that filter on the map and list"],
@@ -22,8 +37,6 @@ const DOES = [
   [/^Save note$/, "saves the note on this prospect"],
   [/^Place a machine here$/, "opens /machines/new for this prospect"],
   [/^Go to the map$/, "link to /scout"],
-  [/^Add a machine$/, "link to /machines/new, or on that page the submit that creates the machine"],
-  [/^Add machine$/, "creates the machine and opens it"],
   [/^Approve$/, "host approves the listing; it joins the machine as a local-shelf slot"],
   [/^Decline$/, "host declines the listing"],
   [/^Mark these restocked$/, "sets every low slot back to full"],

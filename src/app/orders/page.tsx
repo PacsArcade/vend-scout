@@ -19,7 +19,7 @@ export default async function OrdersPage() {
         {st.machines.length === 0 ? (
           <Empty title="No machines placed yet">
             <p className="muted">A pickup order needs a machine to wait in.</p>
-            <div className="actions"><Link className="btn gild" href="/machines/new">Add a machine</Link></div>
+            <div className="actions"><Link className="btn gild" href="/machines/new">Place a machine</Link></div>
           </Empty>
         ) : (
           <div className="two" style={{ padding: 0 }}>
@@ -28,7 +28,7 @@ export default async function OrdersPage() {
               <ActionForm action="order" submit="Create pickup code" redirect="/pickup/{code}" fields={[
                 { name: "item", label: "Item", placeholder: "Arcade mini print", wide: true },
                 { name: "priceSats", label: "Paid (sats)", type: "number", value: 21000, min: 0 },
-                { name: "machine", label: "Machine", type: "select", options: st.machines.map((m) => ({ value: m.id, label: m.name })) },
+                { name: "machine", label: "Machine", type: "select", options: st.machines.map((m) => ({ value: m.id, label: `${m.name} at ${m.hostName}` })) },
                 { name: "orderRef", label: "Shop order reference", placeholder: "optional", optional: true, wide: true },
               ]} />
             </div>

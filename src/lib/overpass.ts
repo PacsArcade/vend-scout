@@ -1,10 +1,11 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { distM, scorePlace, latestClose } from "./score";
-import type { Bbox, Category, Place, Prospect, Scored, ScoredProspect } from "./types";
+import type { Bbox, Category, OsmContactTags, Place, Prospect, Scored, ScoredProspect } from "./types";
 import { ALL_CATEGORIES, CATEGORY_LABEL, VENUE_CATEGORIES } from "./types";
 
-const ENDPOINT = "https://overpass-api.de/api/interpreter";
+// The public server is shared and often busy. Try it first, then a second public mirror.
+const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 const UA = "VendScout/0.2 (local prototype; pac@pacsarcade.org)";
 const CACHE_ROOT = path.join(process.cwd(), "data", "cache");
 const DAY = 24 * 60 * 60 * 1000;
@@ -19,8 +20,10 @@ const FILTER: Record<Category, string> = {
   fast_food: "amenity=fast_food",
 };
 
-export interface OsmElement { id: number; type: string; lat: number; lon: number; name?: string; opening_hours?: string; street?: string }
-interface CacheFile { fetchedAt: number; items: OsmElement[] }
+export interface OsmElement { id: number; type: string; lat: number; lon: number; name?: string; opening_hours?: string; street?: string; tags?: OsmContactTags }
+// v2 adds contact tags. A v1 file still reads, but counts as stale so the next scan refreshes it.
+const SCHEMA = 2;
+interface CacheFile { v?: number; fetchedAt: number; items: OsmElement[] }
 
 const file = (slug: string, c: Category) => path.join(CACHE_ROOT, slug, `overpass-${c}.json`);
 
@@ -34,14 +37,26 @@ export async function readCache(slug: string, c: Category): Promise<CacheFile | 
 
 async function liveQuery(c: Category, b: Bbox): Promise<OsmElement[]> {
   const q = `[out:json][timeout:60];nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});out center tags;`;
-  const res = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" },
-    body: "data=" + encodeURIComponent(q),
-    signal: AbortSignal.timeout(60_000),
-  });
-  if (!res.ok) throw new Error(`Overpass ${res.status}`);
-  const json = (await res.json()) as { elements: { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }[] };
+  let last = "OpenStreetMap did not answer";
+  let res: Response | null = null;
+  type Body = { remark?: string; elements: { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }[] };
+  let body: Body | null = null;
+  for (const endpoint of ENDPOINTS) {
+    try {
+      res = await fetch(endpoint, { method: "POST", headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(q), signal: AbortSignal.timeout(65_000) });
+      if (res.status === 429 || res.status >= 500) { last = res.status === 429 ? "The map server is busy" : "The map server had a problem"; continue; }
+      if (!res.ok) { last = `The map server refused the request (${res.status})`; continue; }
+      const j = (await res.json()) as Body;
+      // Overpass answers 200 with a remark when the query ran out of time or memory. That result is partial, so it must not be cached.
+      if (j.remark && /runtime error|timed out|out of memory/i.test(j.remark)) { last = "The map server ran out of time on this area"; continue; }
+      body = j;
+      break;
+    } catch (e) {
+      last = (e as Error).name === "TimeoutError" ? "The map server took too long" : "Could not reach the map server";
+    }
+  }
+  if (!body) throw new Error(last);
+  const json = body;
   return json.elements
     .map((e): OsmElement | null => {
       const lat = e.lat ?? e.center?.lat;
@@ -49,7 +64,14 @@ async function liveQuery(c: Category, b: Bbox): Promise<OsmElement[]> {
       if (lat === undefined || lon === undefined) return null;
       const t = e.tags ?? {};
       const street = [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" ");
-      return { id: e.id, type: e.type, lat, lon, name: t.name, opening_hours: t.opening_hours, street: street || undefined };
+      const tags: OsmContactTags = {
+        phone: t.phone ?? t["contact:phone"] ?? t["contact:mobile"],
+        email: t.email ?? t["contact:email"],
+        website: t.website ?? t["contact:website"] ?? t.url,
+        facebook: t["contact:facebook"] ?? t.facebook,
+        instagram: t["contact:instagram"] ?? t.instagram,
+      };
+      return { id: e.id, type: e.type, lat, lon, name: t.name, opening_hours: t.opening_hours, street: street || undefined, tags };
     })
     .filter((x): x is OsmElement => x !== null);
 }
@@ -57,12 +79,12 @@ async function liveQuery(c: Category, b: Bbox): Promise<OsmElement[]> {
 /** Cached items. Goes live only when allowed and the cache is missing or older than a day (one live query per category per day). */
 export async function getCategory(place: Place, c: Category, allowLive: boolean) {
   const cached = await readCache(place.slug, c);
-  const fresh = cached && Date.now() - cached.fetchedAt < DAY;
+  const fresh = cached && (cached.v ?? 1) >= SCHEMA && Date.now() - cached.fetchedAt < DAY;
   if (fresh || !allowLive) return { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? null, live: false, error: undefined as string | undefined };
   try {
     const items = await liveQuery(c, place.bbox);
     await fs.mkdir(path.join(CACHE_ROOT, place.slug), { recursive: true });
-    const data: CacheFile = { fetchedAt: Date.now(), items };
+    const data: CacheFile = { v: SCHEMA, fetchedAt: Date.now(), items };
     await fs.writeFile(file(place.slug, c), JSON.stringify(data));
     return { items, fetchedAt: data.fetchedAt, live: false || true, error: undefined as string | undefined };
   } catch (e) {
@@ -108,7 +130,7 @@ export async function placeProspects(slug: string): Promise<{ list: Detailed[]; 
         id: `osm-${e.type[0]}${e.id}`,
         name: e.name ?? `${CATEGORY_LABEL[c]} (unnamed)`,
         area: e.street ?? "No address on the map",
-        lat: e.lat, lon: e.lon, category: c, openingHours: e.opening_hours, placeSlug: slug,
+        lat: e.lat, lon: e.lon, category: c, openingHours: e.opening_hours, placeSlug: slug, tags: e.tags ?? {},
       };
       const late = (latestClose(e.opening_hours) ?? 0) >= 22 * 60;
       list.push({ prospect: { ...p, score: scored.score, late }, scored });

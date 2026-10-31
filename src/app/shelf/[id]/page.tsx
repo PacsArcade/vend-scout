@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { ActionButton } from "@/components/Actions";
 import { LOCAL_FOOD_NOTE, isFood, readState } from "@/lib/store";
+import { Bft } from "@/components/Bft";
 import { sats } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -24,9 +25,10 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
           <div className="sheetrows">
             <div className="row"><span>Price</span><b>{sats(l.priceSats)}</b></div>
             <div className="row"><span>How many</span><b>{l.qty}</b></div>
-            <div className="row"><span>Machine</span><b>{m ? <Link href={`/machines/${m.id}`}>{m.name}</Link> : "unknown"}</b></div>
+            <div className="row"><span>Machine</span><b>{m ? <Link href={`/machines/${m.id}`}>{m.name} at {m.hostName}</Link> : "unknown"}</b></div>
             <div className="row"><span>Pickup window</span><b>{l.pickupWindow}</b></div>
             <div className="row"><span>Kind</span><b>{l.kind}</b></div>
+            <div className="row"><span>Listed</span><b><Bft iso={l.createdAt} h={l.h} /></b></div>
           </div>
           {isFood(l.kind) && <p className="note-food">{LOCAL_FOOD_NOTE}</p>}
           {l.status === "pending" && (

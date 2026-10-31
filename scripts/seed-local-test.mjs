@@ -7,12 +7,14 @@ import { dirname } from "node:path";
 
 const out = process.argv[2] || "data/state.seed.json";
 const now = new Date().toISOString();
-const slot = (code, name, kind, level, priceSats) => ({ code, name, kind, level, priceSats });
+const PROSPECT = process.env.SEED_PROSPECT || "osm-n9055118992"; // any id from a scanned place
+const slot = (code, name, kind, level, priceSats) => ({ code, name, kind, level, priceSats, report: code === "A1" || code === "A2" ? "sensor" : "hand" });
 const state = {
-  tracked: {},
+  tracked: { [PROSPECT]: "Placed" },
   notes: {},
   machines: [{
-    id: "m1", name: "TEST Machine 01", host: "TEST Host Laundromat", hostSharePct: 10, placedAt: now.slice(0, 10),
+    id: "m1", name: "TEST Machine 01", prospectId: PROSPECT, hostName: "Su Nueva Lavanderia", hostSharePct: 10, placedAt: now.slice(0, 10),
+    profile: { make: "TEST Make", model: "TEST Model 7", serial: "TEST-0001", rawCode: "TEST-0001", cardReader: "", cash: true, lightning: false, telemetry: "sensors", notes: "Seed data for local testing." },
     slots: [
       slot("A1", "Test chips", "snack", 0.1, 3000), slot("A2", "Test crackers", "snack", 0.6, 3000), slot("A3", "Test water", "snack", 0.8, 2000),
       slot("A4", "Test trail mix", "snack", 0.3, 4000), slot("A5", "Test gummies", "snack", 0.9, 3000), slot("A6", "Test cookies", "snack", 0.4, 3500),

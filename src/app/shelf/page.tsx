@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ShelfPage() {
   const st = await readState();
-  const name = (id: string) => st.machines.find((m) => m.id === id)?.name ?? "a machine";
+  const name = (id: string) => { const m = st.machines.find((x) => x.id === id); return m ? `${m.name} at ${m.hostName}` : "a machine"; };
   return (
     <>
       <Nav on="shelf" />

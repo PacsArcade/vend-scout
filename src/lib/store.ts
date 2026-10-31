@@ -1,8 +1,10 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { findProspect } from "./overpass";
+import { currentHeight } from "./time";
 import { tally } from "./vote";
-import type { Listing, ListingStatus, Machine, Note, PickupOrder, Sale, ShelfKind, Slot, SlotKind, Stage, VoteOption } from "./types";
+import type { Listing, ListingStatus, Machine, MachineProfile, Note, PackageStatus, PickupOrder, Report, Sale, ShelfKind, SitePackage, Slot, SlotKind, Stage, VoteOption } from "./types";
+import { EMPTY_PROFILE } from "./types";
 import { FOOD_KINDS, SHELF_KINDS, STAGES } from "./types";
 
 const STATE = process.env.VEND_STATE_FILE || path.join(process.cwd(), "data", "state.json");
@@ -10,6 +12,7 @@ const STATE = process.env.VEND_STATE_FILE || path.join(process.cwd(), "data", "s
 export interface State {
   tracked: Record<string, Stage>;
   notes: Record<string, Note[]>;
+  packages: Record<string, SitePackage>;
   machines: Machine[];
   sales: Sale[];
   orders: PickupOrder[];
@@ -18,7 +21,7 @@ export interface State {
   suggestions: Record<string, VoteOption[]>;
   counter: number;
 }
-const empty = (): State => ({ tracked: {}, notes: {}, machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
+const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
 
 export async function readState(): Promise<State> {
   try {
@@ -33,6 +36,11 @@ async function write(s: State) {
 }
 const today = () => new Date().toISOString().slice(0, 10);
 const str = (v: unknown, max = 120) => String(v ?? "").trim().slice(0, max);
+const cleanProfile = (p: MachineProfile): MachineProfile => ({
+  make: str(p.make, 60), model: str(p.model, 60), serial: str(p.serial, 80), rawCode: str(p.rawCode, 300), labelPhoto: p.labelPhoto,
+  cardReader: str(p.cardReader, 60), cash: !!p.cash, lightning: !!p.lightning,
+  telemetry: ["none", "card", "camera", "sensors"].includes(p.telemetry) ? p.telemetry : "none", notes: str(p.notes, 1000),
+});
 const int = (v: unknown, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(v) || 0)));
 
 export const LOCAL_FOOD_NOTE = "Local food rules apply. Check your local food rules before you list this. This is not legal advice.";
@@ -48,8 +56,10 @@ export function localSlots(st: State, machine: string): (Slot & { listingId: str
 export type Action =
   | { action: "stage"; id: string; stage: Stage }
   | { action: "note"; id: string; text: string }
-  | { action: "addMachine"; name: string; host: string; hostSharePct: number; prospectId?: string }
-  | { action: "addSlot"; machine: string; name: string; kind: SlotKind; priceSats: number; level: number }
+  | { action: "addMachine"; name: string; prospectId: string; hostSharePct: number; profile?: Partial<MachineProfile> }
+  | { action: "profile"; machine: string; profile: Partial<MachineProfile> }
+  | { action: "package"; id: string; status: PackageStatus }
+  | { action: "addSlot"; machine: string; name: string; kind: SlotKind; priceSats: number; level: number; report?: Report }
   | { action: "restock"; machine: string }
   | { action: "pay"; machine: string; slot: string }
   | { action: "order"; machine: string; item: string; priceSats: number; orderRef?: string }
@@ -60,6 +70,7 @@ export type Action =
 
 export async function perform(a: Action): Promise<{ ok: boolean; error?: string; id?: string; code?: string }> {
   const st = await readState();
+  const h = (await currentHeight()).h || undefined;
   const machine = (id: string) => st.machines.find((m) => m.id === id);
   switch (a.action) {
     case "stage": {
@@ -71,18 +82,32 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       const text = str(a.text, 500);
       if (!text) return { ok: false, error: "Write something first" };
       st.tracked[a.id] ??= "Found";
-      (st.notes[a.id] ??= []).push({ date: today(), text });
+      (st.notes[a.id] ??= []).push({ date: today(), h, text });
       break;
     }
     case "addMachine": {
-      const name = str(a.name, 60), host = str(a.host, 60);
-      if (!name || !host) return { ok: false, error: "A name and a host are needed" };
-      const p = a.prospectId ? await findProspect(a.prospectId) : null;
+      const name = str(a.name, 60);
+      if (!name) return { ok: false, error: "Give the machine a name" };
+      if (!a.prospectId) return { ok: false, error: "Pick the place that hosts it. A machine is placed at a prospect." };
+      const p = await findProspect(a.prospectId);
+      if (!p) return { ok: false, error: "That place is not in the scan data. Track it from the map first." };
       const id = `m${++st.counter}`;
-      st.machines.push({ id, name, host, hostSharePct: int(a.hostSharePct, 0, 50), prospectId: a.prospectId, lat: p?.prospect.lat, lon: p?.prospect.lon, placedAt: today(), slots: [] });
-      if (a.prospectId) st.tracked[a.prospectId] = "Placed";
+      st.machines.push({ id, name, prospectId: a.prospectId, hostName: p.prospect.name, hostSharePct: int(a.hostSharePct, 0, 50), lat: p.prospect.lat, lon: p.prospect.lon, placedAt: today(), h, profile: cleanProfile({ ...EMPTY_PROFILE, ...(a.profile ?? {}) }), slots: [] });
+      st.tracked[a.prospectId] = "Placed";
       await write(st);
       return { ok: true, id };
+    }
+    case "profile": {
+      const m = machine(a.machine);
+      if (!m) return { ok: false, error: "No such machine" };
+      m.profile = cleanProfile({ ...m.profile, ...a.profile, labelPhoto: m.profile.labelPhoto });
+      break;
+    }
+    case "package": {
+      if (!["drafted", "offered", "accepted"].includes(a.status)) return { ok: false, error: "Unknown status" };
+      st.packages[a.id] = { status: a.status, updatedAt: today(), h };
+      st.tracked[a.id] ??= "Found";
+      break;
     }
     case "addSlot": {
       const m = machine(a.machine);
@@ -91,7 +116,7 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       const kind: SlotKind = a.kind === "merch" ? "merch" : "snack";
       const n = m.slots.filter((s) => s.kind !== "pickup").length;
       const code = `${"ABCD"[Math.floor(n / 6)] ?? "E"}${(n % 6) + 1}`;
-      m.slots.push({ code, name, kind, level: int(a.level, 0, 100) / 100, priceSats: int(a.priceSats, 1, 100_000_000) });
+      m.slots.push({ code, name, kind, level: int(a.level, 0, 100) / 100, priceSats: int(a.priceSats, 1, 100_000_000), report: a.report === "sensor" ? "sensor" : "hand" });
       break;
     }
     case "restock": {
@@ -106,12 +131,12 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       const slot = m.slots.find((s) => s.code === a.slot);
       if (slot) {
         slot.level = Math.max(0, slot.level - 0.1);
-        st.sales.push({ machine: m.id, slot: slot.code, item: slot.name, sats: slot.priceSats, at: new Date().toISOString(), test: true });
+        st.sales.push({ machine: m.id, slot: slot.code, item: slot.name, sats: slot.priceSats, at: new Date().toISOString(), h, test: true });
       } else {
         const l = st.listings.find((x) => x.machine === m.id && `L${x.n}` === a.slot && x.status === "approved");
         if (!l || l.qty < 1) return { ok: false, error: "Nothing left in that slot" };
         l.qty -= 1;
-        st.sales.push({ machine: m.id, slot: a.slot, item: l.item, sats: l.priceSats, at: new Date().toISOString(), test: true, maker: l.madeBy });
+        st.sales.push({ machine: m.id, slot: a.slot, item: l.item, sats: l.priceSats, at: new Date().toISOString(), h, test: true, maker: l.madeBy });
       }
       break;
     }
@@ -124,7 +149,7 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       m.slots.push({ code: slot, name: item, kind: "pickup", level: 1, priceSats: 0 });
       let code = "";
       do code = String(Math.floor(1000 + Math.random() * 9000)); while (st.orders.some((o) => o.code === code));
-      st.orders.push({ code, item, priceSats: int(a.priceSats, 0, 100_000_000), machine: m.id, slot, createdAt: new Date().toISOString(), source: a.orderRef ? `frens.earth ${str(a.orderRef, 40)}` : "frens.earth (typed in)" });
+      st.orders.push({ code, item, priceSats: int(a.priceSats, 0, 100_000_000), machine: m.id, slot, createdAt: new Date().toISOString(), h, source: a.orderRef ? `frens.earth ${str(a.orderRef, 40)}` : "frens.earth (typed in)" });
       await write(st);
       return { ok: true, code };
     }
@@ -136,7 +161,7 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       const kind = SHELF_KINDS.includes(a.kind) ? a.kind : "other";
       const n = ++st.counter;
       const id = `l${n}`;
-      st.listings.push({ id, n, item, kind, priceSats: int(a.priceSats, 1, 100_000_000), qty: int(a.qty, 1, 500), machine: m.id, pickupWindow, madeBy, status: "pending", createdAt: today() });
+      st.listings.push({ id, n, item, kind, priceSats: int(a.priceSats, 1, 100_000_000), qty: int(a.qty, 1, 500), machine: m.id, pickupWindow, madeBy, status: "pending", createdAt: today(), h });
       await write(st);
       return { ok: true, id };
     }
@@ -177,3 +202,12 @@ export function salesSummary(st: State, machine: string) {
   return { today: sum(mine.filter((s) => s.at.slice(0, 10) === day)), week: sum(mine.filter((s) => Date.parse(s.at) >= weekAgo)), total: sum(mine), count: mine.length };
 }
 export type { Note };
+
+export async function setLabelPhoto(machineId: string, file: string): Promise<boolean> {
+  const st = await readState();
+  const m = st.machines.find((x) => x.id === machineId);
+  if (!m) return false;
+  m.profile.labelPhoto = file;
+  await write(st);
+  return true;
+}

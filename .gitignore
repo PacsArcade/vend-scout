@@ -5,3 +5,4 @@ data/cache
 data/state.json
 *.log
 data/state.seed.json
+data/labels
