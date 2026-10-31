@@ -21,7 +21,9 @@ export async function readBin(rel: string): Promise<Buffer | null> {
     try { return await fs.readFile(abs(rel)); } catch { return null; }
   }
   try {
-    const res = await get(PREFIX + rel, { access: "private" });
+    // useCache false: these files are overwritten in place (state, scan caches). The CDN copy can be stale
+    // or a cached "not found" from before the first write, so always read from origin.
+    const res = await get(PREFIX + rel, { access: "private", useCache: false });
     if (!res || res.statusCode !== 200) return null;
     return Buffer.from(await new Response(res.stream).arrayBuffer());
   } catch { return null; }
@@ -34,7 +36,7 @@ export async function writeBin(rel: string, data: Buffer | string, contentType =
     await fs.writeFile(abs(rel), data);
     return;
   }
-  await put(PREFIX + rel, data, { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType });
+  await put(PREFIX + rel, data, { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType, cacheControlMaxAge: 60 });
 }
 
 export async function readText(rel: string): Promise<string | null> {
