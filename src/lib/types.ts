@@ -65,11 +65,18 @@ export interface MachineProfile {
   notes: string;
 }
 export const EMPTY_PROFILE: MachineProfile = { make: "", model: "", serial: "", rawCode: "", cardReader: "", cash: false, lightning: false, telemetry: "none", notes: "" };
+export type MachineStatus = "In storage" | "Placed" | "In repair" | "Retired";
+export const MACHINE_STATUSES: MachineStatus[] = ["In storage", "Placed", "In repair", "Retired"];
+export type MachineType = "snack" | "drinks" | "combo" | "fresh" | "coffee" | "cards" | "art" | "lockers" | "claw" | "other";
+export const MACHINE_TYPES: MachineType[] = ["snack", "drinks", "combo", "fresh", "coffee", "cards", "art", "lockers", "claw", "other"];
 export interface Machine {
   id: string;
   name: string;
-  prospectId: string; // the place that hosts it
-  hostName: string; // the prospect's name when it was placed
+  status: MachineStatus;
+  type: MachineType;
+  typeOther?: string; // free text when type is "other"
+  prospectId: string; // the place that hosts it. Empty text while the machine is not placed.
+  hostName: string; // the prospect's name when it was placed. Empty while not placed.
   hostSharePct: number;
   lat?: number;
   lon?: number;
@@ -77,6 +84,7 @@ export interface Machine {
   h?: number;
   profile: MachineProfile;
   slots: Slot[];
+  addedAt?: string;
 }
 export interface Sale { machine: string; slot: string; item: string; sats: number; at: string; h?: number; test: boolean; maker?: string }
 export interface PickupOrder { code: string; item: string; priceSats: number; machine: string; slot: string; createdAt: string; h?: number; source: string }
@@ -97,8 +105,44 @@ export interface Listing {
   machine: string;
   pickupWindow: string;
   madeBy: string;
+  lightning: string; // the maker's Lightning address or LNURL. No account, no keys.
   status: ListingStatus;
   createdAt: string;
   h?: number;
 }
 export interface VoteOption { id: string; name: string; votes: number; sats: number }
+
+// ---- Crew ----
+export type CrewRole = "runner" | "scout" | "keeper" | "tech";
+export const CREW_ROLES: CrewRole[] = ["runner", "scout", "keeper", "tech"];
+export const APPLICANT_STAGES = ["Applied", "Chatted", "Ride-along", "On the crew", "Not now"] as const;
+export type ApplicantStage = (typeof APPLICANT_STAGES)[number];
+export const TRANSPORT = ["car", "bike", "transit", "on foot"] as const;
+export interface StepNote { stage: ApplicantStage; text: string; date: string; h?: number }
+export interface Applicant {
+  id: string;
+  name: string;
+  reach: string; // email or phone, as they typed it
+  area: string;
+  lat?: number;
+  lon?: number;
+  roles: CrewRole[];
+  transport: string[];
+  hours: string;
+  why: string;
+  lightning?: string;
+  stage: ApplicantStage;
+  notes: StepNote[];
+  createdAt: string;
+  h?: number;
+}
+export type OutreachHow = "email" | "call" | "visit" | "DM";
+export const OUTREACH_HOW: OutreachHow[] = ["email", "call", "visit", "DM"];
+export const OUTREACH_OUTCOME = ["No answer", "Talked", "Interested", "Not interested", "Said yes"] as const;
+export interface Outreach { who: string; how: OutreachHow; outcome: string; note: string; date: string; h?: number }
+export interface StopDone { machine: string; at: string; h?: number; photo?: string }
+export interface Route { id: string; name: string; runner?: string; stops: string[]; done: StopDone[]; createdAt: string; h?: number }
+
+export type JobKind = "restock" | "scout" | "shelf" | "tech";
+export interface Claim { job: string; kind: JobKind; title: string; sats: number; by: string; at: string; h?: number; doneAt?: string; doneH?: number; photo?: string }
+export interface HostPick { types: MachineType[]; other: string; note: string; date: string; h?: number }

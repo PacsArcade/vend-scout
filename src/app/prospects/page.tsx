@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { Empty } from "@/components/Shell";
+import { Bft } from "@/components/Bft";
 import { findProspect } from "@/lib/overpass";
 import { readState } from "@/lib/store";
 import { STAGES } from "@/lib/types";
@@ -12,14 +13,16 @@ export default async function ProspectsPage() {
   const rows = [];
   for (const [id, stage] of Object.entries(st.tracked)) {
     const h = await findProspect(id);
-    if (h) rows.push({ id, stage, p: h.prospect });
+    if (h) rows.push({ id, stage, p: h.prospect, last: (st.outreach[id] ?? []).slice(-1)[0] });
   }
+  const toBuild = Object.values(st.packages).filter((p) => p.status === "accepted").length;
   rows.sort((a, b) => STAGES.indexOf(b.stage) - STAGES.indexOf(a.stage));
   return (
     <>
       <Nav on="prospects" />
       <main className="page">
         <h1>Prospects you are tracking</h1>
+        <p className="num">Sites to build: {toBuild}</p>
         {rows.length === 0 ? (
           <Empty title="Nothing tracked yet">
             <p className="muted">Open a place on the Scout map and press Track this place. It lands here with its stage.</p>
@@ -28,8 +31,8 @@ export default async function ProspectsPage() {
         ) : (
           <div className="glass card">
             <table>
-              <thead><tr><th>Place</th><th>Stage</th><th className="r">Score</th></tr></thead>
-              <tbody>{rows.map((r) => <tr key={r.id}><td><Link href={`/prospects/${r.id}`}>{r.p.name}</Link></td><td>{r.stage}</td><td className="r num">{r.p.score}</td></tr>)}</tbody>
+              <thead><tr><th>Place</th><th>Stage</th><th>Last contact</th><th className="r">Score</th></tr></thead>
+              <tbody>{rows.map((r) => <tr key={r.id}><td><Link href={`/prospects/${r.id}`}>{r.p.name}</Link></td><td>{r.stage}</td><td>{r.last ? <Bft iso={r.last.date} h={r.last.h} /> : <span className="muted">None yet</span>}</td><td className="r num">{r.p.score}</td></tr>)}</tbody>
             </table>
           </div>
         )}

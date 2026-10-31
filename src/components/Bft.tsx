@@ -13,3 +13,9 @@ export async function NowStamp() {
   if (now.h === 0) return <span className="who">Block time unavailable</span>;
   return <span className="who mono stamp">{stampText(now.h)}{now.live ? "" : " (last known, time service did not answer)"}</span>;
 }
+
+/** Same stamp as a plain string, for passing into client components. */
+export async function stampString(iso?: string, h?: number): Promise<string> {
+  const now = await currentHeight();
+  return now.h === 0 ? "time service unreachable" : stampText(heightFor(iso, h, now.h));
+}

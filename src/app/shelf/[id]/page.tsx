@@ -27,6 +27,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
             <div className="row"><span>How many</span><b>{l.qty}</b></div>
             <div className="row"><span>Machine</span><b>{m ? <Link href={`/machines/${m.id}`}>{m.name} at {m.hostName}</Link> : "unknown"}</b></div>
             <div className="row"><span>Pickup window</span><b>{l.pickupWindow}</b></div>
+            <div className="row"><span>Payout</span><b>{l.lightning ? "Lightning address on file" : "None"}</b></div>
             <div className="row"><span>Kind</span><b>{l.kind}</b></div>
             <div className="row"><span>Listed</span><b><Bft iso={l.createdAt} h={l.h} /></b></div>
           </div>

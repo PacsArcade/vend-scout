@@ -186,20 +186,22 @@ export function ScoutClient({ place, bbox, pins, existing, ours, total, hasData,
         <button className={"btn" + (tab === "list" ? " gild" : "")} role="tab" aria-selected={tab === "list"} onClick={() => setTab("list")}>List ({inView.length})</button>
       </div>
       <div className="glass map">
-        <div ref={mapEl} className="leaf" />
-        {!tilesOk && (
-          <svg className="fallback" viewBox="0 0 900 760" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Fallback map, tiles did not load">
-            <rect width="900" height="760" fill="#0d0b14" />
-            {dots.map((d) => <circle key={d.id} cx={d.x} cy={d.y} r={d.strong ? 9 : 6} fill={d.strong ? "#d4a843" : "none"} stroke="#d4a843" strokeWidth="2" onClick={() => setSel(d.id)} />)}
-          </svg>
-        )}
         <div className="filters">
           {FILTERS.map((f) => (
             <button key={f.key} className={"chip" + (on[f.key] ? "" : " off")} onClick={() => setOn({ ...on, [f.key]: !on[f.key] })} aria-pressed={on[f.key]}>{f.label}</button>
           ))}
           <button className={"chip" + (lateOnly ? "" : " off")} onClick={() => setLateOnly(!lateOnly)} aria-pressed={lateOnly}>Open late</button>
         </div>
-        <div className="legend glass">
+        <div className="leafwrap">
+          <div ref={mapEl} className="leaf" />
+          {!tilesOk && (
+            <svg className="fallback" viewBox="0 0 900 760" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Fallback map, tiles did not load">
+              <rect width="900" height="760" fill="#0d0b14" />
+              {dots.map((d) => <circle key={d.id} cx={d.x} cy={d.y} r={d.strong ? 9 : 6} fill={d.strong ? "#d4a843" : "none"} stroke="#d4a843" strokeWidth="2" onClick={() => setSel(d.id)} />)}
+            </svg>
+          )}
+        </div>
+        <div className="legend">
           <span><i className="dot" style={{ background: "var(--gild)" }} />Strong prospect</span>
           <span><i className="dot" style={{ border: "2px solid var(--gild)" }} />Maybe</span>
           <span><i className="dot" style={{ border: "2px solid var(--dim)" }} />Machine already there</span>

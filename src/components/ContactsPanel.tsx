@@ -23,6 +23,7 @@ export function ContactsPanel({ id, osm, site, siteUrl, note, hasSite }: { id: s
   return (
     <div className="glass card">
       <h2>Contacts</h2>
+      <p className="muted small">Use the general business address or phone first.</p>
       {all.length === 0 && <p className="muted">No phone or email on the map{hasSite ? " yet. Press Find contacts to read their website." : ", and no website to read."}</p>}
       {all.length > 0 && (
         <table>

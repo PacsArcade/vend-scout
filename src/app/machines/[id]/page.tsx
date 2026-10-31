@@ -7,6 +7,7 @@ import { Bft } from "@/components/Bft";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { feed } from "@/lib/stockFeed";
 import { TELEMETRY_LABEL } from "@/lib/types";
+import { typeLabel } from "@/lib/machineTypes";
 import { getVotes, localSlots, readState, salesSummary } from "@/lib/store";
 import { sats } from "@/lib/format";
 
@@ -36,7 +37,14 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
       <div className="mach">
         <div className="glass card">
           <h2>{m.name}</h2>
-          <div className="muted small">Host <Link href={`/prospects/${m.prospectId}`}>{m.hostName}</Link> · placed <Bft iso={m.placedAt} h={m.h} /> · host share {m.hostSharePct}%</div>
+          <div className="muted small">{typeLabel(m.type, m.typeOther)} · {m.status}{m.status === "Placed" ? <> · Host <Link href={`/prospects/${m.prospectId}`}>{m.hostName}</Link> · placed <Bft iso={m.placedAt} h={m.h} /> · host share {m.hostSharePct}%</> : null}</div>
+          <div className="actions" style={{ marginTop: 10 }}>
+            {m.status === "In storage" && <Link className="btn gild" href="/machines/new">Place this machine</Link>}
+            {m.status !== "In repair" && m.status !== "Retired" && <ActionButton label="Mark In repair" payload={{ action: "machineStatus", machine: m.id, status: "In repair" }} />}
+            {m.status !== "In storage" && m.status !== "Retired" && <ActionButton label="Return to storage" payload={{ action: "machineStatus", machine: m.id, status: "In storage" }} />}
+            {m.status !== "Retired" && <ActionButton label="Retire it" payload={{ action: "machineStatus", machine: m.id, status: "Retired" }} />}
+            {m.status === "Retired" && <ActionButton label="Back to storage" payload={{ action: "machineStatus", machine: m.id, status: "In storage" }} />}
+          </div>
           {none ? <p className="muted" style={{ marginTop: 14 }}>No slots yet. Add the first slot below.</p> : (
             <div className="slots">
               {m.slots.map((s) => (

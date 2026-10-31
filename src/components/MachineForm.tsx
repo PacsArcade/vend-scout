@@ -2,23 +2,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BarcodeScan } from "./BarcodeScan";
-import { TELEMETRY_LABEL, type MachineProfile, type Telemetry } from "@/lib/types";
+import { FilePick } from "./FilePick";
+import { TELEMETRY_LABEL, MACHINE_TYPES, type MachineProfile, type MachineType, type Telemetry } from "@/lib/types";
+import { TYPE_INFO } from "@/lib/machineTypes";
 
-export interface Choice { id: string; name: string; stage: string }
 
-export function MachineForm({ mode, machineId, initial, choices, chosen }: { mode: "create" | "edit"; machineId?: string; initial: MachineProfile; choices?: Choice[]; chosen?: string }) {
+export function MachineForm({ mode, machineId, initial }: { mode: "inventory" | "edit"; machineId?: string; initial: MachineProfile }) {
   const router = useRouter();
   const [p, setP] = useState<MachineProfile>(initial);
-  const [prospect, setProspect] = useState(chosen ?? "");
-  const [filter, setFilter] = useState("");
   const [name, setName] = useState("");
-  const [share, setShare] = useState(10);
+  const [type, setType] = useState<MachineType>("snack");
+  const [typeOther, setTypeOther] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
   const [busy, setBusy] = useState(false);
   const set = <K extends keyof MachineProfile>(k: K, v: MachineProfile[K]) => setP((x) => ({ ...x, [k]: v }));
-  const list = (choices ?? []).filter((c) => c.name.toLowerCase().includes(filter.toLowerCase()));
 
   async function post(body: object) {
     const r = await fetch("/api/do", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -37,9 +36,8 @@ export function MachineForm({ mode, machineId, initial, choices, chosen }: { mod
     e.preventDefault();
     setErr(""); setOk(""); setBusy(true);
     const profile = { ...p, labelPhoto: undefined };
-    if (mode === "create") {
-      if (!prospect) { setErr("Pick the place that hosts it first."); setBusy(false); return; }
-      const r = await post({ action: "addMachine", name, prospectId: prospect, hostSharePct: share, profile });
+    if (mode === "inventory") {
+      const r = await post({ action: "addInventory", name, type, typeOther, profile });
       if (!r.ok || !r.id) { setErr(r.error ?? "That did not work"); setBusy(false); return; }
       await upload(r.id);
       router.push(`/machines/${r.id}`);
@@ -53,30 +51,15 @@ export function MachineForm({ mode, machineId, initial, choices, chosen }: { mod
 
   return (
     <form className="form" onSubmit={submit}>
-      {mode === "create" && (
+      {mode === "inventory" && (
         <>
-          <fieldset className="wide picker">
-            <legend>Which place hosts it?</legend>
-            {(choices ?? []).length === 0 ? (
-              <p className="muted">No places are tracked yet. A machine is placed at a prospect, so find one on the map and press Track this place.</p>
-            ) : (
-              <>
-                <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search your tracked places" aria-label="Search your tracked places" />
-                <div className="pickrows">
-                  {list.map((c) => (
-                    <label key={c.id} className={"pickrow" + (c.id === prospect ? " pick" : "")}>
-                      <input type="radio" name="prospect" checked={c.id === prospect} onChange={() => setProspect(c.id)} />
-                      <span>{c.name}</span><span className="muted small">{c.stage}</span>
-                    </label>
-                  ))}
-                  {list.length === 0 && <p className="muted small">No tracked place matches that.</p>}
-                </div>
-              </>
-            )}
-            <a className="btn" href="/scout">Track a new place</a>
-          </fieldset>
           <label className="wide"><span>Machine name</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Machine 01" required /></label>
-          <label><span>Host share (%)</span><input type="number" min={0} max={50} value={share} onChange={(e) => setShare(Number(e.target.value))} required /></label>
+          <label><span>Type</span>
+            <select value={type} onChange={(e) => setType(e.target.value as MachineType)}>
+              {MACHINE_TYPES.map((t) => <option key={t} value={t}>{TYPE_INFO[t].label}</option>)}
+            </select>
+          </label>
+          {type === "other" && <label><span>What kind?</span><input value={typeOther} onChange={(e) => setTypeOther(e.target.value)} placeholder="Say in a few words" /></label>}
         </>
       )}
       <div className="wide"><BarcodeScan onCode={(code) => setP((x) => ({ ...x, rawCode: code, serial: x.serial || code }))} /></div>
@@ -84,7 +67,7 @@ export function MachineForm({ mode, machineId, initial, choices, chosen }: { mod
       <label><span>Make</span><input value={p.make} onChange={(e) => set("make", e.target.value)} /></label>
       <label><span>Model</span><input value={p.model} onChange={(e) => set("model", e.target.value)} /></label>
       <label className="wide"><span>Serial number</span><input value={p.serial} onChange={(e) => set("serial", e.target.value)} /></label>
-      <label className="wide"><span>Photo of the label</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
+      <div className="wide"><FilePick label="Add a photo of the label" file={photo} onFile={setPhoto} /></div>
       <label><span>Card reader brand</span><input value={p.cardReader} onChange={(e) => set("cardReader", e.target.value)} placeholder="None if blank" /></label>
       <label><span>Telemetry</span>
         <select value={p.telemetry} onChange={(e) => set("telemetry", e.target.value as Telemetry)}>
@@ -95,7 +78,7 @@ export function MachineForm({ mode, machineId, initial, choices, chosen }: { mod
       <label className="check wide"><input type="checkbox" checked={p.lightning} onChange={(e) => set("lightning", e.target.checked)} /> <span>Has a Lightning board fitted</span></label>
       <label className="wide"><span>Notes</span><textarea value={p.notes} onChange={(e) => set("notes", e.target.value)} rows={3} maxLength={1000} /></label>
       <div className="formfoot">
-        <button className="btn gild" type="submit" disabled={busy}>{mode === "create" ? "Place machine" : "Save profile"}</button>
+        <button className="btn gild" type="submit" disabled={busy}>{mode === "inventory" ? "Add to inventory" : "Save profile"}</button>
         {err && <span className="err" role="alert">{err}</span>}{ok && <span className="okmsg" role="status">{ok}</span>}
       </div>
     </form>

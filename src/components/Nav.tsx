@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NavTabs } from "./NavTabs";
 import { currentHeight } from "@/lib/time";
 import { stampText } from "@/lib/bft";
 
@@ -8,6 +9,9 @@ const TABS = [
   { key: "machines", label: "Machines", href: "/machines" },
   { key: "shelf", label: "Local shelf", href: "/shelf" },
   { key: "orders", label: "Orders", href: "/orders" },
+  { key: "routes", label: "Routes", href: "/routes" },
+  { key: "jobs", label: "Jobs", href: "/jobs" },
+  { key: "crew", label: "Crew", href: "/crew" },
 ];
 
 export async function Nav({ on }: { on: string }) {
@@ -15,11 +19,7 @@ export async function Nav({ on }: { on: string }) {
   return (
     <header className="top">
       <Link href="/scout" className="brand">frens.earth · Machines<small>working name</small></Link>
-      <nav className="tabs" aria-label="Main">
-        {TABS.map((t) => (
-          <Link key={t.key} href={t.href} className={"tab" + (t.key === on ? " on" : "")}>{t.label}</Link>
-        ))}
-      </nav>
+      <NavTabs tabs={TABS} on={on} />
       <span className="who">
         a Pac&apos;s Arcade project
         <span className="stamp mono">{now.h === 0 ? "Block time unavailable" : stampText(now.h)}{now.h !== 0 && !now.live ? " (last known)" : ""}</span>

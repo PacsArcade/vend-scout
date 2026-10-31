@@ -3,12 +3,14 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { Bft } from "@/components/Bft";
 import { ContactsPanel } from "@/components/ContactsPanel";
+import { ActionForm } from "@/components/Actions";
 import { ProspectActions } from "@/components/ProspectActions";
 import { findProspect } from "@/lib/overpass";
 import { normalizeUrl, osmContacts, readCached } from "@/lib/contacts";
 import { readState } from "@/lib/store";
+import { typeLabel } from "@/lib/machineTypes";
 import { openLateValue } from "@/lib/score";
-import { STAGES, CATEGORY_LABEL } from "@/lib/types";
+import { STAGES, CATEGORY_LABEL, OUTREACH_HOW, OUTREACH_OUTCOME } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,7 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
   const siteUrl = normalizeUrl(p.tags.website ?? "");
   const cached = siteUrl ? await readCached(siteUrl) : null;
   const machine = st.machines.find((m) => m.prospectId === id);
+  const log = st.outreach[id] ?? [];
   return (
     <>
       <Nav on="prospects" />
@@ -61,6 +64,30 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
           <ContactsPanel id={id} osm={osmContacts(p.tags)} site={cached?.contacts ?? []} siteUrl={siteUrl} note={cached?.note} hasSite={!!siteUrl} />
+          {st.hostPicks[id] && (
+            <div className="glass card">
+              <h2>What the host would like</h2>
+              <p>{[...st.hostPicks[id].types.map((t) => typeLabel(t)), st.hostPicks[id].other].filter(Boolean).join(", ")}</p>
+              {st.hostPicks[id].note && <p className="muted small">{st.hostPicks[id].note}</p>}
+              <p className="muted small"><Bft iso={st.hostPicks[id].date} h={st.hostPicks[id].h} /></p>
+            </div>
+          )}
+          <div className="glass card">
+            <h2>Outreach log</h2>
+            {log.length === 0 ? <p className="muted">No contact yet. Log each email, call, visit or message here.</p> : (
+              <table><tbody>
+                {await Promise.all([...log].reverse().map(async (o, i) => (
+                  <tr key={i}><td className="muted small"><Bft iso={o.date} h={o.h} /></td><td>{o.how} with {o.who}<br /><span className="muted small">{o.outcome}{o.note ? ` · ${o.note}` : ""}</span></td></tr>
+                )))}
+              </tbody></table>
+            )}
+            <ActionForm action="outreach" extra={{ id }} submit="Log contact" doneText="Logged." fields={[
+              { name: "who", label: "Who", placeholder: "Name or role" },
+              { name: "how", label: "How", type: "select", value: "call", options: OUTREACH_HOW.map((h) => ({ value: h, label: h })) },
+              { name: "outcome", label: "Outcome", type: "select", value: "Talked", options: OUTREACH_OUTCOME.map((h) => ({ value: h, label: h })) },
+              { name: "note", label: "Note", optional: true, placeholder: "What was said" },
+            ]} />
+          </div>
           {!siteUrl && (
             <div className="glass card">
               <h2>No website</h2>
@@ -79,10 +106,12 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
             <div className="row"><span>Restock</span><b>Twice a week, before 8 AM</b></div>
             <div className="row"><span>Payment</span><b>Bitcoin, priced in sats</b></div>
             <div className="row"><span>Your customers pick</span><b>They vote what goes in it</b></div>
+            <div className="row"><span>Choose your machine at</span><b>/host/{id}</b></div>
             <div className="row"><span>Local makers</span><b>Neighbours can sell on your shelf</b></div>
             {!siteUrl && <div className="row"><span>A site for you</span><b>One page, part of the package</b></div>}
             <p className="small">Pac&apos;s Arcade, at frens.earth · (phone) · leave any time with 30 days&apos; notice</p>
           </div>
+          <p className="muted small noprint">The host link to share: <Link href={`/host/${id}`}>/host/{id}</Link></p>
           <ProspectActions id={id} stage={stage} />
         </div>
       </div>
