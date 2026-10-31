@@ -47,3 +47,7 @@ export const BONUS_TIERS_TEST = [
   { minPoints: 4000, bonusSats: 1500, test: true },
   { minPoints: 9000, bonusSats: 3000, test: true },
 ];
+
+// VENDING MACHINE CREDITS. Earned by neighbors who verify a machine or share it, spent at our machines.
+// Not money, not sats, never paid out in cash. TEST values. Once per machine per day per npub for each kind.
+export const CREDITS = { verify: 10, share: 5, test: true };

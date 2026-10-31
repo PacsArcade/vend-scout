@@ -1,5 +1,6 @@
 import { resolveCrewId } from "@/lib/crewsession";
 import { PhoneBar } from "@/components/PhoneBar";
+import { ResendDm } from "@/components/ResendDm";
 import { PointsPanel } from "@/components/PointsPanel";
 import { PopHost } from "@/components/PopHost";
 import { scoutPoints, badgesFor, levelOf, streakDays, totalPoints } from "@/lib/arcade";
@@ -37,6 +38,7 @@ export default async function WorkPage({ searchParams }: { searchParams: Promise
         ) : (
           <>
             <PopHost pops={pops} me={me.id} />
+            <ResendDm />
             <PointsPanel me={me.id} total={total} level={lv.level} name={lv.name} next={lv.next} nextName={lv.nextName} pct={lv.pctToNext} badges={badgesFor(st.proofs, me.id)} streak={streak} board={!!me.leaderboard} />
           <WorkHome key={me.id} me={me.id} name={me.name} hasLightning={!!me.lightning} hasArea={me.lat !== undefined} online={!!st.online[me.id]} done={doneCount(st, me.id)} welcomeJobs={GIG.welcomeJobs}
             pin={me.lat !== undefined ? { lat: me.lat, lon: me.lon! } : null} cities={ILLINOIS.map((c) => ({ slug: c.slug, name: c.name }))} blocks={blocks}

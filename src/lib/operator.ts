@@ -6,6 +6,7 @@ import { nip19, verifyEvent } from "nostr-tools";
 // The session is an HMAC token in an httpOnly cookie, signed with VEND_SESSION_SECRET.
 export const OPERATOR_COOKIE = "vs-operator";
 export const CREW_COOKIE = "vs-crew";
+export const NEIGHBOR_COOKIE = "vs-neighbor";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const CHALLENGE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -94,8 +95,8 @@ export function actionAllowed(action: string, isOperator: boolean, isCrew = fals
 }
 
 /** Paths anyone may open when the gate is on. Everything else needs an operator. */
-const PUBLIC_PAGES = [/^\/$/, /^\/scout$/, /^\/crew$/, /^\/crew\/apply$/, /^\/crew\/signin$/, /^\/host\/[^/]+$/, /^\/vote\/[^/]+$/, /^\/pay\/[^/]+\/[^/]+$/, /^\/signin$/];
-const PUBLIC_API = [/^\/api\/crew\/postings$/, /^\/api\/chain\/tip$/, /^\/api\/place$/, /^\/api\/do$/, /^\/api\/admin\/session$/, /^\/api\/crew\/session$/, /^\/api\/scout$/, /^\/api\/scout\/pins$/, /^\/api\/cron\/scan$/];
+const PUBLIC_PAGES = [/^\/$/, /^\/scout$/, /^\/crew$/, /^\/crew\/apply$/, /^\/crew\/signin$/, /^\/host\/[^/]+$/, /^\/vote\/[^/]+$/, /^\/pay\/[^/]+\/[^/]+$/, /^\/signin$/, /^\/m\/[^/]+$/];
+const PUBLIC_API = [/^\/api\/crew\/postings$/, /^\/api\/chain\/tip$/, /^\/api\/place$/, /^\/api\/do$/, /^\/api\/admin\/session$/, /^\/api\/crew\/session$/, /^\/api\/scout$/, /^\/api\/scout\/pins$/, /^\/api\/m\/[^/]+\/photo$/, /^\/api\/neighbor\/(session|act)$/, /^\/api\/zap\/invoice$/, /^\/api\/cron\/scan$/];
 export function pathIsPublic(pathname: string, isApi: boolean): boolean {
   return (isApi ? PUBLIC_API : PUBLIC_PAGES).some((r) => r.test(pathname));
 }
@@ -103,4 +104,21 @@ export function pathIsPublic(pathname: string, isApi: boolean): boolean {
 export const isCrewPath = (p: string) => /^\/(work|run|jobs)(\/|$)/.test(p);
 
 /** Paths a signed-in crew member (not an operator) may also use. */
-export const isCrewOnlyApi = (p: string) => p === "/api/offers" || p === "/api/stopphoto";
+export const isCrewOnlyApi = (p: string) => p === "/api/offers" || p === "/api/stopphoto" || p === "/api/crew/dm";
+
+/** Neighbor session: any nostr key that signed a fresh challenge. It only lets that key verify, report, request and share. */
+export function makeNeighborToken(pubkey: string, now = Date.now()): string {
+  const exp = now + 30 * 24 * 60 * 60 * 1000;
+  return `${pubkey}.${exp}.${hmac(`nb|${pubkey}|${exp}`)}`;
+}
+export function verifyNeighborToken(token: string | undefined | null, now = Date.now()): string | null {
+  if (!token) return null;
+  const [pubkey, exp, sig] = token.split(".");
+  if (!pubkey || !exp || !sig || now > Number(exp)) return null;
+  try { if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(hmac(`nb|${pubkey}|${exp}`)))) return null; } catch { return null; }
+  return pubkey;
+}
+export function neighborFromCookieHeader(header: string | null): string | null {
+  const m = (header ?? "").match(new RegExp(`${NEIGHBOR_COOKIE}=([^;]+)`));
+  return verifyNeighborToken(m?.[1]);
+}

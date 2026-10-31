@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AiVerdict, Tri } from "@/lib/types";
 
-export interface ProofView { id: string; title: string; who: string; before: string; after: string; ticked: string[]; loadTotal: number; sentStamp: string; resent: boolean; ai: AiVerdict | null }
+export interface ProofView { id: string; title: string; who: string; before: string; after: string; ticked: string[]; loadTotal: number; sentStamp: string; resent: boolean; ai: AiVerdict | null; neighbors: number }
 
 const cls = (t: Tri) => (t === "yes" ? "ok" : t === "no" ? "no" : "un");
 
@@ -32,6 +32,7 @@ export function ProofReview({ p }: { p: ProofView }) {
         <figure><img src={`/api/stopphoto/${p.after}`} alt="Glass after" /><figcaption>After</figcaption></figure>
         <figure><div className="tick">{p.loadTotal === 0 ? "No load list" : `${p.ticked.length} of ${p.loadTotal} ticked: ${p.ticked.join(", ") || "none"}`}</div><figcaption>Load list</figcaption></figure>
       </div>
+      <p className="small">Neighbor checks: <b className="num">{p.neighbors}</b>. Extra evidence only. You still approve.</p>
       <div className="aipanel" aria-label="AI check">
         <b>AI check <span className="muted small">(a suggestion, a person decides)</span></b>
         {!p.ai ? <span className="muted">Still running. Refresh in a minute.</span> : (<>

@@ -12,6 +12,8 @@ import { GIG } from "./gig";
 import { openJobs } from "./jobs";
 import { ILLINOIS } from "./places";
 import { payout } from "./payout";
+import type { CreditEntry, DmRecord, ItemRequest, MachineReport, NeighborVerify } from "./types";
+import { CREDITS } from "./gig";
 import type { ScoutAward, ScoutCheck, Inside, MachineState } from "./types";
 import { INSIDE_LABEL, MACHINE_STATES } from "./types";
 import { scoutAward } from "./arcade";
@@ -37,6 +39,12 @@ export interface State {
   payouts: PayoutRec[];
   proofs: Proof[];
   items: Item[];
+  credits: Record<string, number>;
+  creditLog: CreditEntry[];
+  verifies: NeighborVerify[];
+  reports: MachineReport[];
+  itemRequests: ItemRequest[];
+  dms: DmRecord[];
   checks: Record<string, ScoutCheck>;
   scoutAwards: ScoutAward[];
   aiLog: AiLogEntry[];
@@ -51,7 +59,7 @@ export interface State {
   suggestions: Record<string, VoteOption[]>;
   counter: number;
 }
-const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], proofs: [], items: [], checks: {}, scoutAwards: [], aiLog: [], claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
+const empty = (): State => ({ tracked: {}, notes: {}, packages: {}, outreach: {}, hostPicks: {}, online: {}, passes: {}, seen: {}, blocks: [], payouts: [], proofs: [], items: [], credits: {}, creditLog: [], verifies: [], reports: [], itemRequests: [], dms: [], checks: {}, scoutAwards: [], aiLog: [], claims: [], applicants: [], routes: [], machines: [], sales: [], orders: [], listings: [], ballots: {}, suggestions: {}, counter: 0 });
 
 export async function readState(): Promise<State> {
   try {
@@ -116,6 +124,12 @@ export type Action =
   | { action: "runAi"; id: string }
   | { action: "setLeaderboard"; id: string; on: boolean }
   | { action: "outreach"; id: string; who: string; how: OutreachHow; outcome: string; note: string }
+  | { action: "neighborVerify"; machine: string; npub: string }
+  | { action: "neighborReport"; machine: string; npub: string; reason: string; text: string }
+  | { action: "requestItems"; machine: string; npub: string; text: string }
+  | { action: "shareCredit"; machine: string; npub: string }
+  | { action: "spendCredits"; machine: string; npub: string; amount: number }
+  | { action: "logDm"; to: string; text: string; sent: boolean; reason?: string }
   | { action: "scoutCheck"; id: string; inside: Inside; who: string; state?: MachineState; room: "yes" | "no" | "unsure"; photo?: string; by?: string }
   | { action: "attachNpub"; id: string; npub: string }
   | { action: "apply"; hp?: string; npub?: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
@@ -285,6 +299,55 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       st.applicants.push({ id: `a${n}`, npub, name, reach, area: str(a.area, 80), lat, lon, roles, transport: (a.transport ?? []).filter((t) => (TRANSPORT as readonly string[]).includes(t)), hours: str(a.hours, 120), why, lightning: a.lightning && str(a.lightning, 200) ? validLightning(a.lightning).value : undefined, stage: "Applied", notes: [], createdAt: today(), h });
       await write(st);
       return { ok: true, id: `a${n}` };
+    }
+    case "neighborVerify": {
+      const hex = str(a.npub, 80);
+      if (!/^[0-9a-f]{64}$/.test(hex)) return { ok: false, error: "Sign in with nostr first" };
+      const proof = st.proofs.filter((x) => x.machine === a.machine && (x.status === "sent" || x.status === "approved")).sort((x, y) => y.sentAt.localeCompare(x.sentAt))[0];
+      if (!proof) return { ok: false, error: "There is no stocking photo to verify yet" };
+      if (st.verifies.some((v) => v.proof === proof.id && v.npub === hex)) return { ok: false, error: "You already verified this photo", note: "Thank you. Your check is on the job." };
+      st.verifies.push({ id: `v${++st.counter}`, proof: proof.id, machine: a.machine, npub: hex, at: nowIso(), h });
+      // Credits: once per machine per day per npub. A verify is extra evidence on the job. It never approves or pays anything.
+      const got = grantCredits(st, hex, "verify", a.machine, CREDITS.verify, h);
+      await write(st);
+      return { ok: true, note: got ? `Thank you. +${CREDITS.verify} vending machine credits.` : "Thank you. You already earned credits for this machine today.", id: proof.id };
+    }
+    case "neighborReport": {
+      const hex = str(a.npub, 80), reason = str(a.reason, 60), text = str(a.text, 500);
+      if (!/^[0-9a-f]{64}$/.test(hex)) return { ok: false, error: "Sign in with nostr first" };
+      if (!reason) return { ok: false, error: "Pick a reason" };
+      if (!machine(a.machine)) return { ok: false, error: "No such machine" };
+      st.reports.push({ id: `rp${++st.counter}`, machine: a.machine, npub: hex, reason, text, at: nowIso(), h });
+      break;
+    }
+    case "requestItems": {
+      const hex = str(a.npub, 80), text = str(a.text, 300);
+      if (!/^[0-9a-f]{64}$/.test(hex)) return { ok: false, error: "Sign in with nostr first" };
+      if (!text) return { ok: false, error: "Say what you would like in it" };
+      if (!machine(a.machine)) return { ok: false, error: "No such machine" };
+      st.itemRequests.push({ id: `rq${++st.counter}`, machine: a.machine, npub: hex, text, at: nowIso(), h });
+      break;
+    }
+    case "shareCredit": {
+      const hex = str(a.npub, 80);
+      if (!/^[0-9a-f]{64}$/.test(hex)) return { ok: false, error: "Sign in with nostr first" };
+      if (!machine(a.machine)) return { ok: false, error: "No such machine" };
+      const got = grantCredits(st, hex, "share", a.machine, CREDITS.share, h);
+      await write(st);
+      return { ok: true, note: got ? `Thank you for sharing. +${CREDITS.share} vending machine credits.` : "Thank you for sharing. Credits for this machine are once a day." };
+    }
+    case "spendCredits": {
+      const raw = str(a.npub, 100), hex = raw.startsWith("npub1") ? (npubToHex(raw) ?? "") : raw, amt = int(a.amount, 1, 1_000_000);
+      if (!/^[0-9a-f]{64}$/.test(hex)) return { ok: false, error: "That is not a nostr key" };
+      if ((st.credits[hex] ?? 0) < amt) return { ok: false, error: "Not enough credits" };
+      st.credits[hex] -= amt;
+      st.creditLog.push({ npub: hex, kind: "spend", machine: str(a.machine, 40), day: today(), amount: -amt, at: nowIso(), h });
+      break;
+    }
+    case "logDm": {
+      st.dms.push({ to: str(a.to, 80), text: str(a.text, 2000), at: nowIso(), h, sent: !!a.sent, reason: a.reason ? str(a.reason, 120) : undefined });
+      st.dms = st.dms.slice(-200);
+      break;
     }
     case "scoutCheck": {
       if (!(a.inside in INSIDE_LABEL)) return { ok: false, error: "Pick what is already inside" };
@@ -567,4 +630,14 @@ async function payCrew(st: State, by: string, sats: number, reason: string, job:
   await payout.send({ to, sats, reason });
   st.payouts.push({ by, sats, reason, at: new Date().toISOString(), h, job, sent: false });
   return `Paid ${sats.toLocaleString("en-US")} sats (test, nothing is really sent yet).`;
+}
+
+
+/** Credits for one npub: once per machine per day for each kind. Returns true when credits were given. */
+export function grantCredits(st: State, npub: string, kind: "verify" | "share", machine: string, amount: number, h?: number): boolean {
+  const day = new Date().toISOString().slice(0, 10);
+  if (st.creditLog.some((c) => c.npub === npub && c.kind === kind && c.machine === machine && c.day === day)) return false;
+  st.creditLog.push({ npub, kind, machine, day, amount, at: new Date().toISOString(), h });
+  st.credits[npub] = (st.credits[npub] ?? 0) + amount;
+  return true;
 }

@@ -44,6 +44,12 @@ const state = {
     { id: "i403", name: "TEST trail mix, small", size: "small", priceSats: 4000, photo: "i0-2000003.png" },
   ],
   aiLog: [],
+  credits: { ["11".repeat(32)]: 15 },
+  creditLog: [],
+  verifies: [{ id: "v600", proof: "p300", machine: "m211", npub: "11".repeat(32), at: now, h: 973999 }],
+  reports: [{ id: "rp601", machine: "m211", npub: "11".repeat(32), reason: "The machine is empty", text: "Row A is bare", at: now, h: 973999 }],
+  itemRequests: [{ id: "rq602", machine: "m211", npub: "11".repeat(32), text: "Hot chips and juice for kids", at: now, h: 973999 }],
+  dms: [],
   checks: { [PROSPECT]: { inside: "combo", who: "TEST Vending Co, 555 0100", state: "Worn", room: "yes", by: "a201", at: now.slice(0, 10), h: 973999 } },
   scoutAwards: [{ id: "sa500", by: "a201", prospect: PROSPECT, points: 140, breakdown: [{ label: "Named who runs it", points: 40 }, { label: "Machine state", points: 40 }, { label: "Room for another", points: 60 }], at: now }],
   proofs: [

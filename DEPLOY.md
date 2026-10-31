@@ -18,13 +18,14 @@ Names only. Never put values in this file or in the repo.
 ## Optional names
 | Name | What it does |
 |---|---|
+| `VEND_DM_SENDER_KEY` | The house key that sends the welcome DM to new crew (NIP-17 private message). An nsec or 64 hex characters, set by the Admiral. The app never generates or prints it. With it unset, the DM is not sent: the text is shown in the app and `dm skipped: no sender key` is logged. Use a dedicated key, not a personal one. |
 | `VEND_CONTACT_EMAIL` | A public contact address. Shown as a mailto line in the footer (so also on /crew and /host). Hidden when unset. |
 | `OLLAMA_URL` | Address of an Ollama server for the photo checker. Leave it unset on Vercel (the checker is skipped with the reason "AI checker runs on the home box"). Set it only on the home box, for example when running the app there. |
 | `VEND_AI_MODEL` | Model name for the checker. Default `gemma3:12b`. |
 | `VEND_REQUIRE_OPERATOR` | Set to `1` to turn the operator gate on outside Vercel (for a home-box trial of the live behaviour). |
 
 ## Dev and test only (never set on Vercel)
-`VEND_STATE_FILE` (use a local JSON file instead of Blob), `VEND_DEMO_CLOCK` (the clock demo switch), `VEND_DEMO_DROP` (replays saved pins dropping in, for screenshots), `VEND_FORCE_NO_STORAGE` (pretends storage is missing, for screenshots), `VEND_AI_CHECK` (set `off` to stop the background checker).
+`VEND_STATE_FILE` (use a local JSON file instead of Blob), `VEND_DEMO_CLOCK` (the clock demo switch), `VEND_DEMO_DM` (shows the welcome card for screenshots), `VEND_DEMO_DROP` (replays saved pins dropping in, for screenshots), `VEND_FORCE_NO_STORAGE` (pretends storage is missing, for screenshots), `VEND_AI_CHECK` (set `off` to stop the background checker).
 
 ## What is public and what is not
 Public with no sign-in: the scout map (read-only, no contacts), `/crew`, `/crew/apply` (rate limited, with a honeypot field), `/host/[prospect]`, `/api/crew/postings`, and the `/vote` and `/pay` preview pages.

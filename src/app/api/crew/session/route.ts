@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { welcomeDmFor } from "@/lib/welcome";
 import { applicantFor } from "@/lib/crewauth";
 import { CREW_COOKIE, crewPubkeyFromCookieHeader, makeCrewToken, verifySignedChallenge } from "@/lib/operator";
 import { readState } from "@/lib/store";
@@ -20,7 +21,9 @@ export async function POST(req: Request) {
   if (ap.stage !== "On the crew") return NextResponse.json({ ok: false, reason: "You are not on the crew yet. Once you are, this key opens the crew pages." }, { status: 403 });
   let token: string;
   try { token = makeCrewToken(r.pubkey); } catch { return NextResponse.json({ ok: false, reason: "The site is missing its session secret. Tell the admin" }, { status: 500 }); }
-  return NextResponse.json({ ok: true, id: ap.id, name: ap.name, lightning: ap.lightning ?? null }, { headers: { "Set-Cookie": `${CREW_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000` } });
+  // The welcome DM runs on every sign-in (a short wait at most). With no sender key it is skipped and the text is shown instead.
+  const dm = await Promise.race([welcomeDmFor(ap.id, new URL(req.url).origin), new Promise<null>((r) => setTimeout(() => r(null), 7000))]).catch(() => null);
+  return NextResponse.json({ ok: true, id: ap.id, name: ap.name, lightning: ap.lightning ?? null, dm }, { headers: { "Set-Cookie": `${CREW_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000` } });
 }
 export async function DELETE() {
   return NextResponse.json({ ok: true }, { headers: { "Set-Cookie": `${CREW_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0` } });

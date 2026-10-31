@@ -207,3 +207,11 @@ export interface ScoutCheck {
   stamp?: string; // BFT text, filled in by the page that shows it
 }
 export interface ScoutAward { id: string; by: string; prospect: string; points: number; breakdown: { label: string; points: number }[]; at: string }
+
+// ---- Social: credits, neighbors, DMs ----
+export type CreditKind = "verify" | "share";
+export interface CreditEntry { npub: string; kind: CreditKind | "spend"; machine: string; day: string; amount: number; at: string; h?: number }
+export interface NeighborVerify { id: string; proof: string; machine: string; npub: string; at: string; h?: number }
+export interface MachineReport { id: string; machine: string; npub: string; reason: string; text: string; at: string; h?: number }
+export interface ItemRequest { id: string; machine: string; npub: string; text: string; at: string; h?: number }
+export interface DmRecord { to: string; text: string; at: string; h?: number; sent: boolean; reason?: string }

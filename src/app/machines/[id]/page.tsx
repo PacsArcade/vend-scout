@@ -7,6 +7,7 @@ import { Bft } from "@/components/Bft";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { feed } from "@/lib/stockFeed";
 import { TELEMETRY_LABEL } from "@/lib/types";
+import { SHARE_TAGS } from "@/lib/social";
 import { typeLabel } from "@/lib/machineTypes";
 import { getVotes, localSlots, readState, salesSummary } from "@/lib/store";
 import { sats } from "@/lib/format";
@@ -31,6 +32,8 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
   for (const s of st.sales.filter((x) => x.machine === id)) byItem.set(s.item, (byItem.get(s.item) ?? 0) + 1);
   const owed = Math.round((sum.total * m.hostSharePct) / 100);
   const none = m.slots.length === 0 && locals.length === 0;
+  const mreq = st.itemRequests.filter((r) => r.machine === m.id).slice(-10).reverse();
+  const mrep = st.reports.filter((r) => r.machine === m.id).slice(-10).reverse();
   return (
     <>
       <Nav on="machines" />
@@ -110,6 +113,18 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
               )}
             </div>
           )}
+          <div className="glass card">
+            <h2>Neighbors</h2>
+            <p className="small">The page on the QR: <Link href={`/m/${m.id}`}>/m/{m.id}</Link>. Tag: <span className="mono">{SHARE_TAGS(m.id)}</span></p>
+            <p className="muted small">Neighbor checks on photos: <span className="num">{st.verifies.filter((v) => v.machine === m.id).length}</span>.</p>
+            <h3>Requested items</h3>
+            {mreq.length === 0 ? <p className="muted small">Nothing requested yet.</p> : <ul className="plain">{mreq.map((r) => <li key={r.id}>{r.text} <span className="muted small"><Bft iso={r.at} h={r.h} /></span></li>)}</ul>}
+            <h3>Problems reported</h3>
+            {mrep.length === 0 ? <p className="muted small">None.</p> : <ul className="plain">{mrep.map((r) => <li key={r.id}><b>{r.reason}</b>{r.text ? `: ${r.text}` : ""} <span className="muted small"><Bft iso={r.at} h={r.h} /></span></li>)}</ul>}
+            <h3>Redeem credits</h3>
+            <p className="muted small">A neighbor spends their vending machine credits at this machine. Not money.</p>
+            <ActionForm action="spendCredits" extra={{ machine: m.id }} submit="Redeem" doneText="Redeemed." fields={[{ name: "npub", label: "Their npub", placeholder: "npub1..." }, { name: "amount", label: "Credits", type: "number", value: 10, min: 1 }]} />
+          </div>
           <div className="glass card">
             <h2>Machine profile</h2>
             <table>
