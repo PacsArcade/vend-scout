@@ -37,12 +37,12 @@ export function BlockLoader({ landed, elapsed, note }: { landed: Partial<Record<
         {COLS.map(({ c, short, full }, ci) => {
           const n = landed[c];
           const done = n !== undefined;
-          const fill = done ? Math.max(1, Math.round((n / max) * SLOTS)) : 0;
+          const fill = done && n > 0 ? Math.min(SLOTS, Math.ceil((n / max) * SLOTS)) : 0; // whole rows only, the same rule for every column
           return (
             <div key={c} className={"bl-col" + (done ? " landed" : "")} title={full}>
               <div className="bl-well" aria-hidden="true">
                 {Array.from({ length: SLOTS }, (_, i) => (
-                  <i key={i} className={"bl-block" + (done ? (i < fill ? " on" : " off") : "")} style={done ? undefined : { animationDelay: `${(ci * 0.37 + i * 0.8) % 5}s`, ["--slot" as string]: i }} />
+                  <i key={i} className={"bl-block" + (done ? (i < fill ? " on" : " off") : "")} style={{ gridRow: SLOTS - i, ...(done ? {} : { animationDelay: `${(ci * 0.6 + i * 0.9) % 5.4}s` }) }} />
                 ))}
               </div>
               <div className="bl-num num">{done ? <Ticker value={n} /> : "..."}</div>
