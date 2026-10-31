@@ -1,24 +1,26 @@
 import { Nav } from "@/components/Nav";
 import { ScoutClient, type Pin } from "@/components/ScoutClient";
-import { allProspects } from "@/lib/store";
-import { readCache } from "@/lib/overpass";
-import { openLateValue } from "@/lib/score";
+import { cacheCounts, placeProspects } from "@/lib/overpass";
+import { getPlace, CHICAGO } from "@/lib/places";
+import { readState } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
-export default async function ScoutPage() {
-  const all = await allProspects();
-  const pins: Pin[] = all.slice(0, 80).map((p) => ({
-    id: p.id, name: p.name, area: p.area, lat: p.lat, lon: p.lon, category: p.category, score: p.score, why: p.why,
-    late: openLateValue(p.openingHours).value >= 85, source: p.source,
+export default async function ScoutPage({ searchParams }: { searchParams: Promise<{ place?: string }> }) {
+  const { place: slug } = await searchParams;
+  const place = (await getPlace(slug ?? "chicago")) ?? CHICAGO;
+  const { list, machines } = await placeProspects(place.slug);
+  const st = await readState();
+  const counts = await cacheCounts(place.slug);
+  const pins: Pin[] = list.slice(0, 200).map(({ prospect: p, scored }) => ({
+    id: p.id, name: p.name, area: p.area, lat: p.lat, lon: p.lon, category: p.category, score: p.score, late: p.late,
+    why: scored.factors.map((f) => f.note).join(". "),
   }));
-  const vend = (await readCache("vending"))?.items ?? [];
-  const existing = vend.map((v) => ({ lat: v.lat, lon: v.lon }));
-  const total = all.length;
+  const ours = st.machines.filter((m) => m.lat !== undefined).map((m) => ({ lat: m.lat!, lon: m.lon! }));
   return (
     <>
       <Nav on="scout" />
-      <ScoutClient pins={pins} existing={existing} ours={[{ lat: 41.8575, lon: -87.6585 }]} total={total} />
+      <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} total={list.length} hasData={Object.values(counts).some((c) => c !== null)} />
     </>
   );
 }

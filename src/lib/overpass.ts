@@ -1,12 +1,12 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { haversineM, scorePlace } from "./score";
-import type { Category, Prospect } from "./types";
-import { CATEGORIES } from "./types";
+import { distM, scorePlace, latestClose } from "./score";
+import type { Bbox, Category, Place, Prospect, Scored, ScoredProspect } from "./types";
+import { ALL_CATEGORIES, CATEGORY_LABEL, VENUE_CATEGORIES } from "./types";
 
 const ENDPOINT = "https://overpass-api.de/api/interpreter";
-const UA = "VendScout/0.1 (local prototype; pac@pacsarcade.org)";
-const CACHE_DIR = path.join(process.cwd(), "data", "cache");
+const UA = "VendScout/0.2 (local prototype; pac@pacsarcade.org)";
+const CACHE_ROOT = path.join(process.cwd(), "data", "cache");
 const DAY = 24 * 60 * 60 * 1000;
 
 const FILTER: Record<Category, string> = {
@@ -15,23 +15,25 @@ const FILTER: Record<Category, string> = {
   car_wash: "amenity=car_wash",
   car_repair: "shop=car_repair",
   vending: "amenity=vending_machine",
+  convenience: "shop=convenience",
+  fast_food: "amenity=fast_food",
 };
 
 export interface OsmElement { id: number; type: string; lat: number; lon: number; name?: string; opening_hours?: string; street?: string }
 interface CacheFile { fetchedAt: number; items: OsmElement[] }
 
-const file = (c: Category) => path.join(CACHE_DIR, `overpass-${c}.json`);
+const file = (slug: string, c: Category) => path.join(CACHE_ROOT, slug, `overpass-${c}.json`);
 
-export async function readCache(c: Category): Promise<CacheFile | null> {
+export async function readCache(slug: string, c: Category): Promise<CacheFile | null> {
   try {
-    return JSON.parse(await fs.readFile(file(c), "utf8")) as CacheFile;
+    return JSON.parse(await fs.readFile(file(slug, c), "utf8")) as CacheFile;
   } catch {
     return null;
   }
 }
 
-async function liveQuery(c: Category): Promise<OsmElement[]> {
-  const q = `[out:json][timeout:60];area["name"="Chicago"]["boundary"="administrative"]->.a;nwr[${FILTER[c]}](area.a);out center tags;`;
+async function liveQuery(c: Category, b: Bbox): Promise<OsmElement[]> {
+  const q = `[out:json][timeout:60];nwr[${FILTER[c]}](${b.south},${b.west},${b.north},${b.east});out center tags;`;
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" },
@@ -47,56 +49,83 @@ async function liveQuery(c: Category): Promise<OsmElement[]> {
       if (lat === undefined || lon === undefined) return null;
       const t = e.tags ?? {};
       const street = [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" ");
-      const el: OsmElement = { id: e.id, type: e.type, lat, lon, name: t.name, opening_hours: t.opening_hours, street: street || undefined };
-      return el;
+      return { id: e.id, type: e.type, lat, lon, name: t.name, opening_hours: t.opening_hours, street: street || undefined };
     })
     .filter((x): x is OsmElement => x !== null);
 }
 
-/** Returns cached items. Goes live only if the cache is older than a day (or missing) and refresh is allowed. */
-export async function getCategory(c: Category, allowLive: boolean): Promise<{ items: OsmElement[]; fetchedAt: number | null; live: boolean; error?: string }> {
-  const cached = await readCache(c);
+/** Cached items. Goes live only when allowed and the cache is missing or older than a day (one live query per category per day). */
+export async function getCategory(place: Place, c: Category, allowLive: boolean) {
+  const cached = await readCache(place.slug, c);
   const fresh = cached && Date.now() - cached.fetchedAt < DAY;
-  if (fresh || !allowLive) return { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? null, live: false };
+  if (fresh || !allowLive) return { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? null, live: false, error: undefined as string | undefined };
   try {
-    const items = await liveQuery(c);
-    await fs.mkdir(CACHE_DIR, { recursive: true });
+    const items = await liveQuery(c, place.bbox);
+    await fs.mkdir(path.join(CACHE_ROOT, place.slug), { recursive: true });
     const data: CacheFile = { fetchedAt: Date.now(), items };
-    await fs.writeFile(file(c), JSON.stringify(data));
-    return { items, fetchedAt: data.fetchedAt, live: true };
+    await fs.writeFile(file(place.slug, c), JSON.stringify(data));
+    return { items, fetchedAt: data.fetchedAt, live: false || true, error: undefined as string | undefined };
   } catch (e) {
     return { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? null, live: false, error: String(e) };
   }
 }
 
-export async function osmProspects(limit = 400): Promise<{ prospects: (Prospect & { score: number })[]; machines: { lat: number; lon: number }[] }> {
-  const machines = (await readCache("vending"))?.items ?? [];
-  const out: (Prospect & { score: number })[] = [];
-  for (const c of CATEGORIES) {
-    if (c === "vending") continue;
-    const cache = await readCache(c);
-    for (const e of cache?.items ?? []) {
+export async function cacheCounts(slug: string) {
+  const out: Record<string, number | null> = {};
+  for (const c of ALL_CATEGORIES) out[c] = (await readCache(slug, c))?.items.length ?? null;
+  return out;
+}
+
+export interface Detailed { prospect: ScoredProspect; scored: Scored }
+
+export async function placeProspects(slug: string): Promise<{ list: Detailed[]; machines: { lat: number; lon: number }[] }> {
+  const read = async (c: Category) => (await readCache(slug, c))?.items ?? [];
+  const machines = await read("vending");
+  const food = [...(await read("convenience")), ...(await read("fast_food"))];
+  const venues = new Map<string, OsmElement[]>();
+  for (const c of VENUE_CATEGORIES) venues.set(c, await read(c));
+  const list: Detailed[] = [];
+  for (const c of VENUE_CATEGORIES) {
+    const items = venues.get(c) ?? [];
+    for (const e of items) {
+      const pt: [number, number] = [e.lat, e.lon];
       let nearest: number | null = null;
       for (const m of machines) {
-        const d = haversineM([e.lat, e.lon], [m.lat, m.lon]);
+        const d = distM(pt, [m.lat, m.lon]);
         if (nearest === null || d < nearest) nearest = d;
       }
+      let same = 0;
+      for (const o of items) if (o !== e && Math.abs(o.lat - e.lat) < 0.005 && distM(pt, [o.lat, o.lon]) <= 400) same++;
+      let foodLate = 0;
+      for (const f of food) {
+        if (Math.abs(f.lat - e.lat) > 0.005) continue;
+        if (distM(pt, [f.lat, f.lon]) > 400) continue;
+        const close = latestClose(f.opening_hours);
+        foodLate += close === null ? 0.5 : close >= 22 * 60 ? 1 : 0;
+      }
+      const scored = scorePlace({ category: c, openingHours: e.opening_hours, hasName: !!e.name, hasAddress: !!e.street, nearestMachineM: nearest, sameNear: same, foodLateNear: foodLate });
       const p: Prospect = {
         id: `osm-${e.type[0]}${e.id}`,
-        name: e.name ?? `${c === "laundry" ? "Laundromat" : c === "gym" ? "Gym" : c === "car_wash" ? "Car wash" : "Auto shop"} (unnamed)`,
-        area: e.street ?? "Chicago",
-        lat: e.lat,
-        lon: e.lon,
-        category: c,
-        openingHours: e.opening_hours,
-        nearestMachineM: nearest,
-        why: "From OpenStreetMap. Not visited yet.",
-        stage: "Found",
-        source: "osm",
+        name: e.name ?? `${CATEGORY_LABEL[c]} (unnamed)`,
+        area: e.street ?? "No address on the map",
+        lat: e.lat, lon: e.lon, category: c, openingHours: e.opening_hours, placeSlug: slug,
       };
-      out.push({ ...p, score: scorePlace(p).score });
+      const late = (latestClose(e.opening_hours) ?? 0) >= 22 * 60;
+      list.push({ prospect: { ...p, score: scored.score, late }, scored });
     }
   }
-  out.sort((a, b) => b.score - a.score);
-  return { prospects: out.slice(0, limit), machines };
+  list.sort((a, b) => b.prospect.score - a.prospect.score);
+  return { list, machines };
+}
+
+export async function findProspect(id: string): Promise<Detailed | null> {
+  let dirs: string[] = [];
+  try { dirs = await fs.readdir(CACHE_ROOT); } catch { return null; }
+  for (const d of dirs) {
+    if (d.endsWith(".json")) continue;
+    const { list } = await placeProspects(d);
+    const hit = list.find((x) => x.prospect.id === id);
+    if (hit) return hit;
+  }
+  return null;
 }

@@ -4,3 +4,4 @@ next-env.d.ts
 data/cache
 data/state.json
 *.log
+data/state.seed.json

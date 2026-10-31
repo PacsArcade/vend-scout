@@ -1,30 +1,23 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ActionButton, ActionForm, PrintButton } from "./Actions";
 import { STAGES, type Stage } from "@/lib/types";
 
-export function ProspectActions({ id, stage }: { id: string; stage: Stage }) {
-  const router = useRouter();
+export function ProspectActions({ id, stage }: { id: string; stage: Stage | null }) {
   const [adding, setAdding] = useState(false);
-  const [text, setText] = useState("");
-  const next = STAGES[Math.min(STAGES.length - 1, STAGES.indexOf(stage) + 1)];
-  async function post(body: object) {
-    await fetch(`/api/prospect/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    router.refresh();
-  }
+  const cur = stage ? STAGES.indexOf(stage) : -1;
+  const next = STAGES[Math.min(STAGES.length - 1, cur + 1)];
   return (
     <div className="noprint">
       <div className="actions">
-        <button className="btn gild" onClick={() => window.print()}>Print pitch sheet</button>
-        <button className="btn" disabled={stage === next} onClick={() => post({ stage: next })}>{stage === next ? "Placed" : `Mark as ${next}`}</button>
-        <button className="btn" onClick={() => setAdding(!adding)}>Add a note</button>
+        <PrintButton label="Print pitch sheet" />
+        {stage === null && <ActionButton label="Track this place" payload={{ action: "stage", id, stage: "Found" }} />}
+        {stage !== null && cur < STAGES.length - 1 && <ActionButton label={`Mark as ${next}`} payload={{ action: "stage", id, stage: next }} />}
+        <button className="btn" onClick={() => setAdding(!adding)}>{adding ? "Close note" : "Add a note"}</button>
+        <Link className="btn" href={`/machines/new?prospect=${encodeURIComponent(id)}`}>Place a machine here</Link>
       </div>
-      {adding && (
-        <form className="noteform" onSubmit={async (e) => { e.preventDefault(); if (text.trim()) { await post({ note: text }); setText(""); setAdding(false); } }}>
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="What happened?" aria-label="Note" maxLength={500} />
-          <button className="btn gild" type="submit">Save note</button>
-        </form>
-      )}
+      {adding && <ActionForm action="note" extra={{ id }} fields={[{ name: "text", label: "Note", placeholder: "What happened?", wide: true }]} submit="Save note" doneText="Note saved." />}
     </div>
   );
 }
