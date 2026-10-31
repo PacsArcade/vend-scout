@@ -41,7 +41,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <Nav on="admin" />
       <main className="page wide-page">
         <h1>Admin</h1>
-        <div className="strip">{strip.map(([k, v]) => <div key={k} className="glass kpi"><span className="muted">{k}</span><div className="v num">{v}</div></div>)}</div>
+        <div className="strip strip5">{strip.map(([k, v]) => <div key={k} className="glass kpi"><span className="muted">{k}</span><div className="v num">{v}</div></div>)}</div>
         <CityFilter cities={places.map((p) => ({ slug: p.slug, name: p.name }))} current={city} />
         <div className="admboard">
           <section className="glass card">

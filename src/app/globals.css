@@ -337,4 +337,4 @@ details.edit summary::-webkit-details-marker{display:none}
 .phoneclock{margin:-8px 0 14px;font-size:12px;color:var(--gild)}
 .phoneclock .stamp{font-size:11px}
 .strip>.kpi:last-child:nth-child(odd){grid-column:1/-1}
-@media (min-width:1000px){.strip{grid-template-columns:repeat(5,minmax(0,1fr))}.strip>.kpi:last-child:nth-child(odd){grid-column:auto}}
+@media (min-width:1000px){.strip5{grid-template-columns:repeat(5,minmax(0,1fr))}.strip5>.kpi:last-child:nth-child(odd){grid-column:auto}}
