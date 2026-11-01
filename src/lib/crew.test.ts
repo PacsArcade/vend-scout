@@ -55,8 +55,8 @@ describe("crew flow", () => {
 });
 
 describe("pay", () => {
-  it("turns $21 an hour into sats per job at the test rate", () => {
-    expect(satsFor("restock", 1000)).toBe(7000);
+  it("pays the starting rates: $16 per stop flat, $21 an hour for jobs not yet ruled", () => {
+    expect(satsFor("restock", 1000)).toBe(16000); // starting rate, $16 per stop
     expect(satsFor("tech", 1000)).toBe(15750);
     expect(JOB_MINUTES.restock).toBe(20);
   });

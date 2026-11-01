@@ -463,3 +463,4 @@ html,body{max-width:100%;overflow-x:clip}
 .searchrow input{flex:1 1 110px}
 .searchrow .statepick{flex:0 0 120px;min-width:0;padding:0 12px}
 @media (max-width:520px){.searchrow input{flex:1 1 100%}.searchrow .statepick{flex:1 1 0}}
+.margin .total td{border-top:1px solid var(--line);padding-top:8px}

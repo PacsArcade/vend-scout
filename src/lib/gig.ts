@@ -1,9 +1,10 @@
-// Gig settings. Test values. Edit here. Modeled on what DoorDash and Dasher help pages describe:
+import { CREDIT_SHARE, CREDIT_VERIFY } from "./rates";
+// Gig settings. Pay rates live in rates.ts (starting rates). The rest are test values. Edit here. Modeled on what DoorDash and Dasher help pages describe:
 // pay shown before you accept, a bonus in busy zones, first look for new workers, scheduled blocks.
 export const GIG = {
   cellDeg: 0.03, // a busy "zone" is a grid cell about 3 km wide
   busyMinJobs: 3, // open jobs in one zone before the bonus shows
-  busyBonusSats: 1000, // test value
+  busyBonusSats: 1000, // stays at 1000 sats (the Admiral kept it, block 974,071)
   welcomeJobs: 10, // a new worker's first jobs
   welcomeKm: 5, // first look on offers this close to a new worker
   blockKm: 25, // a scheduled block covers jobs this close to its city
@@ -49,5 +50,6 @@ export const BONUS_TIERS_TEST = [
 ];
 
 // VENDING MACHINE CREDITS. Earned by neighbors who verify a machine or share it, spent at our machines.
-// Not money, not sats, never paid out in cash. TEST values. Once per machine per day per npub for each kind.
-export const CREDITS = { verify: 10, share: 5, test: true };
+// Not money, not sats, never paid out in cash. Once per machine per day per npub for each kind.
+// Half an item per photo verify, a quarter item per share (1 item = 20 credits). Per machine, at most 3% of net sales a month. See rates.ts.
+export const CREDITS = { verify: CREDIT_VERIFY, share: CREDIT_SHARE, test: false };

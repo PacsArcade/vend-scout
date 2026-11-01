@@ -57,7 +57,7 @@ describe("wallet-only listing and jobs", () => {
     expect((await perform({ action: "claimJob", job: "restock:m1", kind: "restock", title: "t", by: ap.id! })).ok).toBe(true);
     expect((await perform({ action: "claimJob", job: "restock:m1", kind: "restock", title: "t", by: ap.id! })).ok).toBe(false);
     const c = (await readState()).claims[0];
-    expect(c.sats).toBe(7000);
+    expect(c.sats).toBe(16000);
     expect((await readState()).claims[0].doneAt).toBeUndefined(); // not done until a proof is approved
   });
 });

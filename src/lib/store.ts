@@ -14,6 +14,7 @@ import { ILLINOIS } from "./places";
 import { payout } from "./payout";
 import type { CreditEntry, DmRecord, ItemRequest, MachineReport, NeighborVerify } from "./types";
 import { CREDITS } from "./gig";
+import { cleanHostPct, creditCapCredits, netOf } from "./rates";
 import type { ScoutAward, ScoutCheck, Inside, MachineState } from "./types";
 import { INSIDE_LABEL, MACHINE_STATES } from "./types";
 import { scoutAward } from "./arcade";
@@ -180,7 +181,7 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       if (!a.prospectId) return { ok: false, error: "Pick the place that hosts it. A machine is placed at a prospect." };
       const p = await findProspect(a.prospectId);
       if (!p) return { ok: false, error: "That place is not in the scan data. Track it from the map first." };
-      Object.assign(m, { status: "Placed", prospectId: a.prospectId, hostName: p.prospect.name, hostSharePct: int(a.hostSharePct, 0, 50), lat: p.prospect.lat, lon: p.prospect.lon, placedAt: today(), h });
+      Object.assign(m, { status: "Placed", prospectId: a.prospectId, hostName: p.prospect.name, hostSharePct: cleanHostPct(Number(a.hostSharePct)), lat: p.prospect.lat, lon: p.prospect.lon, placedAt: today(), h });
       st.tracked[a.prospectId] = "Placed";
       break;
     }
@@ -308,9 +309,9 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       if (st.verifies.some((v) => v.proof === proof.id && v.npub === hex)) return { ok: false, error: "You already verified this photo", note: "Thank you. Your check is on the job." };
       st.verifies.push({ id: `v${++st.counter}`, proof: proof.id, machine: a.machine, npub: hex, at: nowIso(), h });
       // Credits: once per machine per day per npub. A verify is extra evidence on the job. It never approves or pays anything.
-      const got = grantCredits(st, hex, "verify", a.machine, CREDITS.verify, h);
+      const r = grantCreditsResult(st, hex, "verify", a.machine, CREDITS.verify, h);
       await write(st);
-      return { ok: true, note: got ? `Thank you. +${CREDITS.verify} vending machine credits.` : "Thank you. You already earned credits for this machine today.", id: proof.id };
+      return { ok: true, note: r === "given" ? `Thank you. +${CREDITS.verify} vending machine credits.` : r === "full" ? CREDITS_FULL_NOTE : "Thank you. You already earned credits for this machine today.", id: proof.id };
     }
     case "neighborReport": {
       const hex = str(a.npub, 80), reason = str(a.reason, 60), text = str(a.text, 500);
@@ -332,9 +333,9 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       const hex = str(a.npub, 80);
       if (!/^[0-9a-f]{64}$/.test(hex)) return { ok: false, error: "Sign in with nostr first" };
       if (!machine(a.machine)) return { ok: false, error: "No such machine" };
-      const got = grantCredits(st, hex, "share", a.machine, CREDITS.share, h);
+      const r = grantCreditsResult(st, hex, "share", a.machine, CREDITS.share, h);
       await write(st);
-      return { ok: true, note: got ? `Thank you for sharing. +${CREDITS.share} vending machine credits.` : "Thank you for sharing. Credits for this machine are once a day." };
+      return { ok: true, note: r === "given" ? `Thank you for sharing. +${CREDITS.share} vending machine credits.` : r === "full" ? CREDITS_FULL_NOTE : "Thank you for sharing. Credits for this machine are once a day." };
     }
     case "spendCredits": {
       const raw = str(a.npub, 100), hex = raw.startsWith("npub1") ? (npubToHex(raw) ?? "") : raw, amt = int(a.amount, 1, 1_000_000);
@@ -633,11 +634,38 @@ async function payCrew(st: State, by: string, sats: number, reason: string, job:
 }
 
 
-/** Credits for one npub: once per machine per day for each kind. Returns true when credits were given. */
-export function grantCredits(st: State, npub: string, kind: "verify" | "share", machine: string, amount: number, h?: number): boolean {
+export const CREDITS_FULL_NOTE = "Thank you. Credits for this machine are full this month.";
+
+/** Sales this month (UTC) for one machine, in sats: gross, and the average item price (0 when nothing sold). */
+export function monthSales(st: State, machine: string, now = new Date()) {
+  const ym = now.toISOString().slice(0, 7);
+  const mine = st.sales.filter((s) => s.machine === machine && s.at.slice(0, 7) === ym);
+  const gross = mine.reduce((a, s) => a + s.sats, 0);
+  return { gross, count: mine.length, avgItem: mine.length ? gross / mine.length : 0 };
+}
+/** Credits already given for this machine this month (verify and share, not spends). */
+export function creditsGivenThisMonth(st: State, machine: string, now = new Date()): number {
+  const ym = now.toISOString().slice(0, 7);
+  return st.creditLog.filter((c) => c.machine === machine && c.amount > 0 && (c.kind === "verify" || c.kind === "share") && c.day.slice(0, 7) === ym).reduce((a, c) => a + c.amount, 0);
+}
+/**
+ * The 3% cap. A machine with sales this month gives out at most 3% of its net sales in credits, at retail value.
+ * A machine with NO sales logged yet is not capped (there is nothing to take 3% of; the once-a-day rule still limits it).
+ */
+export function creditsFull(st: State, machine: string, amount: number, now = new Date()): boolean {
+  const s = monthSales(st, machine, now);
+  if (s.count === 0) return false;
+  return creditsGivenThisMonth(st, machine, now) + amount > creditCapCredits(netOf(s.gross), s.avgItem);
+}
+
+/** Credits for one npub: once per machine per day for each kind, and never past the machine's monthly 3% cap. "full" still lets the verify or share count. */
+export function grantCreditsResult(st: State, npub: string, kind: "verify" | "share", machine: string, amount: number, h?: number): "given" | "today" | "full" {
   const day = new Date().toISOString().slice(0, 10);
-  if (st.creditLog.some((c) => c.npub === npub && c.kind === kind && c.machine === machine && c.day === day)) return false;
+  if (st.creditLog.some((c) => c.npub === npub && c.kind === kind && c.machine === machine && c.day === day)) return "today";
+  if (creditsFull(st, machine, amount)) return "full";
   st.creditLog.push({ npub, kind, machine, day, amount, at: new Date().toISOString(), h });
   st.credits[npub] = (st.credits[npub] ?? 0) + amount;
-  return true;
+  return "given";
 }
+/** Same, as a plain yes or no: true when credits were given. */
+export const grantCredits = (st: State, npub: string, kind: "verify" | "share", machine: string, amount: number, h?: number): boolean => grantCreditsResult(st, npub, kind, machine, amount, h) === "given";

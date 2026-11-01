@@ -9,7 +9,8 @@ import { feed } from "@/lib/stockFeed";
 import { TELEMETRY_LABEL } from "@/lib/types";
 import { SHARE_TAGS } from "@/lib/social";
 import { typeLabel } from "@/lib/machineTypes";
-import { getVotes, localSlots, readState, salesSummary } from "@/lib/store";
+import { creditsGivenThisMonth, getVotes, localSlots, monthSales, readState, salesSummary } from "@/lib/store";
+import { fmtUsd, margin, scoutDay60Sats, netOf } from "@/lib/rates";
 import { sats } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,12 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
   const byItem = new Map<string, number>();
   for (const s of st.sales.filter((x) => x.machine === id)) byItem.set(s.item, (byItem.get(s.item) ?? 0) + 1);
   const owed = Math.round((sum.total * m.hostSharePct) / 100);
+  // Operator money desk only: dollars are allowed here (this page is behind the operator gate). Public and crew pages never show them.
+  const ms = monthSales(st, id);
+  const crewSats = st.payouts.filter((p) => p.at.slice(0, 7) === new Date().toISOString().slice(0, 7) && !!p.job && (p.job === `restock:${id}` || p.job.endsWith(`:${id}`))).reduce((a, p) => a + p.sats, 0);
+  const mg = ms.count > 0 ? margin({ grossSats: ms.gross, hostPct: m.hostSharePct, crewSats, creditsGiven: creditsGivenThisMonth(st, id), avgItemSats: ms.avgItem }) : null;
+  const day60 = m.status === "Placed" && m.placedAt ? scoutDay60Sats(m.placedAt, netOf(ms.gross)) : 0;
+  const usd = fmtUsd;
   const none = m.slots.length === 0 && locals.length === 0;
   const mreq = st.itemRequests.filter((r) => r.machine === m.id).slice(-10).reverse();
   const mrep = st.reports.filter((r) => r.machine === m.id).slice(-10).reverse();
@@ -73,6 +80,24 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
             <div className="glass kpi"><span className="muted">This week</span><div className="v">{sats(sum.week)}</div></div>
             <div className="glass kpi"><span className="muted">Slots stocked</span><div className="v">{stocked}</div></div>
             <div className="glass kpi"><span className="muted">Host share owed</span><div className="v">{sats(owed)}</div></div>
+          </div>
+          <div className="glass card margin">
+            <h2>This month&apos;s margin</h2>
+            {!mg ? <p className="muted">No sales logged yet.</p> : (
+              <table>
+                <tbody>
+                  <tr><td>Net sales</td><td className="r num">{usd(mg.netUsd)}</td></tr>
+                  <tr><td>Product cost (45%)</td><td className="r num">{usd(-mg.productUsd)}</td></tr>
+                  <tr><td>Host cut ({m.hostSharePct}%)</td><td className="r num">{usd(-mg.hostUsd)}</td></tr>
+                  <tr><td>Card fees</td><td className="r num">{usd(-mg.cardUsd)}</td></tr>
+                  <tr><td>Crew pay</td><td className="r num">{usd(-mg.crewUsd)}</td></tr>
+                  <tr><td>Credits given (retail)</td><td className="r num">{usd(-mg.creditsUsd)}</td></tr>
+                  <tr className="total"><td><b>What is left</b></td><td className="r num"><b>{usd(mg.leftUsd)}</b></td></tr>
+                </tbody>
+              </table>
+            )}
+            {day60 > 0 && <p className="muted small" style={{ marginTop: 10 }}>The Place Scout day 60 bonus is due: {sats(day60)}.</p>}
+            <p className="muted small" style={{ marginTop: 10 }}>Operator only. Card fees assume 70% card sales and sales tax of 6%. Lightning fees count as nothing.</p>
           </div>
           <div className="glass card">
             <h2>What sold</h2>

@@ -64,7 +64,7 @@ export function PlaceForm({ inventory, places, chosenPlace, lockedPlace }: { inv
         )}
         <Link className="btn" href="/scout">Track a new place</Link>
       </fieldset>}
-      <label><span>Host share (%)</span><input type="number" min={0} max={50} value={share} onChange={(e) => setShare(Number(e.target.value))} required /></label>
+      <label><span>Host share of net sales</span><select value={share} onChange={(e) => setShare(Number(e.target.value))}><option value={10}>10% (standard)</option><option value={12}>12% (top spot)</option></select></label>
       <div className="formfoot">
         <button className="btn gild" type="submit" disabled={busy}>{lockedPlace ? "Confirm placing it here" : "Place machine"}</button>
         {err && <span className="err" role="alert">{err}</span>}

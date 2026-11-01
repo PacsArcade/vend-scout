@@ -1,4 +1,5 @@
 import type { CrewRole } from "./types";
+import { RATES } from "./rates";
 
 // Copy from JOBS.md, word for word. Public text: no em dashes.
 export const SHARED_LINE = "Work for yourself, with a crew behind you. Every machine we place connects a neighborhood: a place to grab a snack, a shelf for the farm down the road, a first sats payment for someone who never tried bitcoin. Be the one who builds that bridge.";
@@ -21,5 +22,9 @@ export const CONTRACTOR_NOTE = "Crew work as independent contractors. Rules diff
 // Estimated minutes per job. Edit here.
 export const JOB_MINUTES = { restock: 20, scout: 30, shelf: 25, tech: 45 } as const;
 export const ROLE_JOB: Record<CrewRole, keyof typeof JOB_MINUTES> = { runner: "restock", scout: "scout", keeper: "shelf", tech: "tech" };
-export const JOB_NOUN: Record<keyof typeof JOB_MINUTES, string> = { restock: "restock stop", scout: "scout pitch", shelf: "shelf pickup", tech: "tech job" };
-export const satsFor = (job: keyof typeof JOB_MINUTES, satsPerUsd: number) => Math.round((PAY_TERMS.targetUsdPerHour * JOB_MINUTES[job] * satsPerUsd) / 60);
+export const JOB_NOUN: Record<keyof typeof JOB_MINUTES, string> = { restock: "restock stop", scout: "machine placed", shelf: "shelf pickup", tech: "tech job" };
+// Route Runner stop and Place Scout placement are flat starting rates (rates.ts). Shelf pickups and tech jobs are not ruled yet, so they keep the hourly figure.
+export const satsFor = (job: keyof typeof JOB_MINUTES, satsPerUsd: number) =>
+  job === "restock" ? Math.round(RATES.runnerPerStopUsd * satsPerUsd)
+  : job === "scout" ? Math.round(RATES.scoutPlacedUsd * satsPerUsd)
+  : Math.round((PAY_TERMS.targetUsdPerHour * JOB_MINUTES[job] * satsPerUsd) / 60);
