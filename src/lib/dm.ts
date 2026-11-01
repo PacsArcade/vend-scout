@@ -18,10 +18,10 @@ export function senderKey(): Uint8Array | null {
   return null;
 }
 
-export function welcomeText(o: { name: string; jobTitle?: string; sats?: number; url: string }): string {
+export function welcomeText(o: { name: string; jobTitle?: string; sats?: number; url: string; crewHandle?: string }): string {
   const first = o.name.trim().split(/\s+/)[0] || "there";
   const job = o.jobTitle ? `Your first open job is ready: ${o.jobTitle}. Photo proof, then your sats land after it is checked.${o.sats ? ` Pay ${o.sats.toLocaleString("en-US")} sats (test).` : ""}` : "No job is open right now. We will message you when one is.";
-  return `Welcome to the Vend Scout crew, ${first}. You signed in with nostr, so we are saying hello here and not by email. Your jobs are here: ${o.url} ${job}`;
+  return `Welcome to the Vend Scout crew, ${first}. You signed in with nostr, so we are saying hello here and not by email. Your jobs are here: ${o.url} ${job}${o.crewHandle ? ` Your crew name is ${o.crewHandle}.` : ""}`;
 }
 
 /** Publish an event to a few public relays. Returns how many accepted it. Short timeout. Never throws. */

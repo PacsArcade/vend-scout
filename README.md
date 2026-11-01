@@ -3,6 +3,7 @@
 Scouting vending-machine spots, running machines and a crew, for frens.earth (a Pac's Arcade project). Next.js, runs on Vercel.
 
 - Setup, env names and what is public: see `DEPLOY.md`.
+- Working from a laptop (clone, run, test, rebuild the place data): see `docs/LAPTOP.md`.
 - Place data: our own copy of OpenStreetMap for Illinois, built on a home box by `scripts/osm-build` (`npm run osm:refresh`) and kept in `data-osm/`. Other places are asked of Overpass.
 
 ## Attribution

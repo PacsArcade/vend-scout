@@ -464,3 +464,8 @@ html,body{max-width:100%;overflow-x:clip}
 .searchrow .statepick{flex:0 0 120px;min-width:0;padding:0 12px}
 @media (max-width:520px){.searchrow input{flex:1 1 100%}.searchrow .statepick{flex:1 1 0}}
 .margin .total td{border-top:1px solid var(--line);padding-top:8px}
+/* round 17: crew name step on the applicant card */
+.crewname{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.namestate b{font-weight:600}
+.namestate.bad b{color:var(--bad)}
+.namestate.warn b{color:var(--warn)}

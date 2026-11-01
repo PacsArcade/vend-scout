@@ -23,6 +23,9 @@ Names only. Never put values in this file or in the repo.
 | `OLLAMA_URL` | Address of an Ollama server for the photo checker. Leave it unset on Vercel (the checker is skipped with the reason "AI checker runs on the home box"). Set it only on the home box, for example when running the app there. |
 | `VEND_AI_MODEL` | Model name for the checker. Default `gemma3:12b`. |
 | `VEND_REQUIRE_OPERATOR` | Set to `1` to turn the operator gate on outside Vercel (for a home-box trial of the live behaviour). |
+| `FRENS_SUBNAME_SECRET_VEND` | Shared secret for seating crew names (`<name>.vend@frens`) through frens.earth. Must be the same value on this project and on the frens.earth project. Server only, never shown or logged. Unset means the crew name step shows "Crew names are off". |
+| `FRENS_API_BASE` | Override for the frens.earth origin the crew name call goes to. Default `https://frens.earth`. |
+| `VEND_PRICE` | Set to `off` (tests and offline dev) to skip the price lookup and use the fixed sats per dollar. |
 
 ## Dev and test only (never set on Vercel)
 `VEND_STATE_FILE` (use a local JSON file instead of Blob), `VEND_DEMO_CLOCK` (the clock demo switch), `VEND_DEMO_DM` (shows the welcome card for screenshots), `VEND_DEMO_DROP` (replays saved pins dropping in, for screenshots), `VEND_FORCE_NO_STORAGE` (pretends storage is missing, for screenshots), `VEND_AI_CHECK` (set `off` to stop the background checker).

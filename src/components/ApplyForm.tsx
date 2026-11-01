@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MiniMap } from "./MiniMap";
 import { CREW_ROLES, TRANSPORT, type CrewRole } from "@/lib/types";
 import { ROLE_COPY } from "@/lib/crew";
+import { NAME_RULES, handleOf, slugCrewName } from "@/lib/crewname";
 
 export function ApplyForm({ initialRole, center }: { initialRole?: CrewRole; center: [number, number] }) {
   const [roles, setRoles] = useState<CrewRole[]>(initialRole ? [initialRole] : []);
@@ -12,6 +13,8 @@ export function ApplyForm({ initialRole, center }: { initialRole?: CrewRole; cen
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pick, setPick] = useState("");
+  const slug = slugCrewName(pick);
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -20,7 +23,7 @@ export function ApplyForm({ initialRole, center }: { initialRole?: CrewRole; cen
     setBusy(true); setErr("");
     try {
       const r = await fetch("/api/do", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        action: "apply", hp: fd.get("website"), npub: fd.get("npub"), name: fd.get("name"), reach: fd.get("reach"), area: fd.get("area"), lat: pin?.lat, lon: pin?.lon,
+        action: "apply", hp: fd.get("website"), npub: fd.get("npub"), crewName: pick, name: fd.get("name"), reach: fd.get("reach"), area: fd.get("area"), lat: pin?.lat, lon: pin?.lon,
         roles, transport, hours: fd.get("hours"), why: fd.get("why"), lightning: fd.get("lightning"),
       }) });
       const j = (await r.json()) as { ok: boolean; error?: string };
@@ -63,6 +66,8 @@ export function ApplyForm({ initialRole, center }: { initialRole?: CrewRole; cen
       <label className="wide"><span>Hours you like</span><input name="hours" maxLength={120} placeholder="Early mornings, weekends" /></label>
       <label className="wide"><span>Why this?</span><textarea name="why" rows={4} maxLength={1000} /></label>
       <label className="wide"><span>Your nostr npub (optional, lets you sign in to the crew pages)</span><input name="npub" maxLength={100} placeholder="npub1..." /></label>
+      <label className="wide"><span>Pick your crew name</span><input value={pick} onChange={(e) => setPick(e.target.value)} maxLength={40} placeholder="maria" aria-describedby="crewname-help" autoComplete="off" /></label>
+      <p id="crewname-help" className="hint wide">{NAME_RULES} It becomes your name on frens.earth once you join the crew and have an npub. <span className="num" role="status">{slug.length >= 3 ? `You would be ${handleOf(slug)}` : "Type a name to see it."}</span></p>
       <label className="wide"><span>Lightning address (optional, where your pay would go)</span><input name="lightning" maxLength={120} placeholder="you@wallet.example" /></label>
       <p className="hint wide">We will never ask for your seed words or keys.</p>
       <p className="hint wide">We only use this to talk with you about the crew.</p>

@@ -1,16 +1,17 @@
 "use client";
 import { useState } from "react";
-import { ActionForm } from "./Actions";
+import { ActionButton, ActionForm } from "./Actions";
 import { MiniMap, type MapPoint } from "./MiniMap";
 import { APPLICANT_STAGES, CREW_ROLES, type ApplicantStage, type CrewRole } from "@/lib/types";
 import { ROLE_COPY } from "@/lib/crew";
+import { ANCHORED_LINE, NAME_RULES, OFF_LINE, handleOf } from "@/lib/crewname";
 
 export interface ApplicantView {
   id: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string;
-  stage: ApplicantStage; npub?: string; stamp: string; notes: { stage: string; text: string; stamp: string }[];
+  stage: ApplicantStage; npub?: string; crewName?: string; nameState?: { status: "seated" | "failed" | "released" | "anchored"; name: string; reason?: string }; stamp: string; notes: { stage: string; text: string; stamp: string }[];
 }
 
-export function ApplicantsBoard({ applicants, machines, center }: { applicants: ApplicantView[]; machines: { id: string; name: string; lat: number; lon: number }[]; center: [number, number] }) {
+export function ApplicantsBoard({ applicants, machines, center, namesOn }: { namesOn: boolean; applicants: ApplicantView[]; machines: { id: string; name: string; lat: number; lon: number }[]; center: [number, number] }) {
   const [role, setRole] = useState("");
   const [area, setArea] = useState("");
   const shown = applicants.filter((a) => (!role || a.roles.includes(role as CrewRole)) && (!area || a.area.toLowerCase().includes(area.toLowerCase())));
@@ -49,6 +50,7 @@ export function ApplicantsBoard({ applicants, machines, center }: { applicants: 
                     {a.hours && <div className="muted">Hours: {a.hours}</div>}
                     {a.why && <div className="muted">&ldquo;{a.why}&rdquo;</div>}
                     <div className="muted small brk">{a.npub ? `npub: ${a.npub.slice(0, 14)}...${a.npub.slice(-6)}` : "No npub linked"}</div>
+                    <CrewNameBlock a={a} namesOn={namesOn} />
                     <div className="muted mono stamp">Applied {a.stamp}</div>
                     {a.notes.map((n, i) => <div key={i} className="stepnote"><span className="muted">{n.stage}</span> · {n.text}<br /><span className="muted mono stamp">{n.stamp}</span></div>)}
                     {!a.npub && <ActionForm action="attachNpub" extra={{ id: a.id }} submit="Link npub" doneText="Linked." fields={[{ name: "npub", label: "Link their npub", placeholder: "npub1..." }]} />}
@@ -64,5 +66,31 @@ export function ApplicantsBoard({ applicants, machines, center }: { applicants: 
         </div>
       )}
     </>
+  );
+}
+
+/** The crew name step. It has its own state and never blocks the crew stage. */
+function CrewNameBlock({ a, namesOn }: { a: ApplicantView; namesOn: boolean }) {
+  const s = a.nameState;
+  const onCrew = a.stage === "On the crew";
+  let line: string, tone = "";
+  if (!namesOn) { line = OFF_LINE; tone = "warn"; }
+  else if (s?.status === "seated") line = `Seated ${handleOf(s.name)}`;
+  else if (s?.status === "anchored") { line = `${handleOf(s.name)}: ${ANCHORED_LINE}`; }
+  else if (s?.status === "released") line = `Released ${handleOf(s.name)}`;
+  else if (s?.status === "failed") { line = `Failed: ${s.reason ?? "unknown"}`; tone = "bad"; }
+  else line = "Not set";
+  return (
+    <div className="crewname" aria-label="Crew name">
+      <div className="muted small">Crew name</div>
+      <div className={"namestate " + tone} role="status"><b>{line}</b></div>
+      {a.crewName && s?.status !== "seated" && <div className="muted small">Pick: {handleOf(a.crewName)}</div>}
+      {namesOn && s?.status !== "seated" && s?.status !== "anchored" && (
+        <ActionForm action="setCrewName" extra={{ id: a.id }} submit={onCrew ? "Save and seat" : "Save name"} doneText="Saved." fields={[{ name: "name", label: "Crew name", value: a.crewName ?? "", placeholder: "maria" }]} />
+      )}
+      {namesOn && onCrew && s?.status === "failed" && a.crewName && <ActionButton label="Try again" payload={{ action: "seatCrewName", id: a.id }} />}
+      {namesOn && !onCrew && s?.status === "seated" && <ActionButton label="Try again" payload={{ action: "releaseCrewName", id: a.id }} />}
+      <p className="muted small">{NAME_RULES}{a.npub ? "" : " A name needs an npub linked first."}</p>
+    </div>
   );
 }

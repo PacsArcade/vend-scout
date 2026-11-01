@@ -17,6 +17,7 @@ import { CREDITS } from "./gig";
 import { RATES, cleanHostPct, creditCapCredits, netOf, usdToSats } from "./rates";
 import { PART_LABEL, scoutRewards, settleScout } from "./scoutpay";
 import { satsPrice } from "./price";
+import { namesOn, releaseSubname, seatSubname, slugCrewName, validCrewName } from "./subname";
 import type { ScoutAward, ScoutCheck, Inside, MachineState } from "./types";
 import { INSIDE_LABEL, MACHINE_STATES } from "./types";
 import { scoutAward } from "./arcade";
@@ -138,8 +139,11 @@ export type Action =
   | { action: "logDm"; to: string; text: string; sent: boolean; reason?: string }
   | { action: "scoutCheck"; id: string; inside: Inside; who: string; state?: MachineState; room: "yes" | "no" | "unsure"; photo?: string; by?: string }
   | { action: "attachNpub"; id: string; npub: string }
-  | { action: "apply"; hp?: string; npub?: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
+  | { action: "apply"; crewName?: string; hp?: string; npub?: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
   | { action: "applicantStep"; id: string; stage: ApplicantStage; note: string }
+  | { action: "setCrewName"; id: string; name: string }
+  | { action: "seatCrewName"; id: string }
+  | { action: "releaseCrewName"; id: string }
   | { action: "createRoute"; name: string; runner?: string; stops: string[] }
   | { action: "routeRunner"; id: string; runner: string }
   | { action: "profile"; machine: string; profile: Partial<MachineProfile> }
@@ -302,7 +306,7 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       if (roles.length === 0) return { ok: false, error: "Pick at least one role" };
       const n = ++st.counter;
       const lat = Number.isFinite(a.lat) ? Number(a.lat) : undefined, lon = Number.isFinite(a.lon) ? Number(a.lon) : undefined;
-      st.applicants.push({ id: `a${n}`, npub, name, reach, area: str(a.area, 80), lat, lon, roles, transport: (a.transport ?? []).filter((t) => (TRANSPORT as readonly string[]).includes(t)), hours: str(a.hours, 120), why, lightning: a.lightning && str(a.lightning, 200) ? validLightning(a.lightning).value : undefined, stage: "Applied", notes: [], createdAt: today(), h });
+      st.applicants.push({ id: `a${n}`, npub, name, reach, area: str(a.area, 80), lat, lon, roles, transport: (a.transport ?? []).filter((t) => (TRANSPORT as readonly string[]).includes(t)), hours: str(a.hours, 120), why, lightning: a.lightning && str(a.lightning, 200) ? validLightning(a.lightning).value : undefined, crewName: (() => { const c = slugCrewName(String((a as { crewName?: string }).crewName ?? "")); return validCrewName(c) ? c : undefined; })(), stage: "Applied", notes: [], createdAt: today(), h });
       await write(st);
       return { ok: true, id: `a${n}` };
     }
@@ -379,10 +383,42 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
     case "applicantStep": {
       const ap = st.applicants.find((x) => x.id === a.id);
       if (!ap || !APPLICANT_STAGES.includes(a.stage)) return { ok: false, error: "No such applicant" };
+      const was = ap.stage;
       ap.stage = a.stage;
       const note = str(a.note, 500);
       ap.notes.push({ stage: a.stage, text: note || "Moved here.", date: today(), h });
+      // The crew name is a separate step. It never blocks or undoes the move: a failure is shown on the card with a retry.
+      if (a.stage === "On the crew" && was !== "On the crew") await seatName(st, ap, h);
+      else if (was === "On the crew" && a.stage !== "On the crew") await releaseName(st, ap, h);
       break;
+    }
+    case "setCrewName": {
+      const ap = st.applicants.find((x) => x.id === a.id);
+      if (!ap) return { ok: false, error: "No such applicant" };
+      const name = slugCrewName(a.name);
+      if (!validCrewName(name)) return { ok: false, error: "A crew name is 3 to 20 letters, numbers or hyphens, with no hyphen at the start or end" };
+      if (ap.crewNameState?.status === "seated" && ap.crewNameState.name !== name) return { ok: false, error: "Release the seated name first by moving them off the crew" };
+      if (st.applicants.some((x) => x.id !== ap.id && x.crewName === name && x.crewNameState?.status !== "released")) return { ok: false, error: "Another applicant already has that pick" };
+      ap.crewName = name;
+      if (ap.crewNameState?.status === "failed") ap.crewNameState = undefined;
+      if (ap.stage === "On the crew" && ap.crewNameState?.status !== "seated") await seatName(st, ap, h); // already on the crew: seat it now
+      break;
+    }
+    case "releaseCrewName": {
+      const ap = st.applicants.find((x) => x.id === a.id);
+      if (!ap || ap.crewNameState?.status !== "seated") return { ok: false, error: "No seated name to release" };
+      if (ap.stage === "On the crew") return { ok: false, error: "Move them off the crew first" };
+      await releaseName(st, ap, h);
+      await write(st);
+      return { ok: ap.crewNameState?.status !== "seated", error: ap.crewNameState?.status === "seated" ? ap.crewNameState.reason : undefined };
+    }
+    case "seatCrewName": {
+      const ap = st.applicants.find((x) => x.id === a.id);
+      if (!ap) return { ok: false, error: "No such applicant" };
+      if (ap.stage !== "On the crew") return { ok: false, error: "Names are seated when someone is On the crew" };
+      await seatName(st, ap, h);
+      await write(st);
+      return { ok: ap.crewNameState?.status === "seated", error: ap.crewNameState?.status === "seated" ? undefined : ap.crewNameState?.reason ?? "Not seated" };
     }
     case "createRoute": {
       const name = str(a.name, 60);
@@ -682,6 +718,28 @@ export function creditCap(st: State, machine: string, now = new Date()): number 
 }
 export function creditsFull(st: State, machine: string, amount: number, now = new Date()): boolean {
   return creditsGivenThisMonth(st, machine, now) + amount > creditCap(st, machine, now);
+}
+
+/** Seat <crewName>.vend for an applicant and record what happened on the card. Never throws, never blocks the caller. */
+export async function seatName(st: State, ap: Applicant, h?: number, f: typeof fetch = fetch): Promise<void> {
+  const at = new Date().toISOString();
+  if (!namesOn()) return; // switched off: the card says so, and nothing is recorded
+  if (!ap.crewName) return; // nothing picked: the card says Not set
+  if (!ap.npub) { ap.crewNameState = { status: "failed", name: ap.crewName, reason: "Link their npub first. A name needs a key to belong to.", at, h }; return; }
+  const hex = npubToHex(ap.npub);
+  if (!hex) { ap.crewNameState = { status: "failed", name: ap.crewName, reason: "Their npub does not look right.", at, h }; return; }
+  const r = await seatSubname(ap.crewName, ap.npub.trim(), f);
+  ap.crewNameState = r.ok ? { status: "seated", name: ap.crewName, at, h } : { status: "failed", name: ap.crewName, reason: r.reason, at, h };
+}
+/** Release the seated name when they leave the crew. If it is anchored on-chain frens refuses, and the name stays theirs. */
+export async function releaseName(st: State, ap: Applicant, h?: number, f: typeof fetch = fetch): Promise<void> {
+  const s = ap.crewNameState;
+  if (!s || s.status !== "seated") return;
+  const at = new Date().toISOString();
+  const r = await releaseSubname(s.name, f);
+  if (r.ok) ap.crewNameState = { status: "released", name: s.name, at, h };
+  else if (r.kind === "anchored") ap.crewNameState = { status: "anchored", name: s.name, reason: r.reason, at, h };
+  else ap.crewNameState = { ...s, reason: `Could not release yet: ${r.reason}`, at, h }; // stays seated, the card offers a retry by moving them again
 }
 
 /** Credits for one npub: once per machine per day for each kind, and never past the machine's monthly 3% cap. "full" still lets the verify or share count. */

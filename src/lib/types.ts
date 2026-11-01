@@ -136,6 +136,8 @@ export interface Applicant {
   stage: ApplicantStage;
   npub?: string; // linked nostr key, for crew sign-in
   leaderboard?: boolean; // opt-in. Default off.
+  crewName?: string; // the pick for <name>.vend@frens, already slugged
+  crewNameState?: { status: "seated" | "failed" | "released" | "anchored"; name: string; reason?: string; at: string; h?: number }; // a separate step from the crew stage
   notes: StepNote[];
   createdAt: string;
   h?: number;
