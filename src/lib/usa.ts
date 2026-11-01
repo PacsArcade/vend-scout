@@ -30,7 +30,7 @@ const raw = async (rel: string): Promise<Buffer | null> => {
   const src = osmSource();
   if (src === "none") return null;
   if (src === "file") {
-    try { return await fs.readFile(path.join(local(), rel.replace(/^osm\//, ""))); } catch { return null; }
+    try { return await fs.readFile(path.join(/*turbopackIgnore: true*/ local(), rel.replace(/^osm\//, ""))); } catch { return null; }
   }
   try {
     // The files are replaced by the nightly refresh, so the index must be read from origin; the big files may use the edge copy.
