@@ -37,3 +37,13 @@ Crew pages (`/work`, `/run`, `/jobs`) need a nostr sign-in (`/crew/signin`) by s
 - The apply rate limit is per server instance (a speed bump). The honeypot and operator review are the other layers.
 - Operator sign-in works with a nostr signer browser extension. Phone signer doors (as on frens.earth) are not ported yet.
 - The first scan of each city is done by an operator ("Scan this place"), which fills the Blob cache.
+
+## USA place data (round 14)
+
+Place data for every state except bundled Illinois is built on the house box and kept in the Blob store, one state at a time.
+
+- Source: Geofabrik `<state>-latest.osm.pbf` files in `osm-source/usa/` (git-ignored), md5 checked. `npm run osm:refresh` follows Geofabrik's 307 redirect to the dated file and records the md5.
+- Build: `npm run osm:build` runs `scripts/osm-build/build-all.py`, one state at a time, into `osm-out/<state>/<kind>.json.gz` (git-ignored) and writes `osm-out/usa-index.json` (counts, sizes and data bounds per state). `--state texas` builds one, `--force` rebuilds.
+- Upload: `npm run osm:upload` (or `-- --state texas`, `-- --force`) sends to the Blob store under `osm/<state>/<kind>.json.gz`, private, overwrite allowed, one week of edge cache, and `osm/usa-index.json` last. Resumable: `osm-out/.uploaded.json` remembers what was sent. The token is read by name from `.env.upload` (git-ignored) and never printed.
+- App: a place outside the bundled Illinois copy is cut from the state file(s) its box touches (Blob with the project's own store connection on Vercel, `osm-out/` locally), cached in memory per instance, and saved as the place's scan cache. Overpass is only the fallback when a state file is missing. `VEND_OSM_SOURCE=blob|file` forces the source (a laptop proof of the Blob copy needs the read-write token in the environment and no `BLOB_STORE_ID`).
+- ODbL: "Place data (c) OpenStreetMap contributors, ODbL." stays on every page that shows the data.

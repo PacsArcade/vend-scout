@@ -8,6 +8,7 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import { BlockLoader, Ticker } from "./BlockLoader";
 import type { Bbox, Category, VenueCategory } from "@/lib/types";
 import { ALL_CATEGORIES } from "@/lib/types";
+import { STATES } from "@/lib/states";
 
 export type { Pin } from "@/lib/pins";
 import type { Pin } from "@/lib/pins";
@@ -39,6 +40,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState("");
+  const [st, setSt] = useState("");
   const [tilesOk, setTilesOk] = useState(true);
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
@@ -163,10 +165,10 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
-    if (!q.trim()) return;
+    if (!q.trim() && !st) return;
     setBusy(true); setStatus("Looking up the place.");
     try {
-      const r = await fetch("/api/place?q=" + encodeURIComponent(q));
+      const r = await fetch("/api/place?q=" + encodeURIComponent(q) + (st ? "&state=" + st : ""));
       const j = (await r.json()) as { ok: boolean; place?: { slug: string }; error?: string };
       if (!j.ok || !j.place) { setStatus(j.error ?? "No place found for that search."); setBusy(false); return; }
       router.push(`/scout?place=${j.place.slug}`);
@@ -293,7 +295,11 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
       </div>
       <div className="glass list">
         <form className="searchrow" onSubmit={search} role="search">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a city or place" aria-label="Search a city or place" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="City or place" aria-label="Search a city or place" />
+          <select value={st} onChange={(e) => setSt(e.target.value)} aria-label="State to search in" className="statepick">
+            <option value="">Any state</option>
+            {STATES.map((s) => <option key={s.slug} value={s.slug}>{s.name}</option>)}
+          </select>
           <button className="btn" type="submit" disabled={busy}>Search</button>
         </form>
         <label className="runpick regionpick"><span>Illinois, Chicago first</span>

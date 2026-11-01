@@ -3,6 +3,7 @@ import { listPlaces } from "./places";
 import { distM, scorePlace, latestClose } from "./score";
 import type { ScoutCheck } from "./types";
 import { bundleMeta, bundledCity, cutState, inIllinois } from "./bundled";
+import { cutUsa, statesFor } from "./usa";
 import type { Bbox, Category, OsmContactTags, Place, Prospect, Scored, ScoredProspect } from "./types";
 import { ALL_CATEGORIES, CATEGORY_LABEL, VENUE_CATEGORIES } from "./types";
 
@@ -24,7 +25,7 @@ const FILTER: Record<Category, string> = {
 export interface OsmElement { id: number; type: string; lat: number; lon: number; name?: string; opening_hours?: string; street?: string; tags?: OsmContactTags }
 // v2 adds contact tags. A v1 file still reads, but counts as stale so the next scan refreshes it.
 const SCHEMA = 2;
-interface CacheFile { v?: number; fetchedAt: number; items: OsmElement[]; src?: "bundle" }
+interface CacheFile { v?: number; fetchedAt: number; items: OsmElement[]; src?: "bundle" | "usa" }
 
 const file = (slug: string, c: Category) => `cache/${slug}/overpass-${c}.json`;
 
@@ -122,7 +123,7 @@ export const unionQueryText = (b: Bbox) => `[out:json][timeout:125];(${LAND_ORDE
 let extractMs = 0; // when our own copy was extracted (0 = no copy)
 const loadMeta = async () => { extractMs = (await bundleMeta())?.extractedAt ?? 0; };
 /** Fresh = under a day old, or taken from our own copy and not older than the copy we have now. */
-const isFresh = (c: CacheFile | null) => !!c && (c.v ?? 1) >= SCHEMA && (c.src === "bundle" ? c.fetchedAt >= extractMs : Date.now() - c.fetchedAt < DAY);
+const isFresh = (c: CacheFile | null) => !!c && (c.v ?? 1) >= SCHEMA && (c.src === "usa" || (c.src === "bundle" ? c.fetchedAt >= extractMs : Date.now() - c.fetchedAt < DAY));
 /** True when all seven caches for a place are under a day old. */
 export async function placeIsFresh(slug: string): Promise<boolean> {
   await loadMeta();
@@ -189,10 +190,8 @@ export async function scanPlace(place: Place, opts: { onCategory?: (c: Category,
 
 async function scanFromCopy(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; dropMs?: number }): Promise<ScanResult | null> {
   const meta = await bundleMeta();
-  if (!meta) return null;
-  const builtIn = !!(await bundledCity(place.slug, "laundry"));
-  if (!builtIn && !inIllinois(place.bbox)) return null;
-  if (!builtIn && !(await cutState("laundry", place.bbox))) return null;
+  const builtIn = !!meta && !!(await bundledCity(place.slug, "laundry"));
+  if (!meta || (!builtIn && (!inIllinois(place.bbox) || !(await cutState("laundry", place.bbox))))) return scanFromUsa(place, opts);
   if (!builtIn && storageMissing()) return { ok: false, skipped: false, usedUnion: false, failed: [...LAND_ORDER], errors: [STORAGE_MISSING], error: STORAGE_MISSING, source: "bundle", extractedAt: meta.extractedAt };
   const failed: Category[] = [], errors: string[] = [];
   for (const c of LAND_ORDER) {
@@ -208,6 +207,32 @@ async function scanFromCopy(place: Place, opts: { onCategory?: (c: Category, cou
     if ((opts.dropMs ?? 140) > 0) await new Promise((r) => setTimeout(r, opts.dropMs ?? 140)); // a beat between kinds, so the loader shows each one landing
   }
   return { ok: failed.length === 0, skipped: false, usedUnion: false, failed, errors, error: errors[0], source: "bundle", extractedAt: meta.extractedAt };
+}
+
+/**
+ * A place outside the bundled Illinois copy: cut it from the USA state files (Vercel Blob in production, osm-out/ at home).
+ * Null when no state file covers it, so the caller falls back to Overpass.
+ */
+async function scanFromUsa(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; dropMs?: number }): Promise<ScanResult | null> {
+  const states = await statesFor(place.bbox, place.state);
+  if (!states.length) return null;
+  const cut: Record<string, { items: OsmElement[]; fetchedAt: number }> = {};
+  for (const c of LAND_ORDER) {
+    const r = await cutUsa(c, place.bbox, states);
+    if (!r) { console.error(`[vend-scan] ${place.slug}: a state file is missing for ${c} (${states.join(", ")}); falling back to Overpass`); return null; }
+    cut[c] = r;
+  }
+  if (storageMissing()) return { ok: false, skipped: false, usedUnion: false, failed: [...LAND_ORDER], errors: [STORAGE_MISSING], error: STORAGE_MISSING, source: "bundle" };
+  const failed: Category[] = [], errors: string[] = [];
+  const extractedAt = Math.min(...Object.values(cut).map((x) => x.fetchedAt));
+  for (const c of LAND_ORDER) {
+    try { await writeText(file(place.slug, c), JSON.stringify({ v: SCHEMA, fetchedAt: cut[c].fetchedAt, items: cut[c].items, src: "usa" } satisfies CacheFile)); }
+    catch (e) { console.error(`[vend-scan] could not save ${c} for ${place.slug} ${errText(e)}`); failed.push(c); errors.push(`${c}: ${errText(e)}`); continue; }
+    console.info(`[vend-scan] ${place.slug} ${c} ${cut[c].items.length} items from the USA copy (${states.join(", ")})`);
+    await opts.onCategory?.(c, cut[c].items.length);
+    if ((opts.dropMs ?? 140) > 0) await new Promise((r) => setTimeout(r, opts.dropMs ?? 140));
+  }
+  return { ok: failed.length === 0, skipped: false, usedUnion: false, failed, errors, error: errors[0], source: "bundle", extractedAt };
 }
 
 /** Cached items. Goes live only when allowed and the cache is missing or older than a day (one live query per category per day). */

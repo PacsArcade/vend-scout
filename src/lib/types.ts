@@ -18,7 +18,7 @@ export const STAGES = ["Found", "Visited", "Pitched", "Yes", "Placed"] as const;
 export type Stage = (typeof STAGES)[number];
 
 export interface Bbox { south: number; west: number; north: number; east: number }
-export interface Place { slug: string; name: string; bbox: Bbox }
+export interface Place { slug: string; name: string; bbox: Bbox; state?: string } // state = USA data slug when known (from the search)
 
 export interface PlaceInput {
   scout?: { inside: string; state?: string; room: string; stamp: string };

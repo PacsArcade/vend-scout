@@ -91,6 +91,8 @@ describe("the app reads our own copy first", () => {
   });
   it("a place outside Illinois still goes to Overpass", async () => {
     vi.stubEnv("VEND_STATE_FILE", "");
+    vi.stubEnv("VEND_OSM_DIR", mkdtempSync(path.join(os.tmpdir(), "no-usa-"))); // no USA files built here: Overpass is the fallback
+    vi.stubEnv("VEND_OSM_SOURCE", "file");
     const o = await import("./overpass");
     const f = vi.fn(async () => new Response(JSON.stringify({ elements: [] }))) as unknown as typeof fetch;
     const denver = { slug: "denver", name: "Denver", bbox: { south: 39.6, west: -105.1, north: 39.9, east: -104.6 } };

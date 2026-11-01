@@ -44,7 +44,8 @@ def main():
 
     md5 = state.get("md5")
     if not a.rebuild:
-        head = get(URL, "HEAD")
+        head = get(URL, "HEAD")  # Geofabrik answers -latest with a 307 to a dated file; urllib follows it
+        if head.geturl() != URL: print(f"  redirected to {head.geturl()}")
         last_mod = head.headers.get("Last-Modified")
         size = int(head.headers.get("Content-Length", "0"))
         if os.path.exists(PBF) and state.get("lastModified") == last_mod and not a.force:

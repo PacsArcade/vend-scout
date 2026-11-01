@@ -1,5 +1,6 @@
 import { readText, writeText } from "./blobstore";
 import type { Bbox, Place } from "./types";
+import { stateFromName, stateName } from "./states";
 
 const FILE = "cache/places.json";
 const UA = "VendScout/0.2 (Pac's Arcade, pac@pacsarcade.org)";
@@ -41,8 +42,10 @@ export function clampBbox(b: Bbox, maxSpan = 0.5): Bbox {
 
 let last = 0;
 /** Nominatim: one request per second at most, answers cached on disk. */
-export async function searchPlace(q: string): Promise<Place | null> {
-  const key = q.trim().toLowerCase();
+export async function searchPlace(q: string, state?: string | null): Promise<Place | null> {
+  const hint = state ? stateFromName(stateName(state)) : null;
+  const text = !hint ? q.trim() : !q.trim() ? stateName(hint) : q.toLowerCase().includes(stateName(hint).toLowerCase()) ? q.trim() : `${q.trim()}, ${stateName(hint)}`;
+  const key = text.toLowerCase();
   if (!key) return null;
   const f = await read();
   const hit = f.queries[key];
@@ -50,13 +53,15 @@ export async function searchPlace(q: string): Promise<Place | null> {
   const wait = last + 1100 - Date.now();
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   last = Date.now();
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`;
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=${encodeURIComponent(text)}`;
   const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new Error(`Nominatim ${res.status}`);
-  const j = (await res.json()) as { display_name: string; boundingbox: string[] }[];
+  const j = (await res.json()) as { display_name: string; boundingbox: string[]; address?: { state?: string } }[];
   if (!j.length) return null;
   const [s, n, w, e] = j[0].boundingbox.map(Number);
   const place: Place = { slug: slugify(j[0].display_name), name: j[0].display_name, bbox: clampBbox({ south: s, north: n, west: w, east: e }) };
+  const st = stateFromName(j[0].address?.state) ?? hint;
+  if (st) place.state = st;
   if (place.slug === "chicago-illinois-united-states" || place.slug.startsWith("chicago-cook")) place.slug = "chicago";
   if (place.slug !== "chicago") f.places[place.slug] = place;
   f.queries[key] = place.slug;

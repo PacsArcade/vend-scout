@@ -11,7 +11,9 @@
     "seed:test": "node scripts/seed-local-test.mjs",
     "controls": "node scripts/controls.mjs",
     "test": "vitest run",
-    "osm:refresh": "scripts/osm-build/.venv/bin/python scripts/osm-build/refresh.py"
+    "osm:refresh": "scripts/osm-build/.venv/bin/python scripts/osm-build/refresh.py",
+    "osm:build": "python3 scripts/osm-build/build-all.py",
+    "osm:upload": "node scripts/osm-build/upload.mjs"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",

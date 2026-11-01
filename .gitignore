@@ -12,3 +12,5 @@ data/items
 .env*
 !.env.example
 osm-source/
+osm-out/
+.env.upload

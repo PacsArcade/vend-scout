@@ -52,12 +52,12 @@ def centre(points):
     return (min(p[0] for p in points) + max(p[0] for p in points)) / 2, (min(p[1] for p in points) + max(p[1] for p in points)) / 2
 
 
-def extract(path):
-    """Returns ({kind: [items]}, extract timestamp in ms or None)."""
-    fp = (osmium.FileProcessor(path)
-          .with_locations()
-          .with_areas()
-          .with_filter(osmium.filter.TagFilter(*[FILTER[c] for c in ORDER])))
+def extract(path, areas=True, locations="flex_mem"):
+    """Returns ({kind: [items]}, extract timestamp in ms or None). areas=False skips multipolygon relations (about 0.1 percent of places, and a lot less memory on big states)."""
+    fp = osmium.FileProcessor(path).with_locations(locations)
+    if areas:
+        fp = fp.with_areas()
+    fp = fp.with_filter(osmium.filter.TagFilter(*[FILTER[c] for c in ORDER]))
     out = {c: [] for c in ORDER}
     for o in fp:
         tags = {t.k: t.v for t in o.tags}
@@ -73,7 +73,7 @@ def extract(path):
             if not pts:
                 continue
             (lat, lon), typ, oid = centre(pts), "way", o.id
-        elif o.is_area():
+        elif areas and o.is_area():
             if o.from_way():  # a closed way: already seen as a way above
                 continue
             pts = [(n.lat, n.lon) for ring in o.outer_rings() for n in ring if n.location.valid()]
@@ -101,8 +101,13 @@ def inside(el, b):
 
 def dump(path, obj):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(obj, f, separators=(",", ":"), ensure_ascii=False)
+    data = json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    if path.endswith(".gz"):
+        import gzip
+        data = gzip.compress(data, 9, mtime=0)
+    with open(path, "wb") as f:
+        f.write(data)
+    return len(data)
 
 
 def main():
@@ -112,24 +117,31 @@ def main():
     ap.add_argument("--cities", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "cities.json"))
     ap.add_argument("--timestamp-ms", type=int, help="override the extract time (tests)")
     ap.add_argument("--state", default="illinois", help="the region this file covers; its output goes to <out>/<state>/. Only illinois also gets the built-in city files")
+    ap.add_argument("--gzip", action="store_true", help="write <kind>.json.gz (for the Blob copy) instead of <kind>.json")
+    ap.add_argument("--no-cities", action="store_true", help="do not write the built-in city files")
+    ap.add_argument("--no-areas", action="store_true", help="skip multipolygon relations (big states)")
+    ap.add_argument("--loc-cache", help="a file to hold node locations on disk instead of in memory (big states)")
     ap.add_argument("--md5", help="the md5 the source file was checked against (recorded in meta.json)")
     a = ap.parse_args()
-    cities = json.load(open(a.cities)) if a.state == "illinois" else {}
-    items, ts = extract(a.pbf)
+    cities = json.load(open(a.cities)) if a.state == "illinois" and not a.no_cities else {}
+    items, ts = extract(a.pbf, areas=not a.no_areas, locations=f"sparse_file_array,{a.loc_cache}" if a.loc_cache else "flex_mem")
     ts = a.timestamp_ms or ts or int(os.path.getmtime(a.pbf) * 1000)
+    sizes = {}
+    lats = [e["lat"] for c in ORDER for e in items[c]]; lons = [e["lon"] for c in ORDER for e in items[c]]
+    bounds = {"south": min(lats), "north": max(lats), "west": min(lons), "east": max(lons)} if lats else None
     counts = {"illinois": {}, "cities": {}}  # "illinois" holds the totals for whichever state this file is (name kept so the app need not change)
     for c in ORDER:
         state = sorted(items[c], key=lambda e: (e["lat"], e["lon"], e["id"]))
-        dump(os.path.join(a.out, a.state, f"{c}.json"), {"v": SCHEMA, "fetchedAt": ts, "items": state})
+        sizes[c] = dump(os.path.join(a.out, a.state, f"{c}.json" + (".gz" if a.gzip else "")), {"v": SCHEMA, "fetchedAt": ts, "items": state})
         counts["illinois"][c] = len(state)
         for slug, box in cities.items():
             part = [e for e in state if inside(e, box)]
             dump(os.path.join(a.out, "cities", slug, f"{c}.json"), {"v": SCHEMA, "fetchedAt": ts, "items": part})
             counts["cities"].setdefault(slug, {})[c] = len(part)
     meta = {"source": f"Geofabrik {a.state}-latest.osm.pbf", "state": a.state, "license": "ODbL 1.0, (c) OpenStreetMap contributors", "extractedAt": ts,
-            "extractedAtISO": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts / 1000)), "md5": a.md5, "counts": counts}
+            "extractedAtISO": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts / 1000)), "md5": a.md5, "counts": counts, "bytes": sizes, "bounds": bounds}
     dump(os.path.join(a.out, a.state, "meta.json"), meta)
-    if a.state == "illinois":
+    if a.state == "illinois" and not a.no_cities:
         dump(os.path.join(a.out, "meta.json"), meta)  # the app reads this one today
     print(json.dumps(counts))
 
