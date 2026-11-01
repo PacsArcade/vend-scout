@@ -26,5 +26,5 @@ export const JOB_NOUN: Record<keyof typeof JOB_MINUTES, string> = { restock: "re
 // Route Runner stop and Place Scout placement are flat starting rates (rates.ts). Shelf pickups and tech jobs are not ruled yet, so they keep the hourly figure.
 export const satsFor = (job: keyof typeof JOB_MINUTES, satsPerUsd: number) =>
   job === "restock" ? Math.round(RATES.runnerPerStopUsd * satsPerUsd)
-  : job === "scout" ? Math.round(RATES.scoutPlacedUsd * satsPerUsd)
+  : job === "scout" ? 0 // a Place Scout is paid in parts (scoutpay.ts), never by the pitch job itself
   : Math.round((PAY_TERMS.targetUsdPerHour * JOB_MINUTES[job] * satsPerUsd) / 60);

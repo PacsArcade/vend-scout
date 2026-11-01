@@ -96,7 +96,7 @@ export function actionAllowed(action: string, isOperator: boolean, isCrew = fals
 
 /** Paths anyone may open when the gate is on. Everything else needs an operator. */
 const PUBLIC_PAGES = [/^\/$/, /^\/scout$/, /^\/crew$/, /^\/crew\/apply$/, /^\/crew\/signin$/, /^\/host\/[^/]+$/, /^\/vote\/[^/]+$/, /^\/pay\/[^/]+\/[^/]+$/, /^\/signin$/, /^\/m\/[^/]+$/];
-const PUBLIC_API = [/^\/api\/crew\/postings$/, /^\/api\/chain\/tip$/, /^\/api\/place$/, /^\/api\/do$/, /^\/api\/admin\/session$/, /^\/api\/crew\/session$/, /^\/api\/scout$/, /^\/api\/scout\/pins$/, /^\/api\/m\/[^/]+\/photo$/, /^\/api\/neighbor\/(session|act)$/, /^\/api\/zap\/invoice$/, /^\/api\/cron\/scan$/];
+const PUBLIC_API = [/^\/api\/crew\/postings$/, /^\/api\/chain\/tip$/, /^\/api\/place$/, /^\/api\/do$/, /^\/api\/admin\/session$/, /^\/api\/crew\/session$/, /^\/api\/scout$/, /^\/api\/scout\/pins$/, /^\/api\/scout\/stream$/, /^\/api\/m\/[^/]+\/photo$/, /^\/api\/neighbor\/(session|act)$/, /^\/api\/zap\/invoice$/, /^\/api\/cron\/scan$/];
 export function pathIsPublic(pathname: string, isApi: boolean): boolean {
   return (isApi ? PUBLIC_API : PUBLIC_PAGES).some((r) => r.test(pathname));
 }

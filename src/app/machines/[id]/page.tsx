@@ -10,6 +10,7 @@ import { TELEMETRY_LABEL } from "@/lib/types";
 import { SHARE_TAGS } from "@/lib/social";
 import { typeLabel } from "@/lib/machineTypes";
 import { creditsGivenThisMonth, getVotes, localSlots, monthSales, readState, salesSummary } from "@/lib/store";
+import { satsPrice } from "@/lib/price";
 import { fmtUsd, margin, scoutDay60Sats, netOf } from "@/lib/rates";
 import { sats } from "@/lib/format";
 
@@ -33,10 +34,11 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
   for (const s of st.sales.filter((x) => x.machine === id)) byItem.set(s.item, (byItem.get(s.item) ?? 0) + 1);
   const owed = Math.round((sum.total * m.hostSharePct) / 100);
   // Operator money desk only: dollars are allowed here (this page is behind the operator gate). Public and crew pages never show them.
+  const spu = (await satsPrice()).satsPerUsd; // sats per dollar now, from our own node (falls back to the fixed figure)
   const ms = monthSales(st, id);
   const crewSats = st.payouts.filter((p) => p.at.slice(0, 7) === new Date().toISOString().slice(0, 7) && !!p.job && (p.job === `restock:${id}` || p.job.endsWith(`:${id}`))).reduce((a, p) => a + p.sats, 0);
-  const mg = ms.count > 0 ? margin({ grossSats: ms.gross, hostPct: m.hostSharePct, crewSats, creditsGiven: creditsGivenThisMonth(st, id), avgItemSats: ms.avgItem }) : null;
-  const day60 = m.status === "Placed" && m.placedAt ? scoutDay60Sats(m.placedAt, netOf(ms.gross)) : 0;
+  const mg = ms.count > 0 ? margin({ grossSats: ms.gross, hostPct: m.hostSharePct, crewSats, creditsGiven: creditsGivenThisMonth(st, id), avgItemSats: ms.avgItem, spu }) : null;
+  const day60 = m.status === "Placed" && m.placedAt ? scoutDay60Sats(m.placedAt, netOf(ms.gross), undefined, spu) : 0;
   const usd = fmtUsd;
   const none = m.slots.length === 0 && locals.length === 0;
   const mreq = st.itemRequests.filter((r) => r.machine === m.id).slice(-10).reverse();

@@ -197,9 +197,13 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
     setBusy(true); setLanded({}); setElapsed(0); setNote(""); setFoundCount(null);
     setStatus("");
     const failed: string[] = [], errs: string[] = [];
-    let streamed = false, how = "";
+    let streamed = false, how = "", notLoaded = false;
     try {
       const res = await fetch(`/api/scout/stream?place=${place.slug}`);
+      if (res.status === 429) {
+        const j = (await res.json().catch(() => null)) as { error?: string } | null;
+        setStatus(j?.error ?? "That is the limit of new places for now. Try again in a little while."); setBusy(false); return;
+      }
       if (res.status === 503) {
         const j = (await res.json().catch(() => null)) as { error?: string } | null;
         setStatus(j?.error ?? "Storage is not connected."); setBusy(false); return;
@@ -216,15 +220,17 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
           while ((nl = buf.indexOf("\n")) >= 0) {
             const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
             if (!line.trim()) continue;
-            const ev = JSON.parse(line) as { t: string; c?: Category; count?: number; msg?: string; usedUnion?: boolean; source?: string; stamp?: string; failed?: string[]; errors?: string[] };
+            const ev = JSON.parse(line) as { notLoaded?: boolean; t: string; c?: Category; count?: number; msg?: string; usedUnion?: boolean; source?: string; stamp?: string; failed?: string[]; errors?: string[] };
             if (ev.t === "note") setNote(ev.msg ?? "");
             if (ev.t === "cat") { setNote(""); setLanded((l) => ({ ...l, [ev.c as Category]: ev.count ?? 0 })); await pullPins(); }
+            if (ev.t === "done" && ev.notLoaded) { setStatus("This area is not loaded yet. We have not built the data for it, and only an operator can fetch it live."); notLoaded = true; }
             if (ev.t === "done") { how = ev.source === "bundle" ? `from our own OpenStreetMap copy, updated ${ev.stamp ?? "recently"}` : ev.usedUnion ? "in one query" : "one kind at a time"; for (const f of ev.failed ?? []) failed.push(CAT_NAME[f as Category] ?? "Some places"); if (ev.errors?.length) errs.push(...ev.errors); }
           }
         }
       }
     } catch { /* fall back below */ }
-    if (!streamed) {
+    if (notLoaded) { setBusy(false); return; }
+    if (!streamed && operator) {
       // The stream was not available: ask one kind at a time, as before.
       for (const c of ALL_CATEGORIES) {
         setStatus(`Asking OpenStreetMap for ${CAT_NAME[c].toLowerCase()}.`);
@@ -317,12 +323,12 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, total
         <label className="check muted small"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> Search as I move the map</label>
         <div className="actions">
           {operator && current && <Link href={`/prospects/${current.id}`} className={"btn" + (hasData ? " gild" : "")}>Open prospect</Link>}
-          {operator && <button className={"btn" + (hasData ? "" : " gild")} onClick={scan} disabled={busy}>Scan this place</button>}
+          <button className={"btn" + (hasData ? "" : " gild")} onClick={scan} disabled={busy}>{operator ? "Scan this place" : "Load this place"}</button>
           {operator && top20.length > 0 && <button className="btn" onClick={top} disabled={busy}>Find contacts for the top {top20.length}</button>}
         </div>
         {!hasData && (operator
           ? <p className="scanhint">This place has no scan yet. Press Scan this place and it fills in a few minutes.</p>
-          : <p className="scanhint">No scan here yet. An operator scans each city once. <Link href="/signin?next=/scout" className="small">Operator sign in</Link></p>)}
+          : <p className="scanhint">This place is not loaded yet. Press Load this place to fetch it from our own map data. <Link href="/signin?next=/scout" className="small">Operator sign in</Link></p>)}
         {status && <p className="muted small" role="status">{status}</p>}
         <div className="rows">
           {list.map((p, i) => (

@@ -9,6 +9,9 @@ import { findProspect } from "@/lib/overpass";
 import { openJobs } from "@/lib/jobs";
 import { listPlaces } from "@/lib/places";
 import { readState } from "@/lib/store";
+import { FORFEIT_LINE, PART_LABEL, scoutRewards } from "@/lib/scoutpay";
+import { satsPrice } from "@/lib/price";
+import { usdToSats } from "@/lib/rates";
 import { APPLICANT_STAGES, STAGES, type Stage } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +39,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const claimedOpen = st.claims.filter((c) => !c.doneAt);
   const toCheck = st.proofs.filter((x) => x.status === "sent");
   const proofViews: ProofView[] = await Promise.all(toCheck.map(async (x) => ({ id: x.id, title: st.claims.find((c) => c.job === x.ref)?.title ?? `Stop on ${st.routes.find((r) => r.id === x.route)?.name ?? "a route"}`, who: st.applicants.find((a) => a.id === x.by)?.name ?? x.by, before: x.before, after: x.after, ticked: x.ticked, loadTotal: x.loadTotal, sentStamp: await stampString(x.history[x.history.length - 1]?.at, x.history[x.history.length - 1]?.h), resent: x.history.some((e) => e.status === "retake"), ai: x.ai ?? null, neighbors: st.verifies.filter((v) => v.proof === x.id).length })));
+  const spu = (await satsPrice()).satsPerUsd;
+  const scoutParts = scoutRewards(st, undefined, spu);
+  for (const r of scoutParts) if (!nameOf.has(r.prospect)) { const h = await findProspect(r.prospect); if (h) nameOf.set(r.prospect, h.prospect.name); }
+  const scoutOpen = scoutParts.filter((r) => r.state !== "paid");
   const who = (id: string) => st.applicants.find((a) => a.id === id)?.name ?? id;
   const strip: [string, string][] = [
     ["Jobs open", String(jobs.length + bundles.length)], ["Proof to check", String(toCheck.length)], ["Stops done today", String(stopsToday)], ["Sats paid out (test)", paidToday.toLocaleString("en-US")],
@@ -48,6 +55,19 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <main className="page wide-page">
         <div className="rowflex"><h1>Admin</h1><Link className="btn" href="/admin/ai-check">AI check results</Link></div>
         <div className="strip strip5">{strip.map(([k, v]) => <div key={k} className="glass kpi"><span className="muted">{k}</span><div className="v num">{v}</div></div>)}</div>
+        <section className="glass card scoutdue" aria-label="Place Scout pay">
+          <h2>Place Scout pay</h2>
+          {scoutOpen.length === 0 ? <p className="muted">Nothing is due. A part shows here when a deal is set, a machine goes in, or a machine passes day 60 with sales.</p> : (
+            <table><tbody>{scoutOpen.map((r) => (
+              <tr key={r.key}>
+                <td><b>{PART_LABEL[r.part]}</b><br /><span className="muted small">{who(r.scout)} · {nameOf.get(r.prospect) ?? r.prospect}</span></td>
+                <td className="r num">{usdToSats(r.usd, spu).toLocaleString("en-US")} sats</td>
+                <td className="r">{r.state === "due" ? <ActionButton label="Approve and pay" gild payload={{ action: "approveScout", key: r.key }} /> : <span className="chip bad">{FORFEIT_LINE}</span>}</td>
+              </tr>
+            ))}</tbody></table>
+          )}
+          <p className="muted small" style={{ marginTop: 10 }}>Nothing pays itself. You approve each part. Sats lock at today&apos;s price when you approve. A part due after the scout left the crew is kept by the house.</p>
+        </section>
         <CityFilter cities={places.map((p) => ({ slug: p.slug, name: p.name }))} current={city} />
         <div className="admboard">
           <section className="glass card">

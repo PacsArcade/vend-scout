@@ -41,7 +41,7 @@ export function MyWork({ crew, claims, routes, initial, pops, locked }: { crew: 
         <div key={c.job} className={"glass tile" + (c.done ? " donecard" : "")}>
           <div className="muted small">{c.done ? `Paid ${c.doneStamp}` : `Claimed ${c.stamp}`}</div>
           <h2>{c.title}</h2>
-          <p className="num">{c.sats.toLocaleString("en-US")} sats{c.lightning ? ` to ${c.lightning}` : ""}</p>
+          <p className="num">{c.sats === 0 ? "Paid in parts" : `${c.sats.toLocaleString("en-US")} sats`}{c.lightning ? ` to ${c.lightning}` : ""}</p>
           {c.done && <span className="pstate paid">Paid{c.proof?.points ? `, +${c.proof.points} points` : ""}</span>}
           {!c.done && c.proof?.status === "sent" && <span className="pstate sent">Proof sent</span>}
           {!c.done && c.proof?.status === "retake" && <span className="pstate retake">Retake asked</span>}

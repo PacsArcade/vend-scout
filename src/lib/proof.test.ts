@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import { autoCheck } from "./autoCheck";
 import { scoreStop, comboBonus, streakDays, levelOf, boardName, badgesFor } from "./arcade";
+import { SATS_PER_USD } from "./rates";
 import { ARCADE, SPEED_SCORING, NEVER_SPEED_LINE } from "./gig";
 
 let perform: typeof import("./store").perform;
@@ -39,7 +40,7 @@ describe("pay after proof", () => {
     const id = (await readState()).proofs[0].id;
     const a = await perform({ action: "reviewProof", id, decision: "approve" });
     expect(a.ok).toBe(true);
-    expect(a.note).toContain("Paid 7,000 sats");
+    expect(a.note).toContain(`Paid ${(16 * SATS_PER_USD).toLocaleString("en-US")} sats`); // $16 at the fixed fallback price (tests run with VEND_PRICE=off)
     // a blind approve (flags not ticked) pays the base sats but awards only the base stop points
     expect((await readState()).proofs[0].breakdown?.map((b) => b.label)).toEqual(["Stop done", "Stocked before sell-out"]);
     expect((await perform({ action: "reviewProof", id, decision: "approve" })).ok).toBe(false);

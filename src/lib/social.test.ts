@@ -18,7 +18,7 @@ beforeEach(async () => {
   process.env.VEND_STATE_FILE = file; process.env.VEND_AI_CHECK = "off";
   const t = new Date().toISOString();
   await fs.writeFile(file, JSON.stringify({
-    machines: [{ id: "m1", name: "M1", status: "Placed", type: "snack", prospectId: "x", hostName: "H", hostSharePct: 10, placedAt: "2026-01-01", profile: {}, slots: [] }],
+    machines: [{ id: "m1", name: "M1", status: "Placed", type: "snack", prospectId: "x", hostName: "H", hostSharePct: 10, placedAt: t.slice(0, 10), profile: {}, slots: [] }],
     applicants: [{ id: "a1", name: "Maya Reyes", reach: "m@x.co", area: "Chicago", roles: ["runner"], transport: [], hours: "", why: "", stage: "On the crew", lightning: "maya@wallet.example", notes: [], createdAt: "2026-01-01" }],
     proofs: [{ id: "p1", kind: "job", ref: "restock:m1", by: "a1", machine: "m1", jobKind: "restock", before: "r1-1.png", after: "r1-2.png", ticked: [], loadTotal: 0, soldOutAtVisit: false, status: "sent", history: [{ status: "sent", at: t }], sentAt: t }],
   }));

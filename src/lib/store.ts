@@ -14,7 +14,9 @@ import { ILLINOIS } from "./places";
 import { payout } from "./payout";
 import type { CreditEntry, DmRecord, ItemRequest, MachineReport, NeighborVerify } from "./types";
 import { CREDITS } from "./gig";
-import { cleanHostPct, creditCapCredits, netOf } from "./rates";
+import { RATES, cleanHostPct, creditCapCredits, netOf, usdToSats } from "./rates";
+import { PART_LABEL, scoutRewards, settleScout } from "./scoutpay";
+import { satsPrice } from "./price";
 import type { ScoutAward, ScoutCheck, Inside, MachineState } from "./types";
 import { INSIDE_LABEL, MACHINE_STATES } from "./types";
 import { scoutAward } from "./arcade";
@@ -28,6 +30,8 @@ import { FOOD_KINDS, SHELF_KINDS, STAGES } from "./types";
 
 
 export interface State {
+  scoutPaid?: Record<string, { sats: number; at: string; h?: number }>; // Place Scout parts the operator approved (key = prospect:part)
+  scoutForfeit?: Record<string, { at: string; h?: number }>; // parts that came due after the scout left the crew: the house keeps them
   tracked: Record<string, Stage>;
   notes: Record<string, Note[]>;
   packages: Record<string, SitePackage>;
@@ -120,6 +124,7 @@ export type Action =
   | { action: "submitProof"; kind: "job" | "stop"; ref: string; route?: string; machine?: string; before: string; after: string; ticked: string[]; loadTotal: number }
   | { action: "reviewProof"; id: string; decision: "approve" | "retake"; reason?: string; glassClean?: boolean; loadMatches?: boolean }
   | { action: "ackPop"; id: string }
+  | { action: "approveScout"; key: string }
   | { action: "addItem"; name: string; size: string; priceSats: number; photo?: string }
   | { action: "recordAi"; id: string; verdict: AiVerdict }
   | { action: "runAi"; id: string }
@@ -455,7 +460,7 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       let sats = 0, note = "";
       if (p.kind === "job") {
         const c = st.claims.find((x) => x.job === p.ref);
-        if (c) { if (p.machine) { const pm = machine(p.machine); if (pm) pm.restockRequested = false; } c.doneAt = nowIso; c.doneH = h; sats = c.sats; c.paidSats = sats; note = await payCrew(st, c.by, sats, c.title, c.job, h); }
+        if (c) { if (p.machine) { const pm = machine(p.machine); if (pm) pm.restockRequested = false; } c.doneAt = nowIso; c.doneH = h; sats = satsFor(c.kind, (await rateFeed.rate()).satsPerUsd) + (c.bonus ?? 0); c.sats = sats; c.paidSats = sats; if (sats > 0) note = await payCrew(st, c.by, sats, c.title, c.job, h); else note = "Done. Place Scout parts are approved from the admin page."; }
       } else {
         const r = st.routes.find((x) => x.id === p.route);
         if (r) {
@@ -470,6 +475,19 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
         }
       }
       p.paidSats = sats;
+      await write(st);
+      return { ok: true, note };
+    }
+    case "approveScout": {
+      // Operator approval of one Place Scout part. The sats lock now, at today's price, and are stored on the record.
+      const r = scoutRewards(st).find((x) => x.key === a.key);
+      if (!r) return { ok: false, error: "That part is not due yet" };
+      if (r.state === "paid") return { ok: false, error: "Already paid" };
+      if (r.state === "forfeited") { settleScout(st, h); await write(st); return { ok: false, error: "Forfeited, scout left the crew. The house keeps it." }; }
+      const spu = (await satsPrice()).satsPerUsd, sats = usdToSats(r.usd, spu);
+      const name = (await findProspect(r.prospect))?.prospect.name ?? "the place";
+      const note = await payCrew(st, r.scout, sats, `${PART_LABEL[r.part]}: ${name}`, `scout:${r.key}`, h);
+      (st.scoutPaid ??= {})[r.key] = { sats, at: new Date().toISOString(), h };
       await write(st);
       return { ok: true, note };
     }
@@ -596,6 +614,7 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
     default:
       return { ok: false, error: "Unknown action" };
   }
+  settleScout(st, h);
   await write(st);
   return { ok: true };
 }
@@ -649,13 +668,20 @@ export function creditsGivenThisMonth(st: State, machine: string, now = new Date
   return st.creditLog.filter((c) => c.machine === machine && c.amount > 0 && (c.kind === "verify" || c.kind === "share") && c.day.slice(0, 7) === ym).reduce((a, c) => a + c.amount, 0);
 }
 /**
- * The 3% cap. A machine with sales this month gives out at most 3% of its net sales in credits, at retail value.
- * A machine with NO sales logged yet is not capped (there is nothing to take 3% of; the once-a-day rule still limits it).
+ * The monthly credit cap for one machine: 3% of this month's net sales at retail value. A NEW machine (placed or added in the last 30 days)
+ * also gets a starting allowance of 5 items worth (100 credits), so it can give credits before it has sales. The bigger of the two applies,
+ * so the 3% cap takes over once the allowance is smaller than 3% of sales. An old machine with no sales has a cap of 0.
  */
-export function creditsFull(st: State, machine: string, amount: number, now = new Date()): boolean {
+export function creditCap(st: State, machine: string, now = new Date()): number {
   const s = monthSales(st, machine, now);
-  if (s.count === 0) return false;
-  return creditsGivenThisMonth(st, machine, now) + amount > creditCapCredits(netOf(s.gross), s.avgItem);
+  const m = st.machines.find((x) => x.id === machine);
+  const since = Date.parse((m?.placedAt || m?.addedAt || "") as string);
+  const isNew = !!m && (!Number.isFinite(since) || now.getTime() - since < 30 * 86400_000);
+  const start = isNew ? RATES.newMachineItems * RATES.creditItemUnits : 0;
+  return Math.max(start, creditCapCredits(netOf(s.gross), s.avgItem));
+}
+export function creditsFull(st: State, machine: string, amount: number, now = new Date()): boolean {
+  return creditsGivenThisMonth(st, machine, now) + amount > creditCap(st, machine, now);
 }
 
 /** Credits for one npub: once per machine per day for each kind, and never past the machine's monthly 3% cap. "full" still lets the verify or share count. */

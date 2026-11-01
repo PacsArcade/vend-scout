@@ -137,19 +137,21 @@ export async function placeAge(slug: string): Promise<number> {
   return oldest;
 }
 
-export interface ScanResult { ok: boolean; skipped: boolean; usedUnion: boolean; failed: Category[]; error?: string; errors: string[]; source?: "bundle" | "overpass"; extractedAt?: number }
+export interface ScanResult { notLoaded?: boolean; ok: boolean; skipped: boolean; usedUnion: boolean; failed: Category[]; error?: string; errors: string[]; source?: "bundle" | "overpass"; extractedAt?: number }
 /**
  * Scan one place. One union query for all seven categories, split on our side and saved into the per-category caches.
  * If the union query fails or times out, fall back to the per-category queries. Categories that are still fresh are not asked again
  * (one live query per category per day). onCategory fires as each category lands, so the screen can fill in as it goes.
  * A failed WRITE is never hidden: it is logged, counted as failed, and its text is returned in errors.
  */
-export async function scanPlace(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; onNote?: (msg: string) => void; fetchImpl?: typeof fetch; force?: boolean; pauseMs?: number; budgetMs?: number; dropMs?: number } = {}): Promise<ScanResult> {
+export async function scanPlace(place: Place, opts: { onCategory?: (c: Category, count: number) => void | Promise<void>; onNote?: (msg: string) => void; fetchImpl?: typeof fetch; force?: boolean; pauseMs?: number; budgetMs?: number; dropMs?: number; copyOnly?: boolean } = {}): Promise<ScanResult> {
   const deadline = Date.now() + (opts.budgetMs ?? 270_000);
   await loadMeta();
   // 1. Our own OpenStreetMap copy: instant, no network. The nine built-in cities read straight from the repo; another Illinois place is cut from the statewide files.
   const fromCopy = await scanFromCopy(place, opts);
   if (fromCopy) return fromCopy;
+  // Public visitors (copyOnly): our own copies only. Nothing below this line runs for them, so they can never cause an Overpass call.
+  if (opts.copyOnly) return { ok: false, skipped: false, usedUnion: false, failed: [], errors: [], notLoaded: true };
   // 2. Anywhere else (or no copy built yet): Overpass, which needs somewhere to save the answer.
   if (storageMissing()) { console.error("[vend-scan] refused: storage is not connected"); return { ok: false, skipped: false, usedUnion: false, failed: [...LAND_ORDER], errors: [STORAGE_MISSING], error: STORAGE_MISSING }; }
   const stale: Category[] = [];

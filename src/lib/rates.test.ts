@@ -15,11 +15,11 @@ const sale = (sats: number) => ({ machine: "m1", slot: "A1", item: "x", sats, at
 describe("starting rates, block 974,071", () => {
   it("holds the ruled values", () => {
     expect(RATES_BLOCK).toBe(974071);
-    expect(RATES.runnerPerStopUsd).toBe(16); expect(RATES.scoutPlacedUsd).toBe(50); expect(RATES.scoutDay60Usd).toBe(50); expect(RATES.scoutDay60MinNetUsd).toBe(800);
+    expect(RATES.runnerPerStopUsd).toBe(16); expect(RATES.scoutDealUsd).toBe(25); expect(RATES.scoutPlacedUsd).toBe(25); expect(RATES.scoutDay60Usd).toBe(50); expect(RATES.scoutDay60MinNetUsd).toBe(800);
     expect([RATES.hostPctStandard, RATES.hostPctTopSpot]).toEqual([10, 12]); expect(RATES.creditCapPct).toBe(3);
     expect(RATES.cardFeePct).toBe(5.95); expect(RATES.cardMonthlyUsd).toBe(7.95); expect(RATES.productCostPct).toBe(45); expect(RATES.lightningFeeUsd).toBe(0);
     expect(GIG.busyBonusSats).toBe(1000);
-    expect(satsFor("restock", 1000)).toBe(16000); expect(satsFor("scout", 1000)).toBe(50000);
+    expect(satsFor("restock", 1000)).toBe(16000); expect(satsFor("scout", 1000)).toBe(0); // a scout is paid in parts, see scoutpay.ts
   });
   it("host cut is 10 or 12 only", () => { expect(cleanHostPct(12)).toBe(12); expect(cleanHostPct(10)).toBe(10); expect(cleanHostPct(33)).toBe(10); expect(cleanHostPct(NaN)).toBe(10); });
   it("has no Whisper number anywhere in the rates", () => { expect(readFileSync("src/lib/rates.ts", "utf8")).not.toMatch(/whisper/i); });
@@ -57,7 +57,17 @@ describe("credits: half and quarter item, 3% cap", () => {
     expect(grantCreditsResult(st, npubs[3], "share", "m1", 5)).toBe("full");
     expect(st.credits[npubs[3]]).toBeUndefined();
   });
-  it("a machine with no sales yet is not capped", () => { expect(grantCreditsResult(base(), "e".repeat(64), "verify", "m9", 10)).toBe("given"); });
+  it("a new machine with no sales gets 100 credits (5 items) in its first month, then it is full", () => {
+    const st = base(); st.machines.push({ id: "mN", addedAt: now.slice(0, 10), placedAt: "" } as never);
+    let given = 0;
+    for (let i = 0; i < 12; i++) if (grantCreditsResult(st, String(i).padStart(64, "a"), "verify", "mN", 10) === "given") given += 10;
+    expect(given).toBe(100);
+    expect(grantCreditsResult(st, "f".repeat(64), "verify", "mN", 10)).toBe("full");
+  });
+  it("an old machine with no sales has no allowance", () => {
+    const st = base(); st.machines.push({ id: "mO", addedAt: "2024-01-01", placedAt: "2024-01-01" } as never);
+    expect(grantCreditsResult(st, "1".repeat(64), "verify", "mO", 10)).toBe("full");
+  });
 });
 
 describe("margin card math", () => {

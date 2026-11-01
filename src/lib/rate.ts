@@ -1,10 +1,10 @@
-// RateFeed: sats per US dollar. Returns the fixed starting figure from rates.ts (assumed BTC price stated there). No price API is called.
-// TODO: a real price feed (the house time service or an own-node source) behind this interface.
+// RateFeed: sats per US dollar, read from our own node (price.ts) with fallbacks. Never blocks: timeout plus the fixed figure in rates.ts.
 export interface Rate { satsPerUsd: number; test: boolean; label: string }
 export interface RateFeed { name: string; rate(): Promise<Rate> }
-import { RATES_LABEL, SATS_PER_USD } from "./rates";
+import { RATES_LABEL } from "./rates";
+import { satsPrice } from "./price";
 export const stubRate: RateFeed = {
-  name: "fixed starting rate",
-  async rate() { return { satsPerUsd: SATS_PER_USD, test: false, label: RATES_LABEL }; },
+  name: "own node price, fixed fallback",
+  async rate() { const p = await satsPrice(); return { satsPerUsd: p.satsPerUsd, test: false, label: RATES_LABEL }; },
 };
 export const rateFeed: RateFeed = stubRate;

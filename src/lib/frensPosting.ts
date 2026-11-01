@@ -5,7 +5,7 @@ export interface FrensPosting {
   role: "runner" | "scout" | "keeper" | "tech";
   title: string;
   body: string;
-  pay: { line: string; satsPerJob: number; job: string; testRate: boolean };
+  pay: { line: string; satsPerJob: number; job: string; startingRate: boolean };
   area: { region: string; startingIn: string };
   applyUrl: string;
 }

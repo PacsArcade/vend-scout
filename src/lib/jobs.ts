@@ -30,7 +30,7 @@ export async function openJobs(st: State): Promise<{ jobs: Job[]; bundles: Bundl
   for (const [id, stage] of Object.entries(st.tracked)) {
     if (stage !== "Found" && stage !== "Visited") continue;
     const h = await findProspect(id);
-    if (h) jobs.push({ id: `scout:${id}`, kind: "scout", title: `${stage === "Found" ? "Visit and pitch" : "Pitch"} ${h.prospect.name}`, detail: `Take the one-page sheet. ${h.prospect.area}.`, sats: pay("scout"), bonus: 0, lat: h.prospect.lat, lon: h.prospect.lon });
+    if (h) jobs.push({ id: `scout:${id}`, kind: "scout", title: `${stage === "Found" ? "Visit and pitch" : "Pitch"} ${h.prospect.name}`, detail: `Take the one-page sheet. ${h.prospect.area}. Paid in sats in parts: when the deal is set, when the machine goes in, and a bonus at day 60 if it sells well.`, sats: pay("scout"), bonus: 0, lat: h.prospect.lat, lon: h.prospect.lon });
   }
   const bundles: Bundle[] = [];
   for (const r of st.routes) {

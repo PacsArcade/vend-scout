@@ -9,3 +9,11 @@ export function allow(key: string, max = 5, windowMs = 3600_000, now = Date.now(
   return true;
 }
 export const resetLimits = () => hits.clear();
+
+/** The visitor's address as the proxy reports it. Used only as a limiter key, never stored. */
+export function clientKey(req: Request): string {
+  const f = req.headers.get("x-forwarded-for");
+  return (f ? f.split(",")[0].trim() : req.headers.get("x-real-ip")) || "unknown";
+}
+/** The public place loader: this many NEW places per address per hour. */
+export const NEW_PLACES_PER_HOUR = 5;

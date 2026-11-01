@@ -77,6 +77,7 @@ describe("no dollars, no percent in the header, contact line", () => {
     const text = await (await GET(new Request("http://x.test/api/crew/postings"))).text();
     expect(text).not.toMatch(/\$|usd|dollar/i);
     expect(JSON.parse(text).postings[0].pay.satsPerJob).toBeGreaterThan(0);
+    expect(JSON.parse(text).postings[0].pay.startingRate).toBe(true);
   });
   it("no visible page source shows a dollar amount", () => {
     const hits: string[] = [];

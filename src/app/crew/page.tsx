@@ -3,9 +3,11 @@ import { Nav } from "@/components/Nav";
 import { CREW_ROLES } from "@/lib/types";
 import { CONTRACTOR_NOTE, JOB_NOUN, PAY_TERMS, ROLE_COPY, ROLE_JOB, SHARED_LINE, satsFor } from "@/lib/crew";
 import { rateFeed } from "@/lib/rate";
+import { scoutPartSats } from "@/lib/scoutpay";
 
 export default async function CrewPage() {
   const rate = await rateFeed.rate();
+  const sp = scoutPartSats(rate.satsPerUsd), n = (x: number) => x.toLocaleString("en-US");
   return (
     <>
       <Nav on="crew" />
@@ -21,7 +23,9 @@ export default async function CrewPage() {
             <section key={r} className="glass card rolecard">
               <h2>{ROLE_COPY[r].title}</h2>
               <p>{ROLE_COPY[r].body}</p>
-              <p className="payline">{PAY_TERMS.line} About <span className="num">{satsFor(ROLE_JOB[r], rate.satsPerUsd).toLocaleString("en-US")} sats</span> per {JOB_NOUN[ROLE_JOB[r]]}{r === "scout" ? ", and the same again at day 60 if the machine sells well" : ""}.</p>
+              <p className="payline">{PAY_TERMS.line} {r === "scout"
+                ? <>About half when the deal is set (<span className="num">{n(sp.deal)} sats</span>), half when the machine goes in (<span className="num">{n(sp.placed)} sats</span>), and a bonus of <span className="num">{n(sp.day60)} sats</span> at day 60 if it sells well.</>
+                : <>About <span className="num">{n(satsFor(ROLE_JOB[r], rate.satsPerUsd))} sats</span> per {JOB_NOUN[ROLE_JOB[r]]}.</>}</p>
               <div className="actions"><Link className="btn gild" href={`/crew/apply?role=${r}`}>Apply</Link></div>
             </section>
           ))}
