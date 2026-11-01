@@ -5,11 +5,11 @@
 // Only the operator money desk (the machine page margin card) may show dollars.
 //
 // DOLLARS TO SATS: there is no live price source in this repo (rate.ts is a fixed rate and no outside call is allowed here).
-// So every dollar rate becomes a fixed number of sats at an ASSUMED bitcoin price of $100,000, which is 1,000 sats per dollar.
+// So every dollar rate becomes a fixed number of sats at an ASSUMED bitcoin price (see SATS_PER_USD below).
 // If the real price moves far from that, change SATS_PER_USD here (one place). Lightning fees count as 0 in all math (under a penny).
 export const RATES_BLOCK = 974071;
 export const RATES_LABEL = `starting rates, block ${RATES_BLOCK.toLocaleString("en-US")}`;
-export const SATS_PER_USD = 1000; // ASSUMED: BTC at $100,000
+export const SATS_PER_USD = 1290; // ASSUMED: BTC at about $77,500 (mempool.space price at block 974,071)
 
 export const RATES = {
   runnerPerStopUsd: 16, // Route Runner, batched route, paid in sats. The 1000 sat busy bonus stays in gig.ts

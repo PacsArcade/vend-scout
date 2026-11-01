@@ -1,3 +1,4 @@
+import { SATS_PER_USD } from "./rates";
 import { describe, expect, it, beforeAll } from "vitest";
 import { promises as fs } from "fs";
 import os from "os";
@@ -57,7 +58,7 @@ describe("wallet-only listing and jobs", () => {
     expect((await perform({ action: "claimJob", job: "restock:m1", kind: "restock", title: "t", by: ap.id! })).ok).toBe(true);
     expect((await perform({ action: "claimJob", job: "restock:m1", kind: "restock", title: "t", by: ap.id! })).ok).toBe(false);
     const c = (await readState()).claims[0];
-    expect(c.sats).toBe(16000);
+    expect(c.sats).toBe(16 * SATS_PER_USD);
     expect((await readState()).claims[0].doneAt).toBeUndefined(); // not done until a proof is approved
   });
 });

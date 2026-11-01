@@ -1,3 +1,4 @@
+import { SATS_PER_USD } from "./rates";
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "fs";
 import path from "path";
@@ -27,7 +28,7 @@ describe("starting rates, block 974,071", () => {
 describe("scout day 60 rule", () => {
   const day = 86400_000, placed = "2026-01-01T00:00:00Z", t0 = Date.parse(placed);
   const net800 = usdToSats(800), net799 = usdToSats(799);
-  it("pays $50 after day 60 when net sales reach $800 a month", () => { expect(scoutDay60Sats(placed, net800, t0 + 60 * day)).toBe(50000); });
+  it("pays $50 after day 60 when net sales reach $800 a month", () => { expect(scoutDay60Sats(placed, net800, t0 + 60 * day)).toBe(50 * SATS_PER_USD); });
   it("pays nothing before day 60 or under $800", () => {
     expect(scoutDay60Sats(placed, net800, t0 + 59 * day)).toBe(0);
     expect(scoutDay60Sats(placed, net799, t0 + 90 * day)).toBe(0);
