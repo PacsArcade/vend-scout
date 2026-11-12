@@ -87,6 +87,8 @@ export interface Machine {
   slots: Slot[];
   addedAt?: string;
   restockRequested?: boolean;
+  npub?: string; // the machine's own nostr identity (public key only, pasted by an operator). We never make or keep a machine key.
+  rent?: RentTerms; // what the host owner is paid, set by an operator
   ownerNpub?: string; // the nostr key of the person who owns or hosts this machine (set by an operator), for the owner profile page
 }
 export interface Sale { machine: string; slot: string; item: string; sats: number; at: string; h?: number; test: boolean; maker?: string }
@@ -221,3 +223,36 @@ export interface DmRecord { to: string; text: string; at: string; h?: number; se
 
 // ---- vend.frens only profile fields, kept in our store, edited only by the key they belong to ----
 export interface VendProfile { blurb: string; availability: string; showArea: boolean; showJobs: boolean; updatedAt: string; h?: number }
+
+// ---- Owners (hosts): applications and rent in sats ----
+/** Rent: a flat sats amount per period, a percent of sales in that period, or both. Periods count blocks from startH (a block height), never calendar months. */
+export interface RentTerms { flatSats: number; percent: number; periodBlocks: number; startH: number }
+export const DEFAULT_PERIOD_BLOCKS = 4320; // about 30 days of blocks
+export const HOST_STAGES = ["Applied", "Talking", "Approved", "Not now"] as const;
+export type HostStage = (typeof HOST_STAGES)[number];
+export type RentPref = "flat" | "percent" | "both" | "open";
+export const RENT_PREF_LABEL: Record<RentPref, string> = { flat: "A flat amount in sats", percent: "A percent of sales", both: "Both a flat amount and a percent", open: "Open to what works" };
+export interface HostNote { stage: HostStage; text: string; date: string; h?: number }
+export interface HostApp {
+  id: string;
+  npub: string; // the key that signed in to apply
+  business: string; // business or location name
+  address: string; // as they typed it
+  area?: string; // a place name picked from the place search
+  lat?: number;
+  lon?: number;
+  contactName: string;
+  contact: string; // email or phone
+  wantsHost: boolean; // wants a machine hosted
+  rentPref: RentPref;
+  rentNote: string;
+  payout: string; // Lightning address, checked with validLightning
+  payoutSource: "profile" | "entered"; // "profile" = the applicant's browser said it came from their kind 0 (the server does not read relays)
+  stage: HostStage;
+  machine?: string; // set when an operator approves and links a machine
+  notes: HostNote[];
+  createdAt: string;
+  h?: number;
+}
+/** The operator's signed approval of one owed line. Nothing is sent: it only records "approved, not sent". */
+export interface RentApproval { line: string; sats: number; address: string; eventId: string; by: string; at: string; h?: number }
