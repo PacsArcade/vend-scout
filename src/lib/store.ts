@@ -24,6 +24,8 @@ import { scoutAward } from "./arcade";
 import type { AiLogEntry, AiVerdict, Block, Item, PayoutRec, Proof } from "./types";
 import { checkProof, ollamaUrl, skippedVerdict } from "./autoCheck";
 import { comboBonus, scoreStop, streakDays } from "./arcade";
+import type { VendProfile } from "./types";
+import { cleanVendFields } from "./vendprofile";
 import type { Claim, HostPick, JobKind, MachineStatus, MachineType } from "./types";
 import { MACHINE_STATUSES, MACHINE_TYPES } from "./types";
 import type { Applicant, ApplicantStage, CrewRole, Outreach, OutreachHow, Route } from "./types";
@@ -31,6 +33,7 @@ import { FOOD_KINDS, SHELF_KINDS, STAGES } from "./types";
 
 
 export interface State {
+  profiles?: Record<string, VendProfile>; // vend.frens only profile fields, key = nostr pubkey hex
   scoutPaid?: Record<string, { sats: number; at: string; h?: number }>; // Place Scout parts the operator approved (key = prospect:part)
   scoutForfeit?: Record<string, { at: string; h?: number }>; // parts that came due after the scout left the crew: the house keeps them
   tracked: Record<string, Stage>;
@@ -139,6 +142,8 @@ export type Action =
   | { action: "logDm"; to: string; text: string; sent: boolean; reason?: string }
   | { action: "scoutCheck"; id: string; inside: Inside; who: string; state?: MachineState; room: "yes" | "no" | "unsure"; photo?: string; by?: string }
   | { action: "attachNpub"; id: string; npub: string }
+  | { action: "setMachineOwner"; machine: string; npub: string }
+  | { action: "saveProfile"; pubkey: string; fields: Partial<VendProfile> }
   | { action: "apply"; crewName?: string; hp?: string; npub?: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
   | { action: "applicantStep"; id: string; stage: ApplicantStage; note: string }
   | { action: "setCrewName"; id: string; name: string }
@@ -378,6 +383,21 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       if (!hex) return { ok: false, error: "That does not look like an npub. It starts with npub1" };
       if (st.applicants.some((x) => x.id !== ap.id && x.npub && npubToHex(x.npub) === hex)) return { ok: false, error: "That npub is already linked to someone else" };
       ap.npub = a.npub.trim();
+      break;
+    }
+    case "setMachineOwner": {
+      const m = machine(a.machine);
+      if (!m) return { ok: false, error: "No such machine" };
+      if (!a.npub?.trim()) { m.ownerNpub = undefined; break; }
+      if (!npubToHex(a.npub)) return { ok: false, error: "That does not look like an npub. It starts with npub1" };
+      m.ownerNpub = a.npub.trim();
+      break;
+    }
+    case "saveProfile": {
+      // Reached through /api/profile, which has already checked the signed-in key is this key. Operators only through /api/do.
+      if (!/^[0-9a-f]{64}$/.test(String(a.pubkey))) return { ok: false, error: "Bad key" };
+      st.profiles ??= {};
+      st.profiles[a.pubkey] = cleanVendFields(a.fields, st.profiles[a.pubkey], nowIso(), h);
       break;
     }
     case "applicantStep": {

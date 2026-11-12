@@ -87,6 +87,7 @@ export interface Machine {
   slots: Slot[];
   addedAt?: string;
   restockRequested?: boolean;
+  ownerNpub?: string; // the nostr key of the person who owns or hosts this machine (set by an operator), for the owner profile page
 }
 export interface Sale { machine: string; slot: string; item: string; sats: number; at: string; h?: number; test: boolean; maker?: string }
 export interface PickupOrder { code: string; item: string; priceSats: number; machine: string; slot: string; createdAt: string; h?: number; source: string }
@@ -217,3 +218,6 @@ export interface NeighborVerify { id: string; proof: string; machine: string; np
 export interface MachineReport { id: string; machine: string; npub: string; reason: string; text: string; at: string; h?: number }
 export interface ItemRequest { id: string; machine: string; npub: string; text: string; at: string; h?: number }
 export interface DmRecord { to: string; text: string; at: string; h?: number; sent: boolean; reason?: string }
+
+// ---- vend.frens only profile fields, kept in our store, edited only by the key they belong to ----
+export interface VendProfile { blurb: string; availability: string; showArea: boolean; showJobs: boolean; updatedAt: string; h?: number }

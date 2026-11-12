@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { ActionButton, ActionForm } from "@/components/Actions";
 import { Bft } from "@/components/Bft";
+import { PassportList } from "@/components/PassportList";
+import { passportFor } from "@/lib/passport";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { feed } from "@/lib/stockFeed";
 import { TELEMETRY_LABEL } from "@/lib/types";
@@ -43,6 +45,7 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
   const none = m.slots.length === 0 && locals.length === 0;
   const mreq = st.itemRequests.filter((r) => r.machine === m.id).slice(-10).reverse();
   const mrep = st.reports.filter((r) => r.machine === m.id).slice(-10).reverse();
+  const passport = passportFor(st, id);
   return (
     <>
       <Nav on="machines" />
@@ -151,6 +154,16 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
             <h3>Redeem credits</h3>
             <p className="muted small">A neighbor spends their vending machine credits at this machine. Not money.</p>
             <ActionForm action="spendCredits" extra={{ machine: m.id }} submit="Redeem" doneText="Redeemed." fields={[{ name: "npub", label: "Their npub", placeholder: "npub1..." }, { name: "amount", label: "Credits", type: "number", value: 10, min: 1 }]} />
+          </div>
+          <div className="glass card">
+            <h2>Machine passport</h2>
+            <p className="muted small">Service <span className="num">{passport.counts.service}</span> · sales <span className="num">{passport.counts.sales}</span> ({sats(passport.counts.salesSats)}) · problems <span className="num">{passport.counts.reports}</span> · neighbor checks <span className="num">{passport.counts.verifies}</span>. Built from records we already keep; nothing extra is tracked.</p>
+            <PassportList events={passport.events} />
+          </div>
+          <div className="glass card">
+            <h2>Owner</h2>
+            <p className="small">{m.ownerNpub ? <>Profile: <Link href={`/p/${m.ownerNpub}`}>{m.ownerNpub.slice(0, 16)}...</Link></> : <span className="muted">No owner key linked.</span>}</p>
+            <ActionForm action="setMachineOwner" extra={{ machine: m.id }} submit="Link owner" doneText="Saved." fields={[{ name: "npub", label: "Owner npub (empty to unlink)", placeholder: "npub1...", optional: true, value: m.ownerNpub ?? "" }]} />
           </div>
           <div className="glass card">
             <h2>Machine profile</h2>

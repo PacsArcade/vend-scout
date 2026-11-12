@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { stampString } from "@/components/Bft";
 import { NeighborPanel } from "@/components/NeighborPanel";
+import { PassportList } from "@/components/PassportList";
+import { passportFor } from "@/lib/passport";
 import { PhoneBar } from "@/components/PhoneBar";
 import { boardName } from "@/lib/arcade";
 import { npubToHex } from "@/lib/operator";
@@ -38,6 +40,7 @@ export default async function NeighborPage({ params }: { params: Promise<{ machi
           </div>
         ) : <div className="glass tile"><b>No stocking photo yet</b><p className="muted small">When the stocker sends one, it shows here.</p></div>}
         <NeighborPanel machine={m.id} machineName={m.name} tag={machineTag(m.id)} origin={origin} hasPhoto={!!p} stocker={runner ? boardName(runner.name) : "The stocker"} tipOk={!!runner?.lightning} runnerHex={runner?.npub ? npubToHex(runner.npub) : null} verifies={verifies} />
+        <div className="glass tile"><b>Service history</b><PassportList events={passportFor(st, machine, { publicView: true }).events.slice(-8)} /></div>
         <p className="muted small">Credits are for use at our machines. They are not money.</p>
       </div>
     </div>
