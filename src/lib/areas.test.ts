@@ -27,3 +27,23 @@ describe("H3 areas", () => {
   });
   it("is empty for no points", () => { expect(countByCell([])).toEqual([]); });
 });
+
+import { checkInZone, CHECKIN_RES, ringOf, resForView } from "./areas";
+describe("r22 check-in zone", () => {
+  it("is the machine's cell plus two rings, 19 cells", () => {
+    const z = checkInZone(41.8781, -87.6298)!;
+    expect(z.cells.length).toBe(19);
+    expect(z.cells).toContain(z.center);
+    expect(z.ring1.length).toBe(6);
+    expect(z.ring2.length).toBe(12);
+    expect(z.center.length).toBeGreaterThan(10);
+    expect(CHECKIN_RES).toBe(10);
+  });
+  it("is null for a bad coordinate", () => { expect(checkInZone(undefined, 1)).toBeNull(); expect(checkInZone(200, 1)).toBeNull(); });
+  it("ring of six", () => { expect(ringOf(checkInZone(41.8, -87.6)!.center).length).toBe(6); });
+  it("picks a coarser resolution for a bigger view", () => {
+    const small = resForView({ s: 41.87, n: 41.885, w: -87.64, e: -87.62 });
+    const big = resForView({ s: 41.64, n: 42.03, w: -87.94, e: -87.52 });
+    expect(small).toBeGreaterThan(big);
+  });
+});

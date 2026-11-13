@@ -5,6 +5,9 @@ import { Nav } from "@/components/Nav";
 import { ActionButton, ActionForm } from "@/components/Actions";
 import { Bft } from "@/components/Bft";
 import { PassportList } from "@/components/PassportList";
+import { PassportStamps } from "@/components/PassportStamps";
+import { HexZone } from "@/components/Hex";
+import { salesPerWeek } from "@/lib/weekly";
 import { passportFor } from "@/lib/passport";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { feed } from "@/lib/stockFeed";
@@ -47,6 +50,8 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
   const mreq = st.itemRequests.filter((r) => r.machine === m.id).slice(-10).reverse();
   const mrep = st.reports.filter((r) => r.machine === m.id).slice(-10).reverse();
   const passport = passportFor(st, id);
+  const weeks = salesPerWeek(st.sales.filter((x) => x.machine === id));
+  const wmax = Math.max(1, ...weeks.map((w) => w.count));
   return (
     <>
       <Nav on="machines" />
@@ -78,7 +83,7 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
               ))}
             </div>
           )}
-          <p className="muted small" style={{ marginTop: 14 }}>S sensor-reported, H counted by hand · <span className="chip" style={{ borderColor: "rgba(212,168,67,.55)", color: "var(--gild)" }}>gold</span> arcade merch · <span className="chip" style={{ borderColor: "var(--shelf)", color: "var(--shelf)" }}>teal</span> local shelf · <span className="chip">held</span> pickup order. Tap a slot for its bitcoin page.
+          <p className="muted small" style={{ marginTop: 14 }}>S sensor-reported, H counted by hand · <span className="chip" style={{ borderColor: "rgba(0,255,255,.55)", color: "var(--gild)" }}>gold</span> arcade merch · <span className="chip" style={{ borderColor: "var(--shelf)", color: "var(--shelf)" }}>teal</span> local shelf · <span className="chip">held</span> pickup order. Tap a slot for its bitcoin page.
           </p>
         </div>
         <div className="col">
@@ -157,8 +162,23 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
             <p className="muted small">A neighbor spends their vending machine credits at this machine. Not money.</p>
             <ActionForm action="spendCredits" extra={{ machine: m.id }} submit="Redeem" doneText="Redeemed." fields={[{ name: "npub", label: "Their npub", placeholder: "npub1..." }, { name: "amount", label: "Credits", type: "number", value: 10, min: 1 }]} />
           </div>
+          {weeks.length > 0 && (
+            <div className="glass card">
+              <div className="sechd"><h2>Sales per week</h2><span className="pill line">A week is 1,008 blocks</span></div>
+              <div className="wk" role="img" aria-label={`Sales per week: ${weeks.map((w) => `week ${w.week}, ${w.count}`).join("; ")}`}>
+                {weeks.map((w) => <div key={w.week}><span className="num">{w.count}</span><i className={w.now ? "now" : ""} style={{ height: `${Math.max(2, (w.count / wmax) * 100)}%` }} /><span className="dim">Wk {w.week}</span></div>)}
+              </div>
+              <p className="dim">Week numbers are weeks of the block year. The dashed bar is the week still running. Test sales are left out.</p>
+            </div>
+          )}
+          <div className="glass card">
+            <h2>Check-in zone</h2>
+            {m.lat !== undefined ? <div className="zonebox"><HexZone lat={m.lat} lon={m.lon} coin={m.profile.lightning} /><p className="dim">The machine&apos;s own hexagon and two rings around it, 19 in all. Shown, not checked: the app does not read a visitor&apos;s location yet.</p></div> : <p className="muted">No place set for this machine yet.</p>}
+          </div>
           <div className="glass card">
             <h2>Machine passport</h2>
+            <PassportStamps events={passport.events} page={8} />
+            <h3>Full record</h3>
             <p className="muted small">Service <span className="num">{passport.counts.service}</span> · sales <span className="num">{passport.counts.sales}</span> ({sats(passport.counts.salesSats)}) · problems <span className="num">{passport.counts.reports}</span> · neighbor checks <span className="num">{passport.counts.verifies}</span>. Built from records we already keep; nothing extra is tracked.</p>
             <PassportList events={passport.events} />
           </div>

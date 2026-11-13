@@ -2,7 +2,7 @@ import type { MachineType } from "@/lib/types";
 
 // Simple line drawings, one per machine type. Pure SVG, no photos.
 export function TypeDrawing({ type, size = 96 }: { type: MachineType; size?: number }) {
-  const common = { fill: "none", stroke: "#d4a843", strokeWidth: 2.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const common = { fill: "none", stroke: "#00ffff", strokeWidth: 2.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const body = <rect x="14" y="8" width="52" height="64" rx="5" {...common} />;
   const shapes: Record<MachineType, React.ReactNode> = {
     snack: <>{body}<path d="M20 22h40M20 36h40M20 50h40" {...common} /><rect x="22" y="26" width="8" height="8" {...common} /><rect x="36" y="26" width="8" height="8" {...common} /><rect x="22" y="40" width="8" height="8" {...common} /><rect x="22" y="58" width="36" height="8" rx="2" {...common} /></>,

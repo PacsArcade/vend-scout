@@ -3,9 +3,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Bundle, Job } from "@/lib/jobs";
+import { HexZone } from "./Hex";
 
 type Crew = { id: string; name: string; lat?: number; lon?: number };
 const KIND: Record<string, string> = { restock: "Restock", scout: "Scout", shelf: "Shelf pickup", tech: "Tech job" };
+const STEPS: Record<string, string[]> = {
+  restock: ["Claim the job. It is yours until you send the proof.", "Go to the machine. The check-in zone is its hexagon and two rings around it.", "Fill the slots and send the photos as proof.", "Proof approved: sats are sent and the machine passport gets a stamp."],
+  shelf: ["Claim the job. It is yours until you send the proof.", "Collect the item from the maker in the pickup window.", "Stock it in the machine and send the photos as proof.", "Proof approved: sats are sent and the passport gets a stamp."],
+  scout: ["Claim the job. It is yours until the visit is done.", "Visit the place with the one-page sheet and pitch the host.", "Log what the host said. Pay comes in parts as the deal moves.", "When the machine goes in, the site flips to a machine on the map."],
+  tech: ["Claim the job. It is yours until you report back.", "Go to the machine and check what is wrong.", "Fix it or report what is needed, with photos.", "Proof approved: sats are sent and the passport gets a stamp."],
+};
 
 function km(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   const R = 6371, r = (x: number) => (x * Math.PI) / 180;
@@ -64,7 +71,7 @@ export function JobsBoard({ jobs, bundles, crew, lockedMe }: { jobs: Job[]; bund
             const d = dist(b);
             return (
               <div key={b.route} className="glass card item">
-                <span className="chip">Route bundle</span>
+                <span className="pill job">Route bundle</span>
                 <h2>{b.name}</h2>
                 <p className="muted small">{b.stops} stops, one runner. {d !== null ? `${d.toFixed(1)} km to the first stop.` : ""}</p>
                 <div className="foot2"><span className="num">{b.sats.toLocaleString("en-US")} sats</span></div>
@@ -77,14 +84,29 @@ export function JobsBoard({ jobs, bundles, crew, lockedMe }: { jobs: Job[]; bund
       {shown.length === 0 ? (
         <div className="glass card"><h2>No open jobs right now</h2><p className="muted">Jobs show up when a machine runs low, a prospect is waiting for a pitch, a local item is ready for pickup, or a machine needs repair.</p></div>
       ) : (
-        <div className="cards">
+        <div className="jobcards">
           {shown.map((j) => (
-            <div key={j.id} className="glass card item">
-              <span className="chip">{KIND[j.kind]}</span>
+            <div key={j.id} className="glass jobcard">
+              <div className="top2"><span className="pill job">{KIND[j.kind]}</span><span className="pill line">Open</span></div>
               <h2>{j.title}</h2>
               <p className="muted small">{j.detail}</p>
-              <div className="foot2"><span className="num">{j.kind === "scout" ? "Paid in parts" : `${(j.sats + j.bonus).toLocaleString("en-US")} sats`}{j.bonus > 0 && <span className="chip"> + busy bonus</span>}</span><span className="muted small num">{j.d !== null ? `${j.d.toFixed(1)} km away` : "distance unknown"}</span></div>
-              <button className="btn gild" onClick={() => act({ action: "claimJob", job: j.id, kind: j.kind, title: j.title, by: me }, "Claimed. It is in My claimed jobs.")}>Claim</button>
+              <div className="bigpay num">{j.kind === "scout" ? "Paid in parts" : `${(j.sats + j.bonus).toLocaleString("en-US")} sats`}</div>
+              <div className="kvgrid">
+                <div className="kvtile"><span>Base pay</span><b className="num">{j.kind === "scout" ? "In parts" : `${j.sats.toLocaleString("en-US")} sats`}</b></div>
+                <div className="kvtile"><span>Busy bonus</span><b className="num">{j.bonus > 0 ? `+${j.bonus.toLocaleString("en-US")} sats` : "None"}</b></div>
+                <div className="kvtile"><span>Distance</span><b className="num">{j.d !== null ? `${j.d.toFixed(1)} km` : "Not known yet"}</b></div>
+              </div>
+              <ol className="stepsol">{(STEPS[j.kind] ?? STEPS.restock).map((t, i) => <li key={i}><span className="nn">{i + 1}</span><span>{t}</span></li>)}</ol>
+              {j.lat !== undefined && j.lon !== undefined && (
+                <div className="zonebox">
+                  <HexZone lat={j.lat} lon={j.lon} coin={!!j.btc} />
+                  <p className="dim">The dashed hexagons are the check-in zone: the machine&apos;s own cell and two rings around it, 19 hexagons, about 150 m out. The zone is shown here so you know where to be. The app does not read your location yet, so it is not checked when you send a proof.</p>
+                </div>
+              )}
+              <div className="actions">
+                <button className="btn gild" onClick={() => act({ action: "claimJob", job: j.id, kind: j.kind, title: j.title, by: me }, "Claimed. It is in My claimed jobs.")}>Claim this job</button>
+                {j.lat !== undefined && j.lon !== undefined ? <Link className="btn" href={`/scout?view=${j.lat},${j.lon},16`}>Show on map</Link> : null}
+              </div>
             </div>
           ))}
         </div>

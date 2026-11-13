@@ -4,7 +4,7 @@ import { isOperatorNow } from "@/lib/auth";
 import { LiveBft } from "./LiveBft";
 
 const TABS = [
-  { key: "scout", label: "Scout", href: "/scout" },
+  { key: "scout", label: "Map", href: "/scout" },
   { key: "prospects", label: "Prospects", href: "/prospects" },
   { key: "machines", label: "Machines", href: "/machines" },
   { key: "shelf", label: "Local shelf", href: "/shelf" },
