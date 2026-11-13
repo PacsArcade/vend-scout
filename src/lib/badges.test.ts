@@ -38,6 +38,12 @@ describe("badge set", () => {
     expect(pathIsPublic("/badges/vendfrens-crew.svg", false)).toBe(true);
     expect(pathIsPublic("/admin/badges", false)).toBe(false);
   });
+  it("serves the logo art and tab icon without a sign-in", () => {
+    expect(pathIsPublic("/brand/01-machine-fren-full.svg", false)).toBe(true);
+    expect(pathIsPublic("/brand/05-crew-badge-full.svg", false)).toBe(true);
+    expect(pathIsPublic("/icon.svg", false)).toBe(true);
+    expect(pathIsPublic("/brand/../admin", false)).toBe(false);
+  });
 });
 
 describe("publishing an operator signed badge event", () => {
