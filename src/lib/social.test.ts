@@ -127,7 +127,7 @@ describe("welcome DM", () => {
   });
   it("the text names the person, the job and the pay as test sats, with no dollar sign", () => {
     const t = welcomeText({ name: "Maya Reyes", jobTitle: "Restock M1", sats: 7000, url: "https://x.test/jobs" });
-    expect(t).toContain("Welcome to the Vend Scout crew, Maya.");
+    expect(t).toContain("Welcome to the VendFrens crew, Maya.");
     expect(t).toContain("Restock M1");
     expect(t).toContain("7,000 sats (test)");
     expect(t).not.toMatch(/\$|—/);
@@ -142,7 +142,7 @@ describe("welcome DM", () => {
     const r = await welcomeDmFor("a1", "https://x.test");
     expect(r.sent).toBe(false);
     expect(r.hasKey).toBe(false);
-    expect(r.text).toContain("Welcome to the Vend Scout crew, Maya.");
+    expect(r.text).toContain("Welcome to the VendFrens crew, Maya.");
     expect((await readState()).dms[0]).toMatchObject({ to: NB, sent: false, reason: SKIPPED });
   });
 });

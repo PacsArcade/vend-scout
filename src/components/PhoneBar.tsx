@@ -4,7 +4,7 @@ import { LiveBft } from "./LiveBft";
 export function PhoneBar({ right }: { right: string }) {
   return (
     <div className="phonebar">
-      <div className="bar0"><span>frens.earth · Machines</span><span>{right}</span></div>
+      <div className="bar0"><span>VendFrens</span><span>{right}</span></div>
       <div className="phoneclock"><LiveBft /></div>
     </div>
   );

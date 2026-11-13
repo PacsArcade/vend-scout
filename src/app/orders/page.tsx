@@ -15,7 +15,7 @@ export default async function OrdersPage() {
       <Nav on="orders" />
       <main className="page">
         <div className="rowflex"><h1>Pickup orders</h1><a className="btn gild" href={SHOP_URL} target="_blank" rel="noopener noreferrer">Open the frens.earth shop</a></div>
-        <p className="muted measure">Arcade merch is ordered in the frens.earth shop and picked up at a machine, any hour. In v0 you type the order in by hand. The shop is not connected yet.</p>
+        <p className="intro">Arcade merch is ordered in the frens.earth shop and picked up at a machine, any hour. In v0 you type the order in by hand. The shop is not connected yet.</p>
         {st.machines.filter((m) => m.status === "Placed").length === 0 ? (
           <Empty title="No machines placed yet">
             <p className="muted">A pickup order needs a machine to wait in.</p>

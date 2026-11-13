@@ -13,7 +13,7 @@ export default async function ItemsPage() {
       <Nav on="machines" />
       <main className="page">
         <h1>Item catalog</h1>
-        <p className="muted measure">Every stock item, with a reference photo. Slots point at catalog items, and the photo checker uses the reference photo to see if the right item went in.</p>
+        <p className="intro">Every stock item, with a reference photo. Slots point at catalog items, and the photo checker uses the reference photo to see if the right item went in.</p>
         {st.items.length === 0 ? <Empty title="No items yet"><p className="muted">Add the first one below.</p></Empty> : (
           <div className="cards">
             {st.items.map((i) => (

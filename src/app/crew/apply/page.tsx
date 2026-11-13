@@ -11,7 +11,7 @@ export default async function ApplyPage({ searchParams }: { searchParams: Promis
       <Nav on="crew" />
       <main className="page narrow">
         <h1>{r ? `Apply: ${ROLE_COPY[r].title}` : "Apply to the crew"}</h1>
-        {r && <p className="muted">{ROLE_COPY[r].body}</p>}
+        {r && <p className="intro">{ROLE_COPY[r].body}</p>}
         <ApplyForm initialRole={r} center={[41.88, -87.65]} />
       </main>
     </>

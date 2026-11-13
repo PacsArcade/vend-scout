@@ -4,7 +4,7 @@ export function contactEmail(): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
 }
 /** Every mail from the site arrives tagged, so a shared inbox can sort it. */
-export const CONTACT_SUBJECT = "From the Vend Scout site (vend.frens.earth)";
+export const CONTACT_SUBJECT = "From the VendFrens site (vend.frens.earth)";
 export function ContactLine() {
   const e = contactEmail();
   if (!e) return null;

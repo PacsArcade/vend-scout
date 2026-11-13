@@ -24,7 +24,7 @@ import { scoutAward } from "./arcade";
 import type { AiLogEntry, AiVerdict, Block, Item, PayoutRec, Proof } from "./types";
 import { checkProof, ollamaUrl, skippedVerdict } from "./autoCheck";
 import { comboBonus, scoreStop, streakDays } from "./arcade";
-import type { VendProfile, HostApp, HostStage, RentApproval } from "./types";
+import type { VendProfile, HostApp, HostStage, RentApproval, VerifyRecord, BadgePublished } from "./types";
 import { HOST_STAGES } from "./types";
 import { cleanHostApp, type HostInput } from "./hostapp";
 import { cleanRent } from "./rent";
@@ -38,6 +38,8 @@ import { FOOD_KINDS, SHELF_KINDS, STAGES } from "./types";
 export interface State {
   hostApps?: HostApp[]; // owner (host) applications
   rentApprovals?: Record<string, RentApproval>; // key = owed line id
+  verifySigs?: Record<string, VerifyRecord>; // the latest signed one-time code per crew key (hex)
+  badgePublished?: Record<string, BadgePublished>; // NIP-58 events the operator signed and the app sent on, key = def:<d> or award:<d>:<hex>
   profiles?: Record<string, VendProfile>; // vend.frens only profile fields, key = nostr pubkey hex
   scoutPaid?: Record<string, { sats: number; at: string; h?: number }>; // Place Scout parts the operator approved (key = prospect:part)
   scoutForfeit?: Record<string, { at: string; h?: number }>; // parts that came due after the scout left the crew: the house keeps them
@@ -839,5 +841,20 @@ export const grantCredits = (st: State, npub: string, kind: "verify" | "share", 
 export async function recordRentApproval(a: RentApproval): Promise<void> {
   const st = await readState();
   (st.rentApprovals ??= {})[a.line] = a;
+  await write(st);
+}
+
+/** Record a result of the signed one-time code check for one key. */
+export async function recordVerifySig(hex: string, patch: Partial<VerifyRecord>): Promise<void> {
+  const st = await readState();
+  const all = (st.verifySigs ??= {});
+  all[hex] = { ...(all[hex] ?? {}), ...patch };
+  await write(st);
+}
+
+/** Record that a signed badge event was sent on to the relays. */
+export async function recordBadgePublished(key: string, rec: BadgePublished): Promise<void> {
+  const st = await readState();
+  (st.badgePublished ??= {})[key] = rec;
   await write(st);
 }

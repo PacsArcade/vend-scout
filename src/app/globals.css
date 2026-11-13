@@ -8,13 +8,13 @@ h1,h2,h3{text-wrap:balance}
 .num{font-variant-numeric:tabular-nums}
 .r{text-align:right}
 .mono{font-family:"DejaVu Sans Mono",monospace}
-.top{display:flex;align-items:center;gap:22px;padding:16px 28px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.brand{font-weight:700;letter-spacing:.06em;color:var(--gild)}
-.brand small{color:var(--dim);font-weight:400;letter-spacing:0;margin-left:8px}
-.tabs{display:flex;gap:6px;margin-left:24px;flex-wrap:wrap}
-.tab{padding:7px 16px;border-radius:999px;color:var(--dim);border:1px solid transparent}
-.tab.on{color:var(--ink);background:var(--panel);border-color:var(--line)}
-.who{margin-left:auto;color:var(--dim);font-size:13px}
+
+
+
+
+
+
+
 .glass{background:var(--panel);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(14px)}
 .btn{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 20px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--ink);font-weight:600;font-size:14px;line-height:1;font-family:inherit;white-space:nowrap;cursor:pointer}
 .btn.gild{background:linear-gradient(180deg,#e2bb5c,#b98d2e);color:#1b1206;border-color:#e6c470;box-shadow:0 0 18px rgba(255,100,0,.25)}
@@ -80,7 +80,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:9px 6px;b
 .invoice{word-break:break-all;font-size:11px;color:var(--dim);margin-top:8px}
 .demo{font-size:12px;color:var(--dim);margin:0 28px 20px}
 @media (max-width:900px){
-  .top{padding:14px 16px;gap:10px}.tabs{margin-left:0}.who{margin-left:0;width:100%}
+
   .scout{grid-template-columns:1fr;height:auto;padding:14px 16px}
   .map{height:520px}.list .rows{overflow:visible}
   .two,.mach{grid-template-columns:1fr;padding:14px 16px}
@@ -100,7 +100,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:9px 6px;b
 }
 
 /* round 2 */
-.top .brand{display:inline-flex;align-items:baseline}
+
 .page{padding:22px 28px;display:flex;flex-direction:column;gap:16px;max-width:1100px}
 .page.narrow{max-width:640px}
 .measure{max-width:60ch}
@@ -171,8 +171,8 @@ td a{color:var(--gild)}
 .phone .okmsg{margin-top:8px}
 
 /* round 3 */
-.who{text-align:right;line-height:1.35}
-.who .stamp{display:block;font-size:12px;color:var(--gild)}
+
+
 .mono.stamp{font-size:12px}
 .brk{overflow-wrap:anywhere}
 .mtabs{display:none}
@@ -204,7 +204,7 @@ details.edit summary::-webkit-details-marker{display:none}
 .splist{list-style:none;display:flex;flex-direction:column;gap:6px}
 .splist li{display:flex;justify-content:space-between;gap:10px}
 @media (max-width:900px){
-  .who{text-align:left;width:100%}
+
   .mtabs{display:flex;gap:10px;padding:0}
   .mtabs .btn{flex:1}
   .scout{gap:12px}
@@ -223,15 +223,15 @@ details.edit summary::-webkit-details-marker{display:none}
 .filepick input{display:none}
 .filepick .nm{font-size:13px;color:var(--dim);overflow-wrap:anywhere}
 .hint{font-size:13px;color:var(--dim)}
-.navmenu{display:none}
-@media (max-width:1700px){
-  .navmenu{display:inline-flex}
-  .top{flex-wrap:wrap!important}
-  .top .tabs.closed{display:none}
-  .top .tabs{width:100%;flex-direction:column;gap:4px;margin-left:0!important}
-  .top .tabs .tab{display:flex;align-items:center;min-height:44px}
-}
-@media (max-width:900px){.who{margin-left:0!important;text-align:left!important;width:100%}}
+
+
+
+
+
+
+
+
+
 .rolecards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
 .rolecard{display:flex;flex-direction:column;gap:10px;padding:22px}
 .rolecard .actions{margin-top:auto}
@@ -257,9 +257,9 @@ details.edit summary::-webkit-details-marker{display:none}
 .stepnote{margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
 .applicant .brk,.applicant .mono{overflow-wrap:anywhere}
 
-.who .stamp{display:block;white-space:nowrap}
-.top{flex-wrap:wrap}
-@media (min-width:1701px){.top{flex-wrap:nowrap}.top .tabs{margin-left:12px;flex-wrap:nowrap}.tab{padding:7px 12px;white-space:nowrap}.who{white-space:nowrap}}
+
+
+
 .searchrow+p,.searchrow+.hint{margin-top:10px}
 .filepick{margin-top:12px}
 .glass.card p+.actions{margin-top:14px}
@@ -330,10 +330,10 @@ details.edit summary::-webkit-details-marker{display:none}
 .toast{margin-top:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--good);color:var(--good);background:rgba(95,211,138,.08);font-weight:700}
 .regionpick{margin:0 0 4px}
 
-@media (max-width:900px){.who .stamp{white-space:normal!important;overflow-wrap:anywhere}.who{white-space:normal!important}}
+
 
 /* round 5b */
-.clockline .unit{display:inline-block;white-space:nowrap}
+
 .phoneclock{margin:-8px 0 14px;font-size:12px;color:var(--gild)}
 .phoneclock .stamp{font-size:11px}
 .strip>.kpi:last-child:nth-child(odd){grid-column:1/-1}
@@ -378,11 +378,11 @@ details.edit summary::-webkit-details-marker{display:none}
 
 /* round 9: nothing clips on the right */
 html,body{max-width:100%;overflow-x:clip}
-.top{max-width:100vw}
-.top>*{min-width:0;max-width:100%}
-.brand,.brand small{overflow-wrap:anywhere}
-.who,.who .stamp,.stamp{overflow-wrap:anywhere;word-break:normal}
-.clockline .unit{max-width:100%}
+
+
+
+
+
 .sitefoot{padding:18px 28px 28px;color:var(--dim);font-size:13px;display:flex;gap:6px 18px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:24px}
 .sitefoot a,.contactline a{color:var(--gild)}
 .contactline{margin:0}
@@ -479,3 +479,101 @@ html,body{max-width:100%;overflow-x:clip}
 @media (max-width:700px){.owedline{grid-template-columns:1fr 1fr}.owedline .o-mach,.owedline .o-state,.owedline .o-pay{grid-column:1/-1}}
 .applicant .form{grid-template-columns:minmax(0,1fr)}
 .applicant .form input,.applicant .form select{box-sizing:border-box;max-width:100%}
+
+/* ===== r20 shared pieces: header, stamp, intro and notice text, state cells. One place, every page. ===== */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:12px 28px;border-bottom:1px solid var(--line);position:relative;max-width:100vw}
+.top>*{min-width:0}
+.brand{display:inline-flex;align-items:center;flex:none;order:0;color:var(--gild)}
+.brand img{display:block;height:40px;width:auto}
+.tabs{display:flex;gap:6px;order:1;background:none}
+.tabs-in{display:flex;gap:6px;flex-wrap:nowrap}
+.tab{padding:7px 12px;border-radius:999px;color:var(--dim);border:1px solid transparent;white-space:nowrap}
+.tab.on{color:var(--ink);background:var(--panel);border-color:var(--line)}
+.who{order:2;margin-left:auto;color:var(--dim);font-size:13px;text-align:right;line-height:1.35;display:flex;flex-direction:column;align-items:flex-end;min-width:0}
+.who .stamp,.clockline .stamp,.clockline{font-size:12px;color:var(--gild)}
+.navmenu{display:none;order:3;flex:none}
+.stamp{overflow-wrap:break-word}
+.st{white-space:nowrap}
+.clockline{display:block;white-space:nowrap}
+/* folded header (the nav tabs do not fit in one row at or under 1700 px) */
+@media (max-width:1700px){
+  .navmenu{display:inline-flex}
+  .tabs{order:9;flex:0 0 100%;width:100%}
+  .tabs.closed{display:none}
+  .tabs{background:var(--line);padding:1px;clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px)}
+  .tabs-in{width:100%;flex-direction:column;gap:2px;padding:8px;background:#15111d;clip-path:polygon(13px 0,calc(100% - 13px) 0,100% 13px,100% calc(100% - 13px),calc(100% - 13px) 100%,13px 100%,0 calc(100% - 13px),0 13px)}
+  .tabs .tab{display:flex;align-items:center;min-height:44px;padding:0 16px}
+}
+@media (min-width:1701px){.tabs{margin-left:12px}.top{flex-wrap:nowrap}}
+/* the clock gives way in this order as the width shrinks: block first, then date, the time always stays */
+@media (max-width:760px){.top .clockline .st-block{display:none}.who .credit{display:none}}
+@media (max-width:470px){.top .clockline .st-date{display:none}.top{padding:10px 16px;gap:10px}.brand img{height:34px}}
+.who .credit{white-space:nowrap}
+.navmenu.btn{height:40px;padding:0 18px;min-width:84px}
+/* one stamp everywhere: block first */
+.stamp.mono,.mono.stamp{font-size:12px}
+.stamp-line{display:block}
+/* shared page text: one measure for every intro and notice, set in rem so the width does not change with the font size */
+p,li,td{text-wrap:pretty;overflow-wrap:break-word}
+h1,h2,h3{text-wrap:balance}
+.intro,.notice{max-width:44rem;width:100%;font-size:15px;line-height:1.55;text-wrap:pretty}
+.intro{color:var(--dim)}
+.intro.note,.notice.note{font-size:13px}
+.notice{padding:12px 16px;border:1px solid var(--line);border-left-width:4px;border-radius:14px;background:rgba(255,255,255,.03);color:var(--ink)}
+.notice.bad{border-color:var(--bad);background:rgba(229,103,122,.08)}
+.notice.good{border-color:var(--good);background:rgba(95,211,138,.08)}
+.notice b:first-child{display:block;margin-bottom:2px}
+.notice.bad b:first-child{color:var(--bad)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.btcmark{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);vertical-align:middle}
+.btcmark img{image-rendering:pixelated}
+.faceholder{display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:50%;background:#0b0b12;border:2px solid #00ffff}
+.faceholder img{image-rendering:pixelated}
+.crewcard-art{display:block;width:84px;height:auto;image-rendering:pixelated}
+/* state cell: a thing that is not published yet is dimmed and says so in words, solid once it is published */
+.statecell{display:flex;gap:14px;align-items:center;min-width:0}
+.statecell img{flex:none;image-rendering:pixelated}
+.statecell.off img{opacity:.38;filter:grayscale(1)}
+.statecell.off .sc-text{color:var(--dim)}
+.statecell.off .sc-text b{color:var(--dim)}
+.pubstamp{display:block;margin-top:4px;font-size:12px;color:var(--good)}
+.pubstamp .mono{color:var(--good)}
+.rowline{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid var(--line)}
+.rowline .rl-act{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.rowline .rl-act .btn{min-width:260px}
+.rowline .rl-msg{max-width:260px;text-align:right}
+.awardlist{list-style:none;display:flex;flex-direction:column;padding:0}
+@media (max-width:760px){
+  .rowline{flex-direction:column;align-items:center;text-align:center}
+  .rowline .statecell{flex-direction:column;text-align:center}
+  .rowline .rl-act{align-items:center;width:100%}
+  .rowline .rl-act .btn{width:100%;min-width:0}
+  .rowline .rl-msg{text-align:center}
+}
+/* verify page */
+.verifycol{margin-inline:auto}
+.checkwrap{display:flex;flex-direction:column;align-items:center;gap:6px;margin:6px 0 10px}
+.bigcheck{width:128px;height:128px;display:block}
+.bigcheck .frame{fill:#0b0b12}
+.bigcheck .edge{fill:var(--good)}
+.bigcheck .px{fill:var(--good);opacity:0;animation:pxin 1ms steps(1,end) forwards;animation-delay:calc(var(--i) * 90ms + 150ms)}
+.bigcheck .edge{opacity:0;animation:pxin 1ms steps(1,end) forwards;animation-delay:calc(var(--i) * 25ms)}
+@keyframes pxin{to{opacity:1}}
+.bigcheck-pop{animation:checkpop .5s steps(5,end) 1}
+@keyframes checkpop{0%{transform:scale(.4)}100%{transform:scale(1)}}
+.checkword{font-size:20px;font-weight:700;color:var(--good);text-align:center}
+@media (prefers-reduced-motion:reduce){.bigcheck .px,.bigcheck .edge{animation:none;opacity:1}.bigcheck-pop{animation:none}}
+.footbrand{display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap}
+.footbrand img{display:block;height:36px;width:auto}
+.page.pagecenter{margin-inline:auto;width:100%}
+.crewhead2{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.scanarea{display:flex;justify-content:center;margin:16px 0 8px}
+.scancap{text-align:center;overflow-wrap:anywhere}
+.crewid{text-align:left}
+.statecell .art{display:flex;align-items:center;justify-content:center;flex:none;width:64px}
+.statecell .art.sm{width:48px}
+.faceholder+div,.crewid .nostrface>div{min-width:0}
+.kv td:first-child{white-space:nowrap;padding-right:14px}
+.card .intro,.card .notice{margin-bottom:10px}
+.bigcheck{width:160px!important;height:160px!important}
+@media (max-width:480px){.kv tr{display:flex;flex-direction:column;padding:6px 0;border-top:1px solid var(--line)}.kv td{display:block;border:0;padding:2px 6px}.kv td:first-child{padding-right:6px}}

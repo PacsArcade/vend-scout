@@ -19,19 +19,19 @@ describe("live BFT face", () => {
     expect(f.pct).toBe(100);
     expect(HOLD_S).toBe(599);
   });
-  it("a cold load uses the tip timestamp as an estimate marked ~", () => {
+  it("a cold load shows dashes for the unknown digits and never a ~ or a guessed time", () => {
     const now = 10_000_000;
     const a = nextArrival(null, H, (now - 125_000) / 1000, now);
     expect(a.est).toBe(true);
-    expect(faceText(face(a, now))).toContain("~");
-    expect(face(a, now).time.slice(-4)).toMatch(/2:05$/);
+    const f = face(a, now);
+    expect(faceText(f)).not.toContain("~");
+    expect(f.time).toMatch(/^\d{2}:\d-:--$/);
   });
-  it("a cold load with no timestamp starts at zero and is still marked ~", () => {
+  it("a cold load with no timestamp shows the same dashes", () => {
     const a = nextArrival(null, H, null, 5_000);
-    expect(a.est).toBe(true);
-    expect(face(a, 5_000).time.endsWith("0:00")).toBe(true);
+    expect(face(a, 5_000).time).toMatch(/^\d{2}:\d-:--$/);
   });
-  it("a new block seen live resets to 0:00 and drops the ~", () => {
+  it("a new block seen live resets to 0:00 and shows the real seconds", () => {
     const cold = nextArrival(null, H, 1, 100_000);
     const next = nextArrival(cold, H + 1, null, 700_000);
     expect(next.est).toBe(false);

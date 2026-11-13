@@ -20,7 +20,7 @@ export default async function AdminPlace({ params }: { params: Promise<{ id: str
       <Nav on="admin" />
       <main className="page narrow">
         <h1>Pick a machine for {hit.prospect.name}</h1>
-        <p className="muted">Choose from machines In storage, then confirm. The place moves to Placed.</p>
+        <p className="intro">Choose from machines In storage, then confirm. The place moves to Placed.</p>
         {asked && <p className="small">The host asked for: {[...asked.types, asked.other].filter(Boolean).join(", ")}.</p>}
         {inventory.length === 0 ? (
           <Empty title="No machine in storage"><p className="muted">Add one to inventory first.</p><div className="actions"><Link className="btn gild" href="/machines/inventory">Add to inventory</Link></div></Empty>

@@ -11,7 +11,7 @@ Names only. Never put values in this file or in the repo.
 |---|---|---|
 | `BLOB_STORE_ID` or `BLOB_READ_WRITE_TOKEN` | yes (one of them) | Connecting a Blob store to the project provides one of these. Newer stores connect with OIDC: Vercel adds `BLOB_STORE_ID` (and `BLOB_WEBHOOK_PUBLIC_KEY`) and supplies the sign-in token at runtime, with no read-write token. Older stores add `BLOB_READ_WRITE_TOKEN`. Either counts as connected; the app never passes a token itself. All state, scan caches and photos are kept as PRIVATE blobs under `vend/`. On Vercel with neither, the app refuses to scan and shows "Storage is not connected" (it never falls back to files). Create the Blob store as a private store. |
 | `OPERATOR_NPUBS` | yes | Comma separated npubs allowed to sign in as operator. Nobody can open admin until at least one is set. |
-| `VEND_SESSION_SECRET` | yes | Signs the operator and crew session cookies. A long random string. |
+| `VEND_SESSION_SECRET` | yes | Signs the operator and crew session cookies, and is the key behind the one-time codes on the crew verify page (`/verify/<npub>`): the code is an HMAC of the key and a 2 minute window, nothing is stored but the last signed code. A long random string. |
 | `CRON_SECRET` | yes | Vercel sends it as `Authorization: Bearer ...` on the daily scan-ahead (`/api/cron/scan`, set in `vercel.json`, once a day on Hobby). With no secret set the route refuses every call. |
 | `VERCEL` | automatic | Set by Vercel. It turns the operator gate on. |
 

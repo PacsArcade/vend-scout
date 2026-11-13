@@ -17,8 +17,8 @@ export default async function NoticesPage() {
       <Nav on="admin" />
       <main className="page">
         <h1>Drafts to post</h1>
-        <p className="muted">Draft notices built from real records: machines that need a visit and machines just serviced. <b>Nothing is posted anywhere.</b> Copy the text and post it yourself. A crew name appears only for people who turned on public showing.</p>
-        {now.h === 0 && <p className="err" role="alert">Block time is unavailable, so drafts cannot be built right now.</p>}
+        <p className="intro">Draft notices built from real records: machines that need a visit and machines just serviced. <b>Nothing is posted anywhere.</b> Copy the text and post it yourself. A crew name appears only for people who turned on public showing.</p>
+        {now.h === 0 && <p className="notice bad" role="alert"><b>Block time is unavailable.</b>Drafts cannot be built right now.</p>}
         {notices.length === 0 && now.h !== 0 && <div className="glass card"><p className="muted">No drafts right now. Nothing needs a visit and nothing was just serviced.</p></div>}
         {notices.map((n) => (
           <div key={n.id} className="glass card">

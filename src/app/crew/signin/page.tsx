@@ -12,7 +12,7 @@ export default async function CrewSignInPage({ searchParams }: { searchParams: P
       <Nav on="crew" />
       <main className="page narrow">
         <h1>Crew sign-in</h1>
-        {demo ? <DmDemo text="Welcome to the Vend Scout crew, Maya. You signed in with nostr, so we are saying hello here and not by email. Your jobs are here: https://vend.frens.earth/jobs Your first open job is ready: Restock TEST Machine 03. Photo proof, then your sats land after it is checked. Pay 8,000 sats (test)." /> : <CrewSignIn next={next ?? "/work"} />}
+        {demo ? <DmDemo text="Welcome to the VendFrens crew, Maya. You signed in with nostr, so we are saying hello here and not by email. Your jobs are here: https://vend.frens.earth/jobs Your first open job is ready: Restock TEST Machine 03. Photo proof, then your sats land after it is checked. Pay 8,000 sats (test)." /> : <CrewSignIn next={next ?? "/work"} />}
         <p className="muted small">Not on the crew yet? Apply on the Crew page and add your npub. Once you are on the crew, this key opens the crew pages.</p>
       </main>
     </>

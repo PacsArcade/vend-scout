@@ -14,7 +14,7 @@ export default async function OwnersPage() {
       <Nav on="admin" />
       <main className="page wide-page">
         <h1>Owner applications</h1>
-        <p className="muted measure">Location owners who want to host a machine. Approving links the machine to their key and sets the rent. Rent lines then appear on the <a href="/admin/rent">rent desk</a>.</p>
+        <p className="intro">Location owners who want to host a machine. Approving links the machine to their key and sets the rent. Rent lines then appear on the <a href="/admin/rent">rent desk</a>.</p>
         <HostApps views={views} machines={st.machines.filter((m) => m.status !== "Retired").map((m) => ({ id: m.id, name: m.name, owner: !!m.ownerNpub }))} />
       </main>
     </>
