@@ -1,4 +1,4 @@
-import { latLngToCell, cellToLatLng } from "h3-js";
+import { latLngToCell, cellToLatLng, gridDisk, cellToBoundary, polygonToCells, getHexagonAreaAvg } from "h3-js";
 
 // Service areas on an H3 grid. Pure library: no network, no map tiles.
 // Resolution 7: a cell is about 5 square km (edge about 1.2 km), roughly a neighbourhood.
@@ -26,4 +26,34 @@ export function countByCell(points: Point[], res = AREA_RES): AreaCell[] {
     if (p.kind === "job") e.jobs++; else e.machines++;
   }
   return [...m.values()].sort((a, b) => b.jobs + b.machines - (a.jobs + a.machines) || a.cell.localeCompare(b.cell));
+}
+
+// ---- r22: the check-in zone and the cells the pages draw ----
+/** The check-in zone is the machine's own cell and two rings around it: gridDisk k=2, 19 cells. Resolution 10 (edge about 66 m) makes the zone about 150 m out. */
+export const CHECKIN_RES = 10;
+export const CHECKIN_RINGS = 2;
+export interface CheckInZone { center: string; cells: string[]; ring1: string[]; ring2: string[] }
+/** The zone around a coordinate, or null when the coordinate is unusable. SHOWN on the job and machine pages; the app does not read the visitor's location, so it is not enforced. */
+export function checkInZone(lat: unknown, lon: unknown): CheckInZone | null {
+  const center = cellOf(lat, lon, CHECKIN_RES);
+  if (!center) return null;
+  const cells = gridDisk(center, CHECKIN_RINGS);
+  const near = new Set(gridDisk(center, 1));
+  return { center, cells, ring1: cells.filter((c) => c !== center && near.has(c)), ring2: cells.filter((c) => !near.has(c)) };
+}
+/** The six cells around a cell. */
+export function ringOf(cell: string): string[] { return gridDisk(cell, 1).filter((c) => c !== cell); }
+/** Corner points of a cell as [lat, lon] pairs. */
+export function cellCorners(cell: string): [number, number][] { return cellToBoundary(cell) as [number, number][]; }
+/** Cells that cover a view box at a resolution, or [] when that would be too many to draw. */
+export function cellsInView(b: { s: number; w: number; n: number; e: number }, res: number, max = 900): string[] {
+  const est = Math.abs(b.n - b.s) * 111 * Math.abs(b.e - b.w) * 111 * Math.cos(((b.n + b.s) / 2) * Math.PI / 180) / getHexagonAreaAvg(res, "km2");
+  if (!Number.isFinite(est) || est > max) return [];
+  const padLat = (b.n - b.s) * 0.08, padLon = (b.e - b.w) * 0.08;
+  try { return polygonToCells([[b.s - padLat, b.w - padLon], [b.n + padLat, b.w - padLon], [b.n + padLat, b.e + padLon], [b.s - padLat, b.e + padLon]], res); } catch { return []; }
+}
+/** The finest resolution (10 down to 6) that keeps the cell count of a view under max. */
+export function resForView(b: { s: number; w: number; n: number; e: number }, max = 700): number {
+  for (let r = 10; r >= 6; r--) if (cellsInView(b, r, max).length > 0) return r;
+  return 6;
 }
