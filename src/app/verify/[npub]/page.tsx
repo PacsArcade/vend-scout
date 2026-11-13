@@ -33,7 +33,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ npub: s
             <tr><td className="muted small">On the crew since</td><td>{s.since ? <Bft iso={s.since.date} h={s.since.h} /> : <span className="muted">Not recorded</span>}</td></tr>
           </tbody></table>}
           {s.onCrew && <NostrFace hex={key.hex} size={64} />}
-          <p className="muted small" style={{ marginTop: 12 }}>Checked at block <span className="num">{now.h ? now.h.toLocaleString("en-US") : "unknown"}</span>{now.live ? "" : " (last known, the time service did not answer)"}. <NowStamp /></p>
+          <p className="muted small" style={{ marginTop: 12 }}>Checked at <NowStamp />{now.live ? "" : " (last known, the time service did not answer)"}.</p>
           <p className="mono small" style={{ overflowWrap: "anywhere" }}>{key.npub}</p>
         </div>
         {s.onCrew && <VerifyLive hex={key.hex} npub={key.npub} initial={view} />}

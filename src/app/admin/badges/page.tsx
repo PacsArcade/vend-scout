@@ -46,7 +46,7 @@ export default async function BadgesPage() {
                 return (
                   <tr key={`${e.badge.d}:${e.hex}`}>
                     <td>{e.name}</td>
-                    <td>{e.badge.name}{e.value !== undefined ? <span className="muted small"> ({e.value})</span> : null}</td>
+                    <td>{e.badge.name}{e.value !== undefined ? <span className="muted small"> (now at {e.value})</span> : null}</td>
                     <td>{pub ? <>Published <Bft iso={pub.at} h={pub.h} /></> : <span className="muted">Not yet published</span>}</td>
                     <td>{pub ? <span className="muted small">Done</span> : <BadgeSign d={e.badge.d} origin={origin} recipient={e.hex} label="Sign and publish award" />}</td>
                   </tr>
