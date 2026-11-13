@@ -4,6 +4,8 @@ import { Nav } from "@/components/Nav";
 import { Bft } from "@/components/Bft";
 import { NostrFace } from "@/components/NostrProfile";
 import { Qr } from "@/components/Qr";
+import { BADGE_ART, badgeImageUrl } from "@/lib/badgedefs";
+import { earnedFor, publishedAward } from "@/lib/badges";
 import { readState } from "@/lib/store";
 import { keyFromParam, summaryFor } from "@/lib/vendprofile";
 import { originFrom } from "@/lib/origin";
@@ -14,7 +16,9 @@ export const dynamic = "force-dynamic";
 export default async function BadgePage({ params }: { params: Promise<{ npub: string }> }) {
   const key = keyFromParam((await params).npub);
   if (!key) notFound();
-  const s = summaryFor(await readState(), key.hex);
+  const st = await readState();
+  const s = summaryFor(st, key.hex);
+  const earned = s.onCrew ? earnedFor(st, key.hex) : [];
   const verifyUrl = `${originFrom(await headers())}/verify/${key.npub}`;
   return (
     <>
@@ -32,6 +36,24 @@ export default async function BadgePage({ params }: { params: Promise<{ npub: st
             <Qr text={verifyUrl} label={`QR code that opens ${verifyUrl}`} size={200} />
             <p className="muted small" style={{ overflowWrap: "anywhere" }}>Scan to check this badge: {verifyUrl}</p>
           </div>
+        )}
+        {earned.length > 0 && (
+          <section className="glass card" aria-label="Earned badges">
+            <h2>Earned badges</h2>
+            {BADGE_ART.placeholder && <p className="muted small">Placeholder art, the real badge pictures are coming.</p>}
+            <ul className="plain">
+              {earned.map((e) => {
+                const pub = publishedAward(st, e.badge.d, e.hex);
+                return (
+                  <li key={e.badge.d} style={{ display: "flex", gap: 12, alignItems: "center", margin: "8px 0" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={badgeImageUrl(e.badge.d, "")} alt="" width={48} height={48} />
+                    <span><b>{e.badge.name}</b><br /><span className="muted small">{pub ? "Published" : "Not yet published"}</span></span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         )}
       </main>
     </>

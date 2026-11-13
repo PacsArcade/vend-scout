@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Placeholder badge art: 7 ON TIME">
+<rect width="1024" height="1024" fill="#070b10"/>
+<polygon points="208,112 816,112 816,144 848,144 848,176 880,176 880,208 912,208 912,816 880,816 880,848 848,848 848,880 816,880 816,912 208,912 208,880 176,880 176,848 144,848 144,816 112,816 112,208 144,208 144,176 176,176 176,144 208,144" fill="#0c1820" stroke="#00ffff" stroke-width="16" stroke-linejoin="miter"/>
+<text x="512" y="560" text-anchor="middle" font-family="monospace" font-weight="700" font-size="300" fill="#00ffff">7</text>
+<text x="512" y="720" text-anchor="middle" font-family="monospace" font-weight="700" font-size="72" letter-spacing="8" fill="#00ffff">ON TIME</text>
+<text x="512" y="880" text-anchor="middle" font-family="monospace" font-size="40" fill="#00ffff" opacity="0.6">PLACEHOLDER ART</text>
+</svg>

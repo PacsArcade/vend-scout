@@ -3,6 +3,11 @@
 import { ARCADE, LEVELS } from "./gig";
 import type { Proof } from "./types";
 
+/** Service count milestones (stops and jobs done). The first two are the "First stop" and "Ten stops" badges below; the NIP-58 badges use the same list. */
+export const STOP_MILESTONES = [1, 10, 50, 100];
+/** The breakdown label a stop earns when it is finished inside the worker's own block. A run of these in a row is an on-time streak. */
+export const ON_TIME_LABEL = "On time in your block";
+
 export interface Breakdown { label: string; points: number }
 export interface StopFacts {
   loadTotal: number; ticked: number; checkerSaysLoadMatches: boolean; checkerSaysGlassClean: boolean;
@@ -15,7 +20,7 @@ export function scoreStop(f: StopFacts): { points: number; breakdown: Breakdown[
   if (f.checkerSaysGlassClean) b.push({ label: "Clean glass", points: ARCADE.cleanGlass });
   if (!f.soldOutAtVisit) b.push({ label: "Stocked before sell-out", points: ARCADE.beforeSellOut });
   if (f.localDelivered) b.push({ label: "Local shelf delivered", points: ARCADE.localDelivered });
-  if (f.inBlock) b.push({ label: "On time in your block", points: ARCADE.inBlock });
+  if (f.inBlock) b.push({ label: ON_TIME_LABEL, points: ARCADE.inBlock });
   if (f.streakDays > 1) b.push({ label: `${f.streakDays} days in a row`, points: ARCADE.streakStep * Math.min(f.streakDays - 1, ARCADE.streakMaxDays) });
   return { points: b.reduce((a, x) => a + x.points, 0), breakdown: b };
 }
@@ -48,8 +53,8 @@ export function badgesFor(proofs: Proof[], by: string): Badge[] {
   const mine = proofs.filter((p) => p.by === by && p.status === "approved");
   const has = (label: string) => mine.some((p) => p.breakdown?.some((b) => b.label === label));
   return [
-    { id: "first", name: "First stop", note: "One approved stop", got: mine.length >= 1 },
-    { id: "ten", name: "Ten stops", note: "Ten approved stops", got: mine.length >= 10 },
+    { id: "first", name: "First stop", note: "One approved stop", got: mine.length >= STOP_MILESTONES[0] },
+    { id: "ten", name: "Ten stops", note: "Ten approved stops", got: mine.length >= STOP_MILESTONES[1] },
     { id: "fill", name: "Full fill", note: "Every slot on the list stocked", got: has("Full fill") },
     { id: "local", name: "Local hero", note: "A local shelf item delivered", got: has("Local shelf delivered") },
     { id: "streak", name: "Three days running", note: "Three days in a row with an approved stop", got: mine.some((p) => p.breakdown?.some((b) => /days in a row/.test(b.label) && Number.parseInt(b.label, 10) >= 3)) },

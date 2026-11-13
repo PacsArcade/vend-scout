@@ -4,7 +4,11 @@ import { Bft, NowStamp } from "@/components/Bft";
 import { NostrFace } from "@/components/NostrProfile";
 import { currentHeight } from "@/lib/time";
 import { readState } from "@/lib/store";
+import { VerifyLive } from "@/components/VerifyLive";
 import { keyFromParam, summaryFor } from "@/lib/vendprofile";
+import { viewFor } from "@/lib/verifycode";
+import { nowMs } from "@/lib/clock";
+import { nip19 } from "nostr-tools";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +16,10 @@ export const dynamic = "force-dynamic";
 export default async function VerifyPage({ params }: { params: Promise<{ npub: string }> }) {
   const key = keyFromParam((await params).npub);
   if (!key) notFound();
-  const s = summaryFor(await readState(), key.hex);
+  const st = await readState();
+  const s = summaryFor(st, key.hex);
   const now = await currentHeight();
+  const view = viewFor(key.hex, s.onCrew, st.verifySigs?.[key.hex], nowMs(), (h) => nip19.npubEncode(h));
   return (
     <>
       <Nav on="" />
@@ -30,6 +36,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ npub: s
           <p className="muted small" style={{ marginTop: 12 }}>Checked at block <span className="num">{now.h ? now.h.toLocaleString("en-US") : "unknown"}</span>{now.live ? "" : " (last known, the time service did not answer)"}. <NowStamp /></p>
           <p className="mono small" style={{ overflowWrap: "anywhere" }}>{key.npub}</p>
         </div>
+        {s.onCrew && <VerifyLive hex={key.hex} npub={key.npub} initial={view} />}
       </main>
     </>
   );

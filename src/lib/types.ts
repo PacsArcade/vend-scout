@@ -256,3 +256,11 @@ export interface HostApp {
 }
 /** The operator's signed approval of one owed line. Nothing is sent: it only records "approved, not sent". */
 export interface RentApproval { line: string; sats: number; address: string; eventId: string; by: string; at: string; h?: number }
+
+/** The latest signed one-time code check for a crew key. The code itself is not secret once it was used. */
+export interface VerifyRecord {
+  ok?: { code: string; window: number; eventId: string; at: string; h?: number };
+  wrong?: { by: string; code: string; window: number; at: string; h?: number }; // a different key signed this page's code
+}
+/** A NIP-58 event the operator signed and the app published. */
+export interface BadgePublished { eventId: string; kind: number; by: string; at: string; h?: number; relays: number }
