@@ -20,7 +20,7 @@ export default async function AiCheckPage() {
       <Nav on="admin" />
       <main className="page">
         <h1>AI check, shadow mode</h1>
-        <p className="muted measure">The checker ({MODEL}, on this box) looks at each proof and suggests. A person still approves and pays. This page compares its call with the person&apos;s final decision. Auto-approve is {AUTO_APPROVE ? "on" : "off"}; turning it on is the Admiral&apos;s ruling.</p>
+        <p className="intro">The checker ({MODEL}, on this box) looks at each proof and suggests. A person still approves and pays. This page compares its call with the person&apos;s final decision. Auto-approve is {AUTO_APPROVE ? "on" : "off"}; turning it on is the Admiral&apos;s ruling.</p>
         <div className="strip">
           <div className="glass kpi"><span className="muted">Checked and decided</span><div className="v num">{log.length}</div></div>
           <div className="glass kpi"><span className="muted">Agreement</span><div className="v num">{log.length ? `${pct}%` : "none yet"}</div></div>

@@ -16,7 +16,7 @@ export default async function JobsPage() {
       <Nav on="jobs" />
       <main className="page">
         <h1>Open jobs</h1>
-        <p className="muted measure">Pick the stops and jobs you want. Claim one and it shows up under My claimed jobs. Only people On the crew can claim.</p>
+        <p className="intro">Pick the stops and jobs you want. Claim one and it shows up under My claimed jobs. Only people On the crew can claim.</p>
         <JobsBoard jobs={jobs} bundles={bundles} crew={crew} lockedMe={who.gate && !who.operator ? (who.crew?.id ?? "none") : undefined} />
       </main>
     </>

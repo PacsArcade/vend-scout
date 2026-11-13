@@ -17,7 +17,7 @@ export default async function PickupPage({ params }: { params: Promise<{ code: s
       <div className="phone">
         <PhoneBar right="pickup" />
         <h1>Pick it up at a machine</h1>
-        <p className="muted small">Order in the shop. Grab it any time, day or night.</p>
+        <p className="intro">Order in the shop. Grab it any time, day or night.</p>
         <div className="glass tile"><b>{o.item}</b><div className="muted small">Paid {sats(o.priceSats)} · {o.source}</div></div>
         <div className="glass tile center">
           <div className="muted small">Your pickup code</div>

@@ -17,8 +17,8 @@ export default async function RentPage() {
       <Nav on="admin" />
       <main className="page wide-page">
         <h1>Rent owed to owners</h1>
-        <p className="muted measure">Worked out from real sales (test sales left out) for each period of blocks. <b>Nothing here sends money.</b> Approving signs the line with your nostr key and records &ldquo;{NOT_SENT}&rdquo;. Cap per line: {cap.toLocaleString("en-US")} sats.</p>
-        {now.h === 0 && <p className="err" role="alert">Block time is unavailable, so periods cannot be worked out right now.</p>}
+        <p className="intro">Worked out from real sales (test sales left out) for each period of blocks. <b>Nothing here sends money.</b> Approving signs the line with your nostr key and records &ldquo;{NOT_SENT}&rdquo;. Cap per line: {cap.toLocaleString("en-US")} sats.</p>
+        {now.h === 0 && <p className="notice bad" role="alert"><b>Block time is unavailable.</b>Periods cannot be worked out right now.</p>}
         <section className="glass card"><h2>Owed lines</h2><OwedTable lines={lines} operator cap={cap} /></section>
         <section className="glass card">
           <h2>Terms on file</h2>

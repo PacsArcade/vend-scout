@@ -31,8 +31,8 @@ export default async function CrewPage() {
           ))}
         </div>
         <p className="muted small">Pay per job is in sats. These are {rate.label}, and they can change.</p>
-        <p className="muted small measure">{CONTRACTOR_NOTE}</p>
-        <p className="muted small measure">Not sure which fits? Apply for more than one on the form. We talk first, then ride along on one route together.</p>
+        <p className="intro note">{CONTRACTOR_NOTE}</p>
+        <p className="intro note">Not sure which fits? Apply for more than one on the form. We talk first, then ride along on one route together.</p>
       </main>
     </>
   );

@@ -21,12 +21,15 @@ export async function Nav({ on }: { on: string }) {
   const tabs = op ? TABS : [TABS[0], TABS.find((t) => t.key === "crew")!, { key: "signin", label: "Operator sign-in", href: "/signin" }];
   return (
     <header className="top">
-      <Link href="/scout" className="brand">frens.earth · Machines<small>working name</small></Link>
-      <NavTabs tabs={tabs} on={on} />
+      <Link href="/scout" className="brand" aria-label="VendFrens, home">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/01-machine-fren-full.svg" alt="" width={102} height={40} />
+      </Link>
       <span className="who">
-        a Pac&apos;s Arcade project
+        <span className="credit">a Pac&apos;s Arcade project</span>
         <LiveBft />
       </span>
+      <NavTabs tabs={tabs} on={on} />
     </header>
   );
 }

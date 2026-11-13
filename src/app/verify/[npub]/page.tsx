@@ -23,17 +23,17 @@ export default async function VerifyPage({ params }: { params: Promise<{ npub: s
   return (
     <>
       <Nav on="" />
-      <main className="page narrow">
+      <main className="page narrow pagecenter">
         <h1>Crew check</h1>
         <div className="glass card" role="status">
           <h2>{s.onCrew ? "Yes, on the crew" : "Not on the crew"}</h2>
           <p>{s.onCrew ? "This key is On the crew of frens.earth right now." : "This key is not On the crew of frens.earth right now."}</p>
-          {s.onCrew && <table><tbody>
+          {s.onCrew && <table className="kv"><tbody>
             <tr><td className="muted small">Crew name</td><td>{s.crewName ? `${s.crewName}.vend@frens` : <span className="muted">Not set</span>}</td></tr>
             <tr><td className="muted small">On the crew since</td><td>{s.since ? <Bft iso={s.since.date} h={s.since.h} /> : <span className="muted">Not recorded</span>}</td></tr>
           </tbody></table>}
           {s.onCrew && <NostrFace hex={key.hex} size={64} />}
-          <p className="muted small" style={{ marginTop: 12 }}>Checked at <NowStamp />{now.live ? "" : " (last known, the time service did not answer)"}.</p>
+          <p className="muted small" style={{ marginTop: 12 }}>Checked at <NowStamp />.</p>
           <p className="mono small" style={{ overflowWrap: "anywhere" }}>{key.npub}</p>
         </div>
         {s.onCrew && <VerifyLive hex={key.hex} npub={key.npub} initial={view} />}

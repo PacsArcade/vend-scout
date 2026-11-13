@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Stamp } from "./Stamp";
 import { face, faceText, nextArrival, type Arrival } from "@/lib/liveBft";
 
 /** The header clock. Polls the tip door every 30 s, ticks every second. */
@@ -31,11 +32,11 @@ export function LiveBft() {
 
   if (!arrival || !now) return <span className="stamp mono" data-clock>{down ? "Block time unavailable" : "Reading the chain"}</span>;
   const f = face(arrival, now);
-  const parts = [f.date, `${f.est ? "~" : ""}${f.time} a₿`, `block ${f.height.toLocaleString("en-US")}`];
+  const parts = { block: `block ${f.height.toLocaleString("en-US")}`, date: f.date, time: `${f.time} a₿` };
   return (
-    <span className="stamp mono clockline" data-clock aria-label={faceText(f)}>
-      {parts.map((t, i) => <span key={i}><span className="unit">{t.replace(/ /g, "\u00a0")}</span>{i < parts.length - 1 ? " · " : ""}</span>)}
-      {down ? <span className="unit">last reading</span> : null}
+    <span className="clockline" data-clock aria-label={faceText(f)}>
+      <Stamp parts={parts} />
+      {down ? <span className="unit"> last reading</span> : null}
     </span>
   );
 }

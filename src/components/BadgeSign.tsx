@@ -33,5 +33,5 @@ export function BadgeSign({ d, origin, recipient, label, done }: { d: string; or
       if (!j?.ok) setMsg(j?.error ?? "That did not work"); else { setOk(true); setMsg(`Published to ${j.relays} relay${j.relays === 1 ? "" : "s"}.`); router.refresh(); }
     } catch { setMsg("Signing was declined. Nothing was sent."); } finally { setBusy(false); }
   }
-  return <><button className="btn gild" onClick={go} disabled={busy}>{done ? "Sign and publish again" : label}</button>{msg && <span className={ok ? "okmsg small" : "err small"} role="alert">{msg}</span>}</>;
+  return <><button className="btn gild" onClick={go} disabled={busy}>{done ? "Sign and publish again" : label}</button>{msg && <span className={(ok ? "okmsg small" : "err small") + " rl-msg"} role="alert">{msg}</span>}</>;
 }

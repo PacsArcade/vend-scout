@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { stampText } from "@/lib/bft";
+import { Stamp } from "./Stamp";
+import { BigCheck } from "./BigCheck";
 import { verifyUnsigned } from "@/lib/verifyevent";
 import type { VerifyView } from "@/lib/verifycode";
 
@@ -52,9 +53,12 @@ export function VerifyLive({ hex, npub, initial }: { hex: string; npub: string; 
       <p className="mono" style={{ fontSize: 40, letterSpacing: "0.2em", textAlign: "center", margin: "12px 0" }} aria-label={`Code ${v.code.split("").join(" ")}`}>{v.code}</p>
       <p className="muted small" style={{ textAlign: "center" }}>New code in <span className="num">{mm}</span></p>
       <div role="status" style={{ marginTop: 12 }}>
-        {v.state === "signed" && <p className="okmsg">Signed just now by this crew key. <span className="mono stamp">{v.signedH ? stampText(v.signedH) : "block unknown"}</span></p>}
+        {v.state === "signed" && <>
+          <BigCheck key={v.signedH ?? "signed"} />
+          <p className="okmsg" style={{ textAlign: "center" }}>Signed just now by this crew key.<span className="stamp-line">{v.signedH ? <Stamp h={v.signedH} /> : <span className="mono">block unknown</span>}</span></p>
+        </>}
         {v.state === "wrong-key" && <p className="err">This code was signed by a different key, not the crew key on this page.{v.wrongBy ? ` Key: ${v.wrongBy.slice(0, 14)}...` : ""}</p>}
-        {v.state === "waiting" && <p>{expired ? "Code expired, new code shown." : "Not signed yet."}{v.lastSignedH ? <span className="muted small"> Last signed at {stampText(v.lastSignedH)}.</span> : null}</p>}
+        {v.state === "waiting" && <p>{expired ? "Code expired, new code shown." : "Not signed yet."}{v.lastSignedH ? <span className="muted small"> Last signed at <Stamp h={v.lastSignedH} />.</span> : null}</p>}
       </div>
       <div className="actions"><button className="btn gild full" onClick={sign} disabled={busy}>Sign this code</button></div>
       {msg && <p className={msg.startsWith("Signed.") ? "okmsg" : "err"} role="alert">{msg}</p>}

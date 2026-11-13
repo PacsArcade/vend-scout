@@ -2,7 +2,8 @@
 // src/components/time/living-clock-engine.ts and its tip door (house law, ruled 969,518).
 // The block height gives the date, the hour and the ten-minute step. The last minute digit and the seconds
 // fill from the time since the block ARRIVED (when our side first saw that height). At 9:59 the face HOLDS
-// until a new block lands. No fake pulses: an estimate is marked "~".
+// until a new block lands. No fake pulses and no estimated time: when we have not seen a block arrive (a cold
+// load) the unknown digits are dashes (BFT-SPEC 14.6), never a guess from the block header time (15c).
 import { BLOCKS_PER_DAY, bftDatePlain } from "./bft";
 
 export const BLOCK_MS = 600_000;
@@ -13,7 +14,7 @@ export interface Arrival { height: number; at: number; est: boolean }
 /** What the client does with each reading from the tip door. */
 export function nextArrival(prev: Arrival | null, height: number, tipTimestampSec: number | null, now: number): Arrival {
   const fromTip = tipTimestampSec != null ? Math.min(tipTimestampSec * 1000, now) : now;
-  if (prev === null) return { height, at: fromTip, est: true }; // cold load: the chain's own stamp, marked ~
+  if (prev === null) return { height, at: fromTip, est: true }; // cold load: arrival unknown, the face shows dashes for the unknown digits
   if (height > prev.height) return { height, at: now, est: false }; // a new block seen live: reset to 0:00
   if (height < prev.height) return { height, at: fromTip, est: true }; // a reorg: fall back to an estimate
   return prev;
@@ -33,6 +34,7 @@ export function face(a: Arrival, now: number): Face {
   const hh = Math.floor(bid / 6);
   const mm = (bid % 6) * 10 + Math.floor(age / 60); // ten-minute step plus the live minute digit
   const ss = age % 60;
-  return { date: bftDatePlain(a.height), time: `${p2(hh)}:${p2(mm)}:${p2(ss)}`, pct: Math.round((age / 600) * 100), est: a.est, held: age >= HOLD_S, height: a.height };
+  const time = a.est ? `${p2(hh)}:${(bid % 6)}-:--` : `${p2(hh)}:${p2(mm)}:${p2(ss)}`; // est = arrival unknown: only the real digits
+  return { date: bftDatePlain(a.height), time, pct: Math.round((age / 600) * 100), est: a.est, held: age >= HOLD_S, height: a.height };
 }
-export const faceText = (f: Face) => `${f.date} · ${f.est ? "~" : ""}${f.time} a₿ · block ${f.height.toLocaleString("en-US")}`;
+export const faceText = (f: Face) => `block ${f.height.toLocaleString("en-US")} · ${f.date} ${f.time} a₿`;

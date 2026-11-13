@@ -19,7 +19,7 @@ export default async function HostPage({ params }: { params: Promise<{ prospect:
       <div className="phone hostphone">
         <PhoneBar right="for hosts" />
         <h1>Which machine would you like at {hit.prospect.name}?</h1>
-        <p className="muted small">We place, stock and clean it. You get a share of every sale. Tap the kinds you would like. No account needed.</p>
+        <p className="intro">We place, stock and clean it. You get a share of every sale. Tap the kinds you would like. No account needed.</p>
         <HostForm prospectId={prospect} available={available} initial={prev ? { types: prev.types, other: prev.other, note: prev.note } : undefined} />
         <p className="muted small">A Pac&apos;s Arcade project at frens.earth.</p>
       </div>

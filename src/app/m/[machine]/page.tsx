@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { BitcoinMark } from "@/components/BitcoinMark";
 import { headers } from "next/headers";
 import { stampString } from "@/components/Bft";
 import { NeighborPanel } from "@/components/NeighborPanel";
@@ -30,6 +31,7 @@ export default async function NeighborPage({ params }: { params: Promise<{ machi
       <div className="phone">
         <PhoneBar right="neighbors" />
         <h1>{m.name}</h1>
+        <BitcoinMark on={m.profile.lightning} />
         <p className="muted small">At {m.hostName}. <span className="mono">{machineTag(m.id)}</span></p>
         {p ? (
           <div className="glass tile">

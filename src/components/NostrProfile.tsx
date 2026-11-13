@@ -26,7 +26,7 @@ export function NostrFace({ hex, size = 96 }: { hex: string; size?: number }) {
   const name = k0.display_name || k0.name;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-      {k0.picture ? <img src={k0.picture} alt="" width={size} height={size} style={{ borderRadius: "50%", objectFit: "cover" }} referrerPolicy="no-referrer" /> : <div aria-hidden style={{ width: size, height: size, borderRadius: "50%", background: "rgba(255,255,255,.08)" }} />}
+      {k0.picture ? <img src={k0.picture} alt="" width={size} height={size} style={{ borderRadius: "50%", objectFit: "cover" }} referrerPolicy="no-referrer" /> : <span className="faceholder" aria-hidden style={{ width: size, height: size }}><img src="/brand/01-machine-fren-icon.svg" alt="" width={Math.round(size * 0.62)} height={Math.round(size * 0.62)} /></span>}
       <div><b>{loading ? "Loading profile" : name || "No name published"}</b>{!loading && !k0.picture && <div className="muted small">No photo published</div>}</div>
     </div>
   );

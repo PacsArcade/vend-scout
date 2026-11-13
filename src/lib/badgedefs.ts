@@ -5,7 +5,14 @@ export const BADGE_AWARD_KIND = 8; // NIP-58 badge award
 
 /** ONE place for the badge art. The real artwork replaces the placeholder here: set `placeholder` to false and change `base` and `ext`. */
 export const BADGE_ART = { placeholder: true, base: "/badges", ext: "svg", size: "1024x1024", thumbSize: "256x256" };
-export const badgeImageUrl = (d: string, origin: string) => `${origin}${BADGE_ART.base}/${d}.${BADGE_ART.ext}`;
+/** The crew badge has its own real art (the 05 crew badge, upright, 70 x 88 grid). The milestone and on-time badges still use placeholders. */
+export const CREW_BADGE = { d: "vendfrens-crew", url: "/brand/05-crew-badge-full.svg", size: "1024x1280", thumbSize: "256x320" };
+export const hasRealArt = (d: string) => d === CREW_BADGE.d;
+/** True while at least one badge still has placeholder art. */
+export const anyPlaceholderArt = () => BADGES.some((b) => !hasRealArt(b.d));
+export const badgeImageUrl = (d: string, origin: string) => (hasRealArt(d) ? `${origin}${CREW_BADGE.url}` : `${origin}${BADGE_ART.base}/${d}.${BADGE_ART.ext}`);
+const imageSize = (d: string) => (hasRealArt(d) ? CREW_BADGE.size : BADGE_ART.size);
+const thumbSize = (d: string) => (hasRealArt(d) ? CREW_BADGE.thumbSize : BADGE_ART.thumbSize);
 
 export type BadgeGroup = "crew" | "service" | "ontime";
 export interface BadgeDef { d: string; name: string; description: string; group: BadgeGroup; threshold?: number }
@@ -24,7 +31,7 @@ export const badgeByD = (d: string) => BADGES.find((b) => b.d === d);
 /** Tags of a definition event, exactly as the operator signs them. The server builds the same list to check what it is given. */
 export const definitionTags = (b: BadgeDef, origin: string): string[][] => [
   ["d", b.d], ["name", b.name], ["description", b.description],
-  ["image", badgeImageUrl(b.d, origin), BADGE_ART.size], ["thumb", badgeImageUrl(b.d, origin), BADGE_ART.thumbSize],
+  ["image", badgeImageUrl(b.d, origin), imageSize(b.d)], ["thumb", badgeImageUrl(b.d, origin), thumbSize(b.d)],
 ];
 export const definitionUnsigned = (b: BadgeDef, origin: string, now = Date.now()) => ({ kind: BADGE_DEFINITION_KIND, created_at: Math.floor(now / 1000), tags: definitionTags(b, origin), content: "" });
 export const awardAddress = (operatorHex: string, d: string) => `${BADGE_DEFINITION_KIND}:${operatorHex}:${d}`;

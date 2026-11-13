@@ -14,7 +14,7 @@ export default async function ShelfPage() {
       <Nav on="shelf" />
       <main className="page">
         <div className="rowflex"><h1>Local shelf</h1><span className="btnrow"><Link className="btn" href="/shelf/mine">My listings</Link><Link className="btn gild" href="/shelf/new">List an item</Link></span></div>
-        <p className="muted measure">Neighbours put what they make in a machine near them: honey, eggs, baked goods, crafts. Priced in sats. The machine host approves every item first.</p>
+        <p className="intro">Neighbours put what they make in a machine near them: honey, eggs, baked goods, crafts. Priced in sats. The machine host approves every item first.</p>
         {st.listings.length === 0 ? (
           <Empty title="No local items yet">
             <p className="muted">Be the first to list something for a machine near you.</p>

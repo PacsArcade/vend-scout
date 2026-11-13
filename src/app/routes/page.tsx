@@ -26,7 +26,7 @@ export default async function RoutesPage() {
       <Nav on="routes" />
       <main className="page">
         <h1>Routes</h1>
-        <p className="muted measure">A route is an ordered list of placed machines for one runner. Pay per stop waits on the pay terms, so this page only counts stops logged.</p>
+        <p className="intro">A route is an ordered list of placed machines for one runner. Pay per stop waits on the pay terms, so this page only counts stops logged.</p>
         {machines.length === 0 && <Empty title="No machines placed yet"><p className="muted">A route needs placed machines. Place one at a prospect first.</p><div className="actions"><Link className="btn gild" href="/machines/new">Place a machine</Link></div></Empty>}
         <RouteBuilder machines={machines} runners={runners} center={center} />
         {runners.length === 0 && st.machines.length > 0 && <p className="muted small">No one is On the crew yet, so routes stay unassigned. Move an applicant to On the crew on the <Link href="/crew/applicants">applicants page</Link>.</p>}

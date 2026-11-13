@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { finalizeEvent, generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
-import { BADGES, BADGE_ART, awardUnsigned, badgeImageUrl, definitionUnsigned } from "./badgedefs";
+import { BADGES, BADGE_ART, CREW_BADGE, hasRealArt, awardUnsigned, badgeImageUrl, definitionUnsigned } from "./badgedefs";
 import { bestOnTimeStreak, earnedBadges, type BadgeSlice } from "./badges";
 import { publishSigned, verifyBadgeEvent } from "./badgecheck";
 import { ON_TIME_LABEL, STOP_MILESTONES } from "./arcade";
@@ -74,6 +74,12 @@ describe("publishing an operator signed badge event", () => {
     expect(r.ok).toBe(false);
   });
   it("builds image addresses from the one art constant", () => {
-    expect(badgeImageUrl("vendfrens-crew", ORIGIN)).toBe(`${ORIGIN}${BADGE_ART.base}/vendfrens-crew.${BADGE_ART.ext}`);
+    expect(badgeImageUrl("vendfrens-service-1", ORIGIN)).toBe(`${ORIGIN}${BADGE_ART.base}/vendfrens-service-1.${BADGE_ART.ext}`);
+  });
+  it("the crew badge uses the real crew-badge art and its own size, the others stay placeholders", () => {
+    expect(badgeImageUrl("vendfrens-crew", ORIGIN)).toBe(`${ORIGIN}${CREW_BADGE.url}`);
+    const crew = BADGES.find((b) => b.d === "vendfrens-crew")!;
+    expect(definitionUnsigned(crew, ORIGIN, NOW).tags.find((t) => t[0] === "image")).toEqual(["image", `${ORIGIN}${CREW_BADGE.url}`, CREW_BADGE.size]);
+    expect(hasRealArt("vendfrens-ontime-7")).toBe(false);
   });
 });

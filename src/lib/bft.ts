@@ -17,8 +17,10 @@ export function bftTime(height: number): string {
   return `${pad(Math.floor(bid / 6), 2)}:${pad((bid % 6) * 10, 2)}`;
 }
 export const bftDateTime = (h: number) => `${bftDatePlain(h)} ${bftTime(h)}`;
-/** What the UI shows: BFT date and time, marker after, plus the block height. */
-export const stampText = (h: number) => `${bftDateTime(h)} a₿ · block ${h.toLocaleString("en-US")}`;
+/** The three parts of every stamp in the app, in the house order: block first, then date, then time (marker after). */
+export const stampParts = (h: number) => ({ block: `block ${h.toLocaleString("en-US")}`, date: bftDatePlain(h), time: `${bftTime(h)} a₿` });
+/** What the UI shows as plain text: block first, then BFT date and time, marker after. */
+export const stampText = (h: number) => { const p = stampParts(h); return `${p.block} · ${p.date} ${p.time}`; };
 /** Height for a stored record: the height saved with it, else estimated from its ISO time against the current height. */
 export function heightFor(iso: string | undefined, h: number | undefined, nowHeight: number): number {
   if (typeof h === "number") return h;

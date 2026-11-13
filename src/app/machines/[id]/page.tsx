@@ -15,6 +15,7 @@ import { creditsGivenThisMonth, getVotes, localSlots, monthSales, readState, sal
 import { satsPrice } from "@/lib/price";
 import { fmtUsd, margin, scoutDay60Sats, netOf } from "@/lib/rates";
 import { sats } from "@/lib/format";
+import { BitcoinMark } from "@/components/BitcoinMark";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
       <div className="mach">
         <div className="glass card">
           <h2>{m.name}</h2>
+          <BitcoinMark on={m.profile.lightning} />
           <div className="muted small">{typeLabel(m.type, m.typeOther)} · {m.status}{m.status === "Placed" ? <> · Host <Link href={`/prospects/${m.prospectId}`}>{m.hostName}</Link> · placed <Bft iso={m.placedAt} h={m.h} /> · host share {m.hostSharePct}%</> : null}</div>
           <div className="actions" style={{ marginTop: 10 }}>
             {m.status === "In storage" && <Link className="btn gild" href="/machines/new">Place this machine</Link>}

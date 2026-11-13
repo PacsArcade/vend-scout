@@ -24,7 +24,7 @@ export default async function ApplicantsPage() {
       <Nav on="crew" />
       <main className="page wide-page">
         <h1>Crew applicants</h1>
-        <p className="muted measure">Any background or driving-record check goes through a screening company with the person&apos;s written OK. Not done here.</p>
+        <p className="intro">Any background or driving-record check goes through a screening company with the person&apos;s written OK. Not done here.</p>
         <ApplicantsBoard namesOn={namesOn()} applicants={list} machines={machines} center={center} />
       </main>
     </>

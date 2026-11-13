@@ -25,7 +25,7 @@ export default async function PlaceMachine({ searchParams }: { searchParams: Pro
       <Nav on="machines" />
       <main className="page narrow">
         <h1>Place a machine from inventory</h1>
-        <p className="muted">A machine has to be in inventory first, and it is placed at a prospect. The place becomes its host and moves to Placed.</p>
+        <p className="intro">A machine has to be in inventory first, and it is placed at a prospect. The place becomes its host and moves to Placed.</p>
         {inventory.length === 0 ? (
           <Empty title="No machine in storage">
             <p className="muted">Add a machine to inventory first. Only a machine that is In storage can be placed.</p>
