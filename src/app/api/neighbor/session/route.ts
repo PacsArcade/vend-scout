@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   let hex: string | null = null;
   try { hex = neighborFromCookieHeader(req.headers.get("cookie")); } catch { hex = null; }
   if (!hex) return NextResponse.json({ ok: false }, { status: 401 });
-  return NextResponse.json({ ok: true, credits: (await readState()).credits[hex] ?? 0 });
+  return NextResponse.json({ ok: true, pubkey: hex, credits: (await readState()).credits[hex] ?? 0 });
 }
 export async function POST(req: Request) {
   let body: { event?: unknown };

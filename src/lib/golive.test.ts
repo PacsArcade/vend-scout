@@ -25,7 +25,7 @@ describe("operator gate", () => {
   });
   it("admin and contact pages are not public, the public ones are", () => {
     for (const p of ["/admin", "/admin/ai-check", "/prospects/osm-n1", "/crew/applicants", "/machines/m1", "/orders", "/shelf"]) expect(pathIsPublic(p, false)).toBe(false);
-    for (const p of ["/", "/scout", "/crew", "/crew/apply", "/host/osm-n1", "/vote/m1", "/pay/m1/A1"]) expect(pathIsPublic(p, false)).toBe(true);
+    for (const p of ["/", "/scout", "/crew", "/crew/apply", "/host/osm-n1", "/vote/m1", "/pay/m1/A1", "/p/npub1abc", "/p/npub1abc/badge", "/verify/npub1abc"]) expect(pathIsPublic(p, false)).toBe(true);
     for (const p of ["/api/contacts", "/api/stopphoto/r1-1.png", "/api/mylistings", "/api/offers", "/api/ai-check"]) expect(pathIsPublic(p, true)).toBe(false);
     for (const p of ["/api/crew/postings", "/api/chain/tip", "/api/place"]) expect(pathIsPublic(p, true)).toBe(true);
     expect(isCrewPath("/work/earnings")).toBe(true);

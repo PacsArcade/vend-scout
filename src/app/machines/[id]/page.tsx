@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { ActionButton, ActionForm } from "@/components/Actions";
 import { Bft } from "@/components/Bft";
+import { PassportList } from "@/components/PassportList";
+import { passportFor } from "@/lib/passport";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { feed } from "@/lib/stockFeed";
 import { TELEMETRY_LABEL } from "@/lib/types";
@@ -43,6 +45,7 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
   const none = m.slots.length === 0 && locals.length === 0;
   const mreq = st.itemRequests.filter((r) => r.machine === m.id).slice(-10).reverse();
   const mrep = st.reports.filter((r) => r.machine === m.id).slice(-10).reverse();
+  const passport = passportFor(st, id);
   return (
     <>
       <Nav on="machines" />
@@ -151,6 +154,32 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
             <h3>Redeem credits</h3>
             <p className="muted small">A neighbor spends their vending machine credits at this machine. Not money.</p>
             <ActionForm action="spendCredits" extra={{ machine: m.id }} submit="Redeem" doneText="Redeemed." fields={[{ name: "npub", label: "Their npub", placeholder: "npub1..." }, { name: "amount", label: "Credits", type: "number", value: 10, min: 1 }]} />
+          </div>
+          <div className="glass card">
+            <h2>Machine passport</h2>
+            <p className="muted small">Service <span className="num">{passport.counts.service}</span> · sales <span className="num">{passport.counts.sales}</span> ({sats(passport.counts.salesSats)}) · problems <span className="num">{passport.counts.reports}</span> · neighbor checks <span className="num">{passport.counts.verifies}</span>. Built from records we already keep; nothing extra is tracked.</p>
+            <PassportList events={passport.events} />
+          </div>
+          <div className="glass card">
+            <h2>Owner</h2>
+            <p className="small">{m.ownerNpub ? <>Profile: <Link href={`/p/${m.ownerNpub}`}>{m.ownerNpub.slice(0, 16)}...</Link></> : <span className="muted">No owner key linked.</span>}</p>
+            <ActionForm action="setMachineOwner" extra={{ machine: m.id }} submit="Link owner" doneText="Saved." fields={[{ name: "npub", label: "Owner npub (empty to unlink)", placeholder: "npub1...", optional: true, value: m.ownerNpub ?? "" }]} />
+          </div>
+          <div className="glass card">
+            <h2>Rent to the owner</h2>
+            <p className="small">{m.rent ? <>{m.rent.flatSats ? `${m.rent.flatSats.toLocaleString("en-US")} sats` : ""}{m.rent.flatSats && m.rent.percent ? " plus " : ""}{m.rent.percent ? `${m.rent.percent}% of sales` : ""} every {m.rent.periodBlocks.toLocaleString("en-US")} blocks, counted from block {m.rent.startH.toLocaleString("en-US")}. <Link href="/admin/rent">Rent desk</Link></> : <span className="muted">No rent terms. Link an owner first, then set them.</span>}</p>
+            {m.ownerNpub && <ActionForm action="setRent" extra={{ machine: m.id }} submit="Save rent terms" doneText="Saved." fields={[
+              { name: "flatSats", label: "Flat rent, sats per period (0 for none)", type: "number", value: m.rent?.flatSats ?? 0, min: 0 },
+              { name: "percent", label: "Percent of sales (0 for none)", type: "number", value: m.rent?.percent ?? 0, min: 0, max: 100 },
+              { name: "periodBlocks", label: "Period in blocks (4,320 is about a month)", type: "number", value: m.rent?.periodBlocks ?? 4320, min: 144 },
+            ]} />}
+            {m.ownerNpub && <p className="muted small">Saving new terms starts a fresh run of periods from the current block. Setting both flat and percent to 0 clears them.</p>}
+          </div>
+          <div className="glass card">
+            <h2>Machine identity and sticker</h2>
+            <p className="small">{m.npub ? <>Machine npub: <span className="mono brk">{m.npub}</span></> : <span className="muted">No machine npub set. This is optional.</span>}</p>
+            <ActionForm action="setMachineNpub" extra={{ machine: m.id }} submit="Save machine npub" doneText="Saved." fields={[{ name: "npub", label: "Machine npub (public key only, empty to clear)", placeholder: "npub1...", optional: true, value: m.npub ?? "" }]} />
+            <div className="actions"><Link className="btn" href={`/machines/${m.id}/sticker`}>Printable sticker</Link></div>
           </div>
           <div className="glass card">
             <h2>Machine profile</h2>

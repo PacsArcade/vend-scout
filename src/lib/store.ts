@@ -24,6 +24,11 @@ import { scoutAward } from "./arcade";
 import type { AiLogEntry, AiVerdict, Block, Item, PayoutRec, Proof } from "./types";
 import { checkProof, ollamaUrl, skippedVerdict } from "./autoCheck";
 import { comboBonus, scoreStop, streakDays } from "./arcade";
+import type { VendProfile, HostApp, HostStage, RentApproval } from "./types";
+import { HOST_STAGES } from "./types";
+import { cleanHostApp, type HostInput } from "./hostapp";
+import { cleanRent } from "./rent";
+import { cleanVendFields } from "./vendprofile";
 import type { Claim, HostPick, JobKind, MachineStatus, MachineType } from "./types";
 import { MACHINE_STATUSES, MACHINE_TYPES } from "./types";
 import type { Applicant, ApplicantStage, CrewRole, Outreach, OutreachHow, Route } from "./types";
@@ -31,6 +36,9 @@ import { FOOD_KINDS, SHELF_KINDS, STAGES } from "./types";
 
 
 export interface State {
+  hostApps?: HostApp[]; // owner (host) applications
+  rentApprovals?: Record<string, RentApproval>; // key = owed line id
+  profiles?: Record<string, VendProfile>; // vend.frens only profile fields, key = nostr pubkey hex
   scoutPaid?: Record<string, { sats: number; at: string; h?: number }>; // Place Scout parts the operator approved (key = prospect:part)
   scoutForfeit?: Record<string, { at: string; h?: number }>; // parts that came due after the scout left the crew: the house keeps them
   tracked: Record<string, Stage>;
@@ -139,6 +147,13 @@ export type Action =
   | { action: "logDm"; to: string; text: string; sent: boolean; reason?: string }
   | { action: "scoutCheck"; id: string; inside: Inside; who: string; state?: MachineState; room: "yes" | "no" | "unsure"; photo?: string; by?: string }
   | { action: "attachNpub"; id: string; npub: string }
+  | { action: "setMachineOwner"; machine: string; npub: string }
+  | { action: "hostApply"; keyHex: string; input: HostInput }
+  | { action: "hostStep"; id: string; stage: HostStage; note: string }
+  | { action: "approveHost"; id: string; machine: string; flatSats?: number; percent?: number; periodBlocks?: number }
+  | { action: "setRent"; machine: string; flatSats?: number; percent?: number; periodBlocks?: number }
+  | { action: "setMachineNpub"; machine: string; npub: string }
+  | { action: "saveProfile"; pubkey: string; fields: Partial<VendProfile> }
   | { action: "apply"; crewName?: string; hp?: string; npub?: string; name: string; reach: string; area: string; lat?: number; lon?: number; roles: CrewRole[]; transport: string[]; hours: string; why: string; lightning?: string }
   | { action: "applicantStep"; id: string; stage: ApplicantStage; note: string }
   | { action: "setCrewName"; id: string; name: string }
@@ -378,6 +393,21 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       if (!hex) return { ok: false, error: "That does not look like an npub. It starts with npub1" };
       if (st.applicants.some((x) => x.id !== ap.id && x.npub && npubToHex(x.npub) === hex)) return { ok: false, error: "That npub is already linked to someone else" };
       ap.npub = a.npub.trim();
+      break;
+    }
+    case "setMachineOwner": {
+      const m = machine(a.machine);
+      if (!m) return { ok: false, error: "No such machine" };
+      if (!a.npub?.trim()) { m.ownerNpub = undefined; break; }
+      if (!npubToHex(a.npub)) return { ok: false, error: "That does not look like an npub. It starts with npub1" };
+      m.ownerNpub = a.npub.trim();
+      break;
+    }
+    case "saveProfile": {
+      // Reached through /api/profile, which has already checked the signed-in key is this key. Operators only through /api/do.
+      if (!/^[0-9a-f]{64}$/.test(String(a.pubkey))) return { ok: false, error: "Bad key" };
+      st.profiles ??= {};
+      st.profiles[a.pubkey] = cleanVendFields(a.fields, st.profiles[a.pubkey], nowIso(), h);
       break;
     }
     case "applicantStep": {
@@ -647,6 +677,57 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       (st.suggestions[a.machine] ??= []).push({ id: "s" + ++st.counter, name, votes: 1, sats: 0 });
       break;
     }
+    case "hostApply": {
+      // Reached through /api/owner/apply, which took the key from the signed cookie. Never open on /api/do.
+      const r = cleanHostApp(a.input ?? {}, a.keyHex, st.hostApps ?? []);
+      if (!r.ok) return { ok: false, error: r.error };
+      const n = ++st.counter;
+      (st.hostApps ??= []).push({ ...r.app, id: `o${n}`, stage: "Applied", notes: [], createdAt: today(), h });
+      await write(st);
+      return { ok: true, id: `o${n}` };
+    }
+    case "hostStep": {
+      const ap = (st.hostApps ?? []).find((x) => x.id === a.id);
+      if (!ap || !HOST_STAGES.includes(a.stage)) return { ok: false, error: "No such application" };
+      if (a.stage === "Approved") return { ok: false, error: "Approve it with a machine and rent terms below" };
+      ap.stage = a.stage;
+      ap.notes.push({ stage: a.stage, text: str(a.note, 500) || "Moved here.", date: today(), h });
+      break;
+    }
+    case "approveHost": {
+      const ap = (st.hostApps ?? []).find((x) => x.id === a.id);
+      const m = machine(a.machine);
+      if (!ap) return { ok: false, error: "No such application" };
+      if (!m) return { ok: false, error: "Pick a machine" };
+      if (m.ownerNpub && npubToHex(m.ownerNpub) !== npubToHex(ap.npub)) return { ok: false, error: "That machine already has a different owner linked" };
+      if (!h) return { ok: false, error: "Block time is not available right now, so rent periods cannot start. Try again in a minute" };
+      const t = cleanRent(a, h);
+      if ("error" in t) return { ok: false, error: t.error };
+      m.ownerNpub = ap.npub; m.rent = t;
+      ap.stage = "Approved"; ap.machine = m.id;
+      ap.notes.push({ stage: "Approved", text: `Linked to ${m.name}. Rent: ${t.flatSats ? `${t.flatSats} sats` : ""}${t.flatSats && t.percent ? " plus " : ""}${t.percent ? `${t.percent}% of sales` : ""} per ${t.periodBlocks} blocks.`, date: today(), h });
+      break;
+    }
+    case "setRent": {
+      const m = machine(a.machine);
+      if (!m) return { ok: false, error: "No such machine" };
+      if (!m.ownerNpub) return { ok: false, error: "Link an owner first" };
+      if (!h) return { ok: false, error: "Block time is not available right now. Try again in a minute" };
+      if (!Number(a.flatSats) && !Number(a.percent)) { m.rent = undefined; break; } // both empty clears the terms
+      const t = cleanRent(a, h);
+      if ("error" in t) return { ok: false, error: t.error };
+      m.rent = t; // new terms start a fresh run of periods from this block
+      break;
+    }
+    case "setMachineNpub": {
+      const m = machine(a.machine);
+      if (!m) return { ok: false, error: "No such machine" };
+      if (!a.npub?.trim()) { m.npub = undefined; break; }
+      if (/^nsec/i.test(a.npub.trim())) return { ok: false, error: "That is a private key. Never paste one here. Paste the public npub only" };
+      if (!npubToHex(a.npub)) return { ok: false, error: "That does not look like an npub. It starts with npub1" };
+      m.npub = a.npub.trim();
+      break;
+    }
     default:
       return { ok: false, error: "Unknown action" };
   }
@@ -753,3 +834,10 @@ export function grantCreditsResult(st: State, npub: string, kind: "verify" | "sh
 }
 /** Same, as a plain yes or no: true when credits were given. */
 export const grantCredits = (st: State, npub: string, kind: "verify" | "share", machine: string, amount: number, h?: number): boolean => grantCreditsResult(st, npub, kind, machine, amount, h) === "given";
+
+/** Record the operator's signed approval of one owed line. The caller has already run verifyRentApproval. This sends nothing: the line reads "approved, not sent". */
+export async function recordRentApproval(a: RentApproval): Promise<void> {
+  const st = await readState();
+  (st.rentApprovals ??= {})[a.line] = a;
+  await write(st);
+}

@@ -53,7 +53,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <Nav on="admin" />
       <StorageBanner />
       <main className="page wide-page">
-        <div className="rowflex"><h1>Admin</h1><Link className="btn" href="/admin/ai-check">AI check results</Link></div>
+        <div className="rowflex"><h1>Admin</h1><div className="actions"><Link className="btn" href="/admin/owners">Owner applications</Link><Link className="btn" href="/admin/rent">Rent desk</Link><Link className="btn" href="/admin/notices">Drafts to post</Link><Link className="btn" href="/admin/ai-check">AI check results</Link></div></div>
         <div className="strip strip5">{strip.map(([k, v]) => <div key={k} className="glass kpi"><span className="muted">{k}</span><div className="v num">{v}</div></div>)}</div>
         <section className="glass card scoutdue" aria-label="Place Scout pay">
           <h2>Place Scout pay</h2>
