@@ -104,3 +104,13 @@ export function fanOut(pts: Pt[], gap = FAN_GAP): { at: Pt; group: number; size:
   }
   return out;
 }
+
+/**
+ * r26 fix 1: one place, one mark. A store that hosts one of our placed machines draws no dotted hexagon of its own:
+ * placing a machine copies the store's lat and lon onto it, so drawing both would always fan the two out.
+ * The machine's mark stands on the real spot instead, and a count counts the place once.
+ */
+export function unhosted<P extends { id: string }>(stores: P[], machines: { prospectId?: string }[]): P[] {
+  const hosted = new Set(machines.map((m) => m.prospectId).filter(Boolean));
+  return hosted.size ? stores.filter((s) => !hosted.has(s.id)) : stores;
+}

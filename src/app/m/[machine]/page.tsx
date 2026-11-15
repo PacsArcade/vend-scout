@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { PayLine } from "@/components/PayLine";
+import { PayMarks } from "@/components/PayMarks";
 import { payWays } from "@/lib/machinecard";
 import { headers } from "next/headers";
 import { stampString } from "@/components/Bft";
@@ -40,7 +40,8 @@ export default async function NeighborPage({ params }: { params: Promise<{ machi
           <PhoneBar right="neighbors" />
           <div className="glass card">
             <div className="sechd"><h1 style={{ margin: 0 }}>{m.name}</h1><span className="pill good">{m.status}</span></div>
-            <p className="small payrow"><PayLine ways={payWays(m.profile)} /></p>
+            {/* r26 fix 4: the same money marks as the map card. The screen reader hears "Takes bitcoin and cash" from PayMarks. */}
+            <p className="small payrow"><span aria-hidden="true">Takes</span><PayMarks ways={payWays(m.profile)} /></p>
             <p className="muted small">At {m.hostName}. <span className="mono">{machineTag(m.id)}</span></p>
             <div className="zonebox" style={{ marginTop: 12 }}>
               <HexZone lat={m.lat} lon={m.lon} coin={m.profile.lightning} />

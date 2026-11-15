@@ -11,7 +11,7 @@ import { STATES } from "@/lib/states";
 import { cellOf, cellCorners, cellsInView, ringOf, AREA_RES } from "@/lib/areas";
 import { HexMark } from "./Hex";
 import { btcMarkHtml, coinSvg, machineSvg, ringSvg, siteSpotSvg } from "@/lib/hexart";
-import { fanOut, fittedChildren, levelFor, MARK_PX, shrink, type FittedChild } from "@/lib/hexlevels";
+import { fanOut, fittedChildren, levelFor, MARK_PX, shrink, unhosted, type FittedChild } from "@/lib/hexlevels";
 import { LEAFLET_CREDIT, OSM_CREDIT, OSM_TILES } from "@/lib/mapcredit";
 import { cellCentre, groupByCell, innerHex, MARK_SCALE, GRID_FINEST, resForPixels } from "@/lib/hexcells";
 import { cellToParent, getHexagonEdgeLengthAvg } from "h3-js";
@@ -26,6 +26,8 @@ const JOB_LABEL: Record<string, string> = { restock: "Restock", scout: "Scout vi
 type View = { s: number; w: number; n: number; e: number; wpx: number };
 /** What sits in a grid cell on the pins view: a store, one of our machines, or someone else's machine from OpenStreetMap. */
 type Thing = { kind: "store"; pin: Pin; lat: number; lon: number } | { kind: "machine"; m: OursPt; lat: number; lon: number } | { kind: "other"; lat: number; lon: number };
+/** r26 fix 3: the fit key, one item per band, each drawn like the mark on the map. */
+const FIT_KEY = [{ score: 86, words: "Fit 80 and up" }, { score: 64, words: "Fit 60 to 79" }, { score: 41, words: "Fit under 60" }];
 const ORANGE = "#f7931a", CYAN = "#00ffff", GREY = "#8a9bb0";
 const itemAt = (it: CardItem) => (it.kind === "store" ? it.pin : it.m);
 const targetAt = (t: CardTarget) => (t.kind === "cell" ? itemAt(t.items[0]) : t.kind === "others" ? t : itemAt(t));
@@ -184,9 +186,10 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
     return () => cancelAnimationFrame(id);
   }, [cardKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // r26 fix 1: one place, one mark. A store that hosts one of our placed machines draws no dotted hexagon; the machine stands on its spot.
   const things = useMemo<Thing[]>(() => [
     ...existing.map((m) => ({ kind: "other" as const, lat: m.lat, lon: m.lon })),
-    ...shown.map((p) => ({ kind: "store" as const, pin: p, lat: p.lat, lon: p.lon })),
+    ...unhosted(shown, ours).map((p) => ({ kind: "store" as const, pin: p, lat: p.lat, lon: p.lon })),
     ...ours.map((m) => ({ kind: "machine" as const, m, lat: m.lat, lon: m.lon })),
   ], [existing, ours, shown.map((p) => p.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
   // r26, hexagon round 3. Three levels (src/lib/hexlevels.ts):
@@ -546,7 +549,8 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
             <span><HexMark kind="machine" size={20} tone="#00ffff" />Our machine: filled hexagon</span>
             <span><HexMark kind="machine" size={20} tone="#8a9bb0" />Grey hexagon: vending machines by other operators, from OpenStreetMap. A number is how many.</span>
             {/* r26 B6: operators see each site's fit number, as in round 3 picture 2. The public sees no numbers. */}
-            {operator && <span className="fitkey"><i><b style={{ color: "#ffc266" }}>86</b>Fit 80 and up</i> <i><b>64</b>Fit 60 to 79</i> <i><b style={{ color: "#9aa3ad", fontWeight: 600 }}>41</b>Fit under 60.</i> A number in a solid hexagon is a count.</span>}
+            {operator && <span className="fitkey" role="list" aria-label="Fit numbers">{FIT_KEY.map((k) => <span key={k.score} className="fk" role="listitem"><span className="fkmark" aria-hidden="true" dangerouslySetInnerHTML={{ __html: siteSpotSvg(30, k.score) }} />{k.words}</span>)}</span>}
+            {operator && <span className="fitcount">A number in a solid hexagon is a count.</span>}
             <span className="flipnote"><HexMark kind="site" size={22} /><HexMark kind="machine" size={22} tone="#00ffff" /><span><b>Before and after.</b> When the host says yes, the dotted hexagon flips to a filled one. Numbers in a hexagon are groups.</span></span>
           </div>
         ) : (
