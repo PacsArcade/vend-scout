@@ -110,8 +110,8 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:9px 6px;b
 .map .fallback{position:absolute;inset:0;width:100%;height:100%;z-index:1}
 .map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.8) contrast(.9) saturate(.55)}
 .map .leaflet-container{background:#1b1b1b;font-family:inherit}
-.map .leaflet-control-attribution{background:rgba(27,27,27,.8);color:var(--dim)}
-.map .leaflet-control-attribution a{color:var(--gild)}
+.map .leaf.leaflet-container .leaflet-control-attribution{background:rgba(27,27,27,.8);color:var(--dim)}
+.map .leaf.leaflet-container .leaflet-control-attribution a{color:var(--gild)}
 .map .leaflet-bottom{z-index:400}
 .searchrow{display:flex;gap:10px}
 .searchrow input,.form input,.form select{flex:1;min-width:0;height:40px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);padding:0 16px;font:inherit}
@@ -810,3 +810,21 @@ path.mark.droppin{animation:pindrop .8s cubic-bezier(.2,1.3,.4,1) both;transform
 .reportwrap h3{font-size:16px;margin:0}
 .reprow{padding:6px 0}
 .repthumb{display:block;margin-top:6px;max-width:220px;max-height:160px;object-fit:cover;border:1px solid #3a3a3a}
+/* ---- r24 ---- */
+.suggestform{grid-template-columns:minmax(0,1fr);margin-top:14px;padding:14px}
+.suggestform .btn{height:44px}
+.votelist li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 0}
+.payline{display:inline;font:inherit}
+.payway{white-space:nowrap}
+.payway img{display:inline-block;vertical-align:-4px;margin-right:5px;image-rendering:auto}
+.payrow{margin:6px 0 4px}
+/* r24: the map's own controls in the dark glass tokens. The OpenStreetMap credit stays, readable. */
+.map .leaflet-bar{border:1px solid #525252;box-shadow:none;border-radius:10px;overflow:hidden}
+.map .leaflet-bar a,.map .leaflet-bar a:hover{background:#262626;color:#fff;border-bottom:1px solid #525252;width:44px;height:44px;line-height:44px;font-size:20px}
+.map .leaflet-bar a:last-child{border-bottom:0}
+.map .leaflet-bar a:hover{background:#303030}
+.map .leaflet-bar a:focus-visible{outline:2px solid #00ffff;outline-offset:-2px}
+.map .leaflet-bar a.leaflet-disabled{background:#1b1b1b;color:#8a8a8a}
+.map .leaf.leaflet-container .leaflet-control-attribution{background:rgba(27,27,27,.88);color:#c6c6c6;font-size:11px;padding:2px 8px}
+.map .leaf.leaflet-container .leaflet-control-attribution a{color:#8ff;text-decoration:underline}
+.pincard .facts .payline,.pincard .facts .payline span{display:inline;color:inherit;font-size:inherit}
