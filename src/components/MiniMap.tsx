@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { LEAFLET_CREDIT, OSM_CREDIT, OSM_TILES } from "@/lib/mapcredit";
 
 export interface MapPoint { id: string; lat: number; lon: number; kind: "applicant" | "machine" | "stop" | "chosen"; label: string }
 const STYLE: Record<MapPoint["kind"], Leaflet.CircleMarkerOptions> = {
@@ -27,7 +28,8 @@ export function MiniMap({ points, zones, center, zoom = 11, onPick, onPlace, pla
       if (dead || !el.current || map.current) return;
       L.current = lf;
       const m = lf.map(el.current, { attributionControl: true }).setView(center, zoom);
-      lf.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(m);
+      m.attributionControl.setPrefix(LEAFLET_CREDIT); // r26: no flag beside the Leaflet name
+      lf.tileLayer(OSM_TILES, { maxZoom: 19, attribution: OSM_CREDIT }).addTo(m);
       layer.current = lf.layerGroup().addTo(m);
       m.on("click", (e: Leaflet.LeafletMouseEvent) => cb.current.onPlace?.(e.latlng.lat, e.latlng.lng));
       map.current = m;

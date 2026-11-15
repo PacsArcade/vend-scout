@@ -2,6 +2,7 @@ import { PhoneBar } from "@/components/PhoneBar";
 import { notFound } from "next/navigation";
 import { VoteClient } from "@/components/VoteClient";
 import { getVotes, readState } from "@/lib/store";
+import { VOTE_PROMISE } from "@/lib/vote";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function VotePage({ params }: { params: Promise<{ machine: 
       <div className="phone">
         <PhoneBar right="vote for this machine" />
         <h1>What should go in here?</h1>
-        <p className="muted small">{m.name}. Top picks go in on the next restock.</p>
+        <p className="muted small">{m.name}. {VOTE_PROMISE}</p>
         <VoteClient machine={machine} rows={rows} />
         {/* r24: the sats-backed vote stays hidden until a real Lightning payment sits behind it. Every vote counts 1. */}
         <p className="muted small">One vote each time you tap. Anyone can vote, no sign-in.</p>

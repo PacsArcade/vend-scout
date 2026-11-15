@@ -48,3 +48,19 @@ export function groupSvg(size: number, n: number, edge = BTC_ORANGE): string {
   return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="${HEX}" fill="#262626" stroke="${edge}" stroke-width="2.4"/><text x="16" y="20.5" text-anchor="middle" font-family="Noto Sans,DejaVu Sans,sans-serif" font-size="12" font-weight="800" fill="#fff">${n}</text></svg>`;
 }
 export const hexPath = HEX;
+
+// ---- r26: marks that stand on their real spot (hexagon round 3) ----
+/** The fit number's colour, from round 3 picture 2: 80 and up amber, 60 to 79 white, under 60 grey. Operators only. */
+export function fitInk(score: number): { ink: string; weight: number } {
+  return score >= 80 ? { ink: "#ffc266", weight: 800 } : score >= 60 ? { ink: "#ffffff", weight: 600 } : { ink: "#9aa3ad", weight: 600 };
+}
+/** A potential site on its real spot: the dotted hexagon over a dark fill, so the map does not show through. With a score (operators), the fit number sits inside. */
+export function siteSpotSvg(size = 44, score?: number): string {
+  const hot = score !== undefined && score >= 80;
+  const num = score === undefined ? "" : (() => { const f = fitInk(score); return `<text x="16" y="20.3" text-anchor="middle" font-family="Noto Sans,DejaVu Sans,sans-serif" font-size="11.5" font-weight="${f.weight}" fill="${f.ink}">${Math.round(score)}</text>`; })();
+  return `${open(size)}<path d="${HEX}" fill="#1b1b1b" fill-opacity=".82"/><path d="${HEX_IN}" fill="none" stroke="${BTC_ORANGE}" stroke-width="${hot ? 3.1 : 2.6}" stroke-dasharray="1.6 4.9" stroke-linecap="round"/>${num}</svg>`;
+}
+/** The selection ring around a mark on its spot: a bigger hexagon outline. */
+export function ringSvg(size: number, color = "#00ffff", fill = true): string {
+  return `${open(size)}<path d="${HEX}" fill="${fill ? color : "none"}" fill-opacity=".12" stroke="${color}" stroke-width="2"/></svg>`;
+}

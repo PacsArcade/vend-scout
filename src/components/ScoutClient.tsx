@@ -10,9 +10,11 @@ import { ALL_CATEGORIES } from "@/lib/types";
 import { STATES } from "@/lib/states";
 import { cellOf, cellCorners, cellsInView, ringOf, AREA_RES } from "@/lib/areas";
 import { HexMark } from "./Hex";
-import { btcMarkHtml } from "@/lib/hexart";
+import { btcMarkHtml, coinSvg, machineSvg, ringSvg, siteSpotSvg } from "@/lib/hexart";
+import { fanOut, fittedChildren, levelFor, MARK_PX, shrink, type FittedChild } from "@/lib/hexlevels";
+import { LEAFLET_CREDIT, OSM_CREDIT, OSM_TILES } from "@/lib/mapcredit";
 import { cellCentre, groupByCell, innerHex, MARK_SCALE, GRID_FINEST, resForPixels } from "@/lib/hexcells";
-import { getHexagonEdgeLengthAvg } from "h3-js";
+import { cellToParent, getHexagonEdgeLengthAvg } from "h3-js";
 import { PinCard, type CardItem, type CardTarget, type OursPt } from "./PinCard";
 
 export type { Pin } from "@/lib/pins";
@@ -27,6 +29,9 @@ type Thing = { kind: "store"; pin: Pin; lat: number; lon: number } | { kind: "ma
 const ORANGE = "#f7931a", CYAN = "#00ffff", GREY = "#8a9bb0";
 const itemAt = (it: CardItem) => (it.kind === "store" ? it.pin : it.m);
 const targetAt = (t: CardTarget) => (t.kind === "cell" ? itemAt(t.items[0]) : t.kind === "others" ? t : itemAt(t));
+/** r26: one key per store or machine on the map, for the selection ring and for giving focus back when the card closes. */
+const thingKey = (t: { kind: "store"; pin: Pin } | { kind: "machine"; m: OursPt } | { kind: "other"; lat: number; lon: number }) => (t.kind === "store" ? "s:" + t.pin.id : t.kind === "machine" ? "m:" + t.m.id : `o:${t.lat},${t.lon}`);
+const cardThingKey = (c: CardTarget): string => (c.kind === "cell" ? cardThingKey(c.items[0]) : c.kind === "others" ? `o:${c.lat},${c.lon}` : c.kind === "store" ? "s:" + c.pin.id : "m:" + c.m.id);
 
 const FILTERS: { key: VenueCategory; label: string }[] = [
   { key: "laundry", label: "Laundromats" },
@@ -62,6 +67,8 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
   const mapRef = useRef<Leaflet.Map | null>(null);
   const LRef = useRef<typeof Leaflet | null>(null);
   const markRef = useRef<Leaflet.LayerGroup | null>(null);
+  // r26: where each store or machine was drawn, so the selection ring and the pan can find it: a spot (real or fanned) or a small hexagon (a count)
+  const drawnAt = useRef(new Map<string, { at?: [number, number]; poly?: [number, number][] }>());
   const cardRef = useRef<HTMLDivElement>(null);
   const [card, setCard] = useState<CardTarget | null>(null);
   const openerCell = useRef<string | null>(null);
@@ -114,10 +121,11 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
       if (dead || !mapEl.current || mapRef.current) return;
       LRef.current = L;
       const map = L.map(mapEl.current, { zoomControl: false, attributionControl: true });
+      map.attributionControl.setPrefix(LEAFLET_CREDIT); // r26: no flag beside the Leaflet name
       if (initialView) map.setView([initialView.lat, initialView.lon], initialView.zoom);
       else map.fitBounds([[bbox.south, bbox.west], [bbox.north, bbox.east]]);
       let loaded = 0, failed = 0;
-      const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' });
+      const tiles = L.tileLayer(OSM_TILES, { maxZoom: 19, attribution: OSM_CREDIT });
       tiles.on("tileload", () => { loaded++; });
       tiles.on("tileerror", () => { failed++; if (failed >= 6 && loaded === 0) setTilesOk(false); });
       tiles.addTo(map);
@@ -165,7 +173,8 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
     const map = mapRef.current, el = cardRef.current, box = mapEl.current;
     if (!card || !map || !el || !box) return;
     const id = requestAnimationFrame(() => {
-      const at = targetAt(card), pt = map.latLngToContainerPoint([at.lat, at.lon]);
+      // r26: a mark that fanned out is drawn a little off its real spot; pan to where it is drawn
+      const d = drawnAt.current.get(cardThingKey(card))?.at, at = d ? { lat: d[0], lon: d[1] } : targetAt(card), pt = map.latLngToContainerPoint([at.lat, at.lon]);
       const room = box.clientHeight - el.offsetHeight - 16, w = box.clientWidth;
       const dy = pt.y - Math.max(markPx / 2 + 8, room / 2), dx = pt.x < 40 || pt.x > w - 40 ? pt.x - w / 2 : 0;
       if (Math.abs(dy) > 8 || dx) map.panBy([dx, dy], { animate: true });
@@ -178,78 +187,166 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
     ...shown.map((p) => ({ kind: "store" as const, pin: p, lat: p.lat, lon: p.lon })),
     ...ours.map((m) => ({ kind: "machine" as const, m, lat: m.lat, lon: m.lon })),
   ], [existing, ours, shown.map((p) => p.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Every store and machine is the shape of its own grid cell, shrunk to MARK_SCALE around the centre. Several in one cell: one count hexagon.
+  // r26, hexagon round 3. Three levels (src/lib/hexlevels.ts):
+  //   building (finest grid): every store and machine stands on its real spot; marks too close for a thumb fan out on spider lines.
+  //   levels (one out): seven whole small hexagons inside each bold border; a thing alone keeps its real spot, several are a count in the middle.
+  //   cells (further out): as before, each mark the shape of its grid cell shrunk to MARK_SCALE, a count in the middle.
+  const level = levelFor(gridRes);
   useEffect(() => {
     const L = LRef.current, g = markRef.current, map = mapRef.current;
     if (!ready || !L || !g || !map) return;
     g.clearLayers();
+    drawnAt.current = new Map();
     if (mode !== "pins" || !view) return;
     const padLat = (view.n - view.s) * 0.3, padLon = (view.e - view.w) * 0.3;
     const near = things.filter((t) => t.lat >= view.s - padLat && t.lat <= view.n + padLat && t.lon >= view.w - padLon && t.lon <= view.e + padLon);
     const font = Math.round(Math.max(13, Math.min(24, markPx * 0.42)));
-    const label = (cell: string, text: string, ink: string) => L.marker(cellCentre(cell), { icon: L.divIcon({ className: "hexlabel2", html: `<b style="font-size:${font}px;color:${ink}">${text}</b>`, iconSize: [0, 0] }), interactive: false, keyboard: false }).addTo(g);
+    const label = (at: [number, number], text: string, ink: string) => L.marker(at, { icon: L.divIcon({ className: "hexlabel2", html: `<b style="font-size:${font}px;color:${ink}">${text}</b>`, iconSize: [0, 0] }), interactive: false, keyboard: false }).addTo(g);
+    const keyboard = (el: Element | undefined, key: string, name: string, pick: () => void) => {
+      if (!el) return;
+      el.setAttribute("tabindex", "0"); el.setAttribute("role", "button"); el.setAttribute("aria-label", name); el.setAttribute("data-cell", key);
+      el.addEventListener("keydown", (e) => { const k = (e as KeyboardEvent).key; if (k === "Enter" || k === " ") { e.preventDefault(); pick(); } });
+    };
+    const nameOf = (t: Thing) => t.kind === "store" ? `${t.pin.name}, potential site${operator ? `, fit ${t.pin.score} of 100` : ""}` : t.kind === "machine" ? `${t.m.name}, our machine${t.m.btc ? ", takes bitcoin" : ""}` : "1 vending machine by another operator";
+    // a cell holding several things: the card for them, or a zoom in when a finer grid splits them
+    const pickCell = (cell: string, real: Exclude<Thing, { kind: "other" }>[], drawn: Thing[], at: [number, number]) => {
+      openerCell.current = cell;
+      // r24: a cell of only other operators' machines opens a facts-only card with the count
+      if (real.length === 0) { setCard({ kind: "others", count: drawn.length, lat: at[0], lon: at[1] }); return; }
+      if (real.length === 1) openItem(real[0].kind === "store" ? { kind: "store", pin: real[0].pin } : { kind: "machine", m: real[0].m });
+      else if (gridRes < GRID_FINEST) { closeRef.current(); map.setView(at, Math.min(19, map.getZoom() + 2)); } // a finer grid splits the group
+      else setCard({ kind: "cell", items: real.map((t) => (t.kind === "store" ? { kind: "store", pin: t.pin } : { kind: "machine", m: t.m })) });
+    };
+    const countPoly = (corners: [number, number][], allOther: boolean) => L.polygon(corners, { color: allOther ? GREY : ORANGE, weight: 2.4, fillColor: "#262626", fillOpacity: 0.95, className: "mark" });
+
+    if (level === "cells") {
+      // ---- zoomed out: unchanged. Every mark is the shape of its own grid cell, shrunk around the centre; several make one count. ----
+      for (const { cell, items } of groupByCell(near, gridRes)) {
+        const corners = innerHex(cell);
+        // Stores and our machines own a cell. Other people's machines (OpenStreetMap) only show in a cell that has none of ours, so they never hide a store.
+        const real = items.filter((t): t is Exclude<Thing, { kind: "other" }> => t.kind !== "other");
+        const drawn: Thing[] = real.length ? real : items;
+        const one = drawn.length === 1 ? drawn[0] : null;
+        const allOther = real.length === 0;
+        let poly: Leaflet.Polygon;
+        if (one?.kind === "other") {
+          poly = L.polygon(corners, { color: "#111", weight: 1, fillColor: GREY, fillOpacity: 0.85, className: "mark" });
+        } else if (one?.kind === "store") {
+          const fresh1 = fresh.includes(one.pin.id);
+          poly = L.polygon(corners, { color: ORANGE, weight: one.pin.score >= 70 ? 3.2 : 2.4, dashArray: "2 7", lineCap: "round", fillColor: "#1b1b1b", fillOpacity: 0.35, className: "mark" + (fresh1 ? " droppin" : "") });
+        } else if (one?.kind === "machine") {
+          poly = L.polygon(corners, { color: "#111", weight: 1.5, fillColor: one.m.btc ? ORANGE : CYAN, fillOpacity: 1, className: "mark" });
+          if (one.m.btc) L.marker(cellCentre(cell), { icon: L.divIcon({ className: "hexlabel2", html: btcMarkHtml(markPx), iconSize: [0, 0] }), interactive: false, keyboard: false }).addTo(g);
+        } else {
+          poly = countPoly(corners, allOther);
+          label(cellCentre(cell), String(drawn.length), "#fff");
+        }
+        const name = one ? nameOf(one) : allOther ? `${drawn.length} vending machines by other operators` : `${drawn.length} places in this hexagon`;
+        const pick = () => pickCell(cell, real, drawn, cellCentre(cell));
+        poly.on("click", (e) => { L.DomEvent.stopPropagation(e); pick(); }).addTo(g);
+        keyboard(poly.getElement(), cell, name, pick);
+        for (const t of real) drawnAt.current.set(thingKey(t), { poly: cellCorners(cell) });
+      }
+      return;
+    }
+
+    // ---- one level out and all the way in ----
+    const singles: Thing[] = [];
+    const fitted = new Map<string, FittedChild>();
+    const fitFor = (cell: string) => {
+      if (!fitted.has(cell)) for (const k of fittedChildren(cellToParent(cell, gridRes - 1), gridRes)) fitted.set(k.cell, k);
+      return fitted.get(cell);
+    };
     for (const { cell, items } of groupByCell(near, gridRes)) {
-      const corners = innerHex(cell);
-      // Stores and our machines own a cell. Other people's machines (OpenStreetMap) only show in a cell that has none of ours, so they never hide a store.
       const real = items.filter((t): t is Exclude<Thing, { kind: "other" }> => t.kind !== "other");
       const drawn: Thing[] = real.length ? real : items;
-      const one = drawn.length === 1 ? drawn[0] : null;
+      if (level === "building" || drawn.length === 1) { singles.push(...drawn); continue; }
+      // several in one small hexagon: a count in its middle (the count stands for the whole small hexagon)
+      const f = fitFor(cell);
+      const centre = f?.centre ?? cellCentre(cell);
       const allOther = real.length === 0;
-      let poly: Leaflet.Polygon, name: string;
-      if (one?.kind === "other") {
-        poly = L.polygon(corners, { color: "#111", weight: 1, fillColor: GREY, fillOpacity: 0.85, className: "mark" });
-        name = "1 vending machine by another operator";
-      } else if (one?.kind === "store") {
-        const fresh1 = fresh.includes(one.pin.id);
-        poly = L.polygon(corners, { color: ORANGE, weight: one.pin.score >= 70 ? 3.2 : 2.4, dashArray: "2 7", lineCap: "round", fillColor: "#1b1b1b", fillOpacity: 0.35, className: "mark" + (fresh1 ? " droppin" : "") });
-        name = `${one.pin.name}, potential site`;
-      } else if (one?.kind === "machine") {
-        poly = L.polygon(corners, { color: "#111", weight: 1.5, fillColor: one.m.btc ? ORANGE : CYAN, fillOpacity: 1, className: "mark" });
-        if (one.m.btc) L.marker(cellCentre(cell), { icon: L.divIcon({ className: "hexlabel2", html: btcMarkHtml(markPx), iconSize: [0, 0] }), interactive: false, keyboard: false }).addTo(g);
-        name = `${one.m.name}, our machine${one.m.btc ? ", takes bitcoin" : ""}`;
-      } else {
-        poly = L.polygon(corners, { color: allOther ? GREY : ORANGE, weight: 2.4, fillColor: "#262626", fillOpacity: 0.95, className: "mark" });
-        label(cell, String(drawn.length), "#fff");
-        name = allOther ? `${drawn.length} vending machines by other operators` : `${drawn.length} places in this hexagon`;
-      }
-      const pick = () => {
-        openerCell.current = cell;
-        // r24: a cell of only other operators' machines opens a facts-only card with the count
-        if (allOther) { const [la, lo] = cellCentre(cell); setCard({ kind: "others", count: drawn.length, lat: la, lon: lo }); return; }
-        if (real.length === 1) openItem(real[0].kind === "store" ? { kind: "store", pin: real[0].pin } : { kind: "machine", m: real[0].m });
-        else if (gridRes < GRID_FINEST) { closeRef.current(); map.setView(cellCentre(cell), Math.min(19, map.getZoom() + 2)); } // a finer grid splits the group
-        else setCard({ kind: "cell", items: real.map((t) => (t.kind === "store" ? { kind: "store", pin: t.pin } : { kind: "machine", m: t.m })) });
-      };
+      const poly = countPoly(f ? shrink(f.corners, f.centre, 0.62) : innerHex(cell), allOther);
+      label(centre, String(drawn.length), "#fff");
+      const pick = () => pickCell(cell, real, drawn, centre);
       poly.on("click", (e) => { L.DomEvent.stopPropagation(e); pick(); }).addTo(g);
-      const el = poly.getElement();
-      if (el) {
-        el.setAttribute("tabindex", "0"); el.setAttribute("role", "button"); el.setAttribute("aria-label", name); el.setAttribute("data-cell", cell);
-        el.addEventListener("keydown", (e) => { const k = (e as KeyboardEvent).key; if (k === "Enter" || k === " ") { e.preventDefault(); pick(); } });
-      }
+      keyboard(poly.getElement(), cell, allOther ? `${drawn.length} vending machines by other operators` : `${drawn.length} places in this small hexagon`, pick);
+      for (const t of real) drawnAt.current.set(thingKey(t), { poly: f?.corners ?? cellCorners(cell) });
     }
-  }, [ready, mode, view, gridRes, things, fresh, markPx, openItem]);
+    // every single thing stands on its real spot; marks too close for a thumb fan out, with a line back to the spot
+    const real = singles.map((t) => map.latLngToLayerPoint([t.lat, t.lon]));
+    const spread = fanOut(real.map((p) => ({ x: p.x, y: p.y })));
+    singles.forEach((t, i) => {
+      const s = spread[i], at = map.layerPointToLatLng(L.point(s.at.x, s.at.y));
+      const tone = t.kind === "store" ? ORANGE : t.kind === "machine" ? (t.m.btc ? ORANGE : CYAN) : GREY;
+      if (s.size > 1) {
+        L.polyline([[t.lat, t.lon], at], { color: tone, weight: 1.6, opacity: 0.95, interactive: false }).addTo(g);
+        L.circleMarker([t.lat, t.lon], { radius: 3.5, color: "#141414", weight: 1, fillColor: tone, fillOpacity: 1, interactive: false }).addTo(g);
+      }
+    });
+    singles.forEach((t, i) => {
+      const s = spread[i], at = map.layerPointToLatLng(L.point(s.at.x, s.at.y));
+      const key = thingKey(t);
+      const html = t.kind === "store" ? siteSpotSvg(MARK_PX, operator ? t.pin.score : undefined) : t.kind === "machine" ? (t.m.btc ? coinSvg(MARK_PX) : machineSvg(MARK_PX, CYAN)) : machineSvg(MARK_PX, GREY);
+      const fresh1 = t.kind === "store" && fresh.includes(t.pin.id);
+      const mk = L.marker(at, { icon: L.divIcon({ className: "rmark" + (fresh1 ? " droppin" : ""), html, iconSize: [MARK_PX, MARK_PX], iconAnchor: [MARK_PX / 2, MARK_PX / 2] }), keyboard: false, riseOnHover: true });
+      const pick = () => {
+        openerCell.current = key;
+        if (t.kind === "store") openItem({ kind: "store", pin: t.pin });
+        else if (t.kind === "machine") openItem({ kind: "machine", m: t.m });
+        else setCard({ kind: "others", count: 1, lat: t.lat, lon: t.lon });
+      };
+      mk.on("click", (e) => { L.DomEvent.stopPropagation(e); pick(); }).addTo(g);
+      keyboard(mk.getElement(), key, nameOf(t), pick);
+      drawnAt.current.set(key, { at: [at.lat, at.lng] });
+    });
+  }, [ready, mode, view, gridRes, level, things, fresh, markPx, openItem, operator]);
   useEffect(() => {
     const L = LRef.current, g = gridRef.current;
     if (!ready || !L || !g) return;
     g.clearLayers();
     if (!view || mode !== "pins") return;
-    for (const c of cellsInView(view, gridRes, 700)) L.polygon(cellCorners(c), { color: "#ffffff", opacity: 0.16, weight: 1, fill: false, interactive: false }).addTo(g);
-  }, [ready, mode, view, gridRes]);
+    if (level === "levels") {
+      // the bold borders are the parent cells; seven whole small hexagons sit inside each. The one under the middle of the map is boldest.
+      const mid = cellOf((view.n + view.s) / 2, (view.e + view.w) / 2, gridRes - 1);
+      for (const p of cellsInView(view, gridRes - 1, 300)) {
+        const on = p === mid;
+        for (const k of fittedChildren(p, gridRes)) L.polygon(k.corners, { color: "#ffffff", opacity: on ? 0.5 : 0.2, weight: on ? 1.3 : 1, fill: on, fillColor: "#ffffff", fillOpacity: 0.045, interactive: false }).addTo(g);
+        L.polygon(cellCorners(p), { color: "#ffffff", opacity: on ? 1 : 0.5, weight: on ? 4 : 2, fill: false, interactive: false }).addTo(g);
+      }
+      return;
+    }
+    // all the way in the grid stays, fainter, under marks that stand on their buildings
+    const faint = level === "building" ? 0.1 : 0.16;
+    for (const c of cellsInView(view, gridRes, 700)) L.polygon(cellCorners(c), { color: "#ffffff", opacity: faint, weight: 1, fill: false, interactive: false }).addTo(g);
+  }, [ready, mode, view, gridRes, level]);
 
-  // the selected pin sits in its own cell: the cell is outlined in cyan. Hover draws the row's cell in orange.
+  // the open card's thing is ringed in cyan; hover on a list row rings its place in orange. A spot gets a hexagon ring, a cell or small hexagon its outline.
   useEffect(() => {
     const L = LRef.current, ring = ringRef.current;
     if (!ready || !L || !ring) return;
     ring.clearLayers();
     if (mode !== "pins") return;
-    // the open card's cell; with no card, the list's selection on a wide screen (the phone shows no list beside the map)
-    const s = card ? targetAt(card) : wide && current ? byId.get(current.id) : undefined;
-    const sc = s ? cellOf(s.lat, s.lon, gridRes) : null;
-    if (sc) L.polygon(cellCorners(sc), { color: "#00ffff", weight: 4, fillColor: "#00ffff", fillOpacity: 0.14, interactive: false }).addTo(ring);
-    const h = hover ? byId.get(hover) : null;
-    const hc = h ? cellOf(h.lat, h.lon, gridRes) : null;
-    if (hc && hc !== sc) L.polygon(cellCorners(hc), { color: "#f7931a", weight: 3, fillOpacity: 0, interactive: false }).addTo(ring);
-  }, [ready, mode, current?.id, hover, gridRes, cardKey, wide]); // eslint-disable-line react-hooks/exhaustive-deps
+    // the open card's thing; with no card, the list's selection on a wide screen (the phone shows no list beside the map)
+    const selKey = card ? cardThingKey(card) : wide && current ? "s:" + current.id : null;
+    const draw = (key: string | null, color: string, fill: boolean) => {
+      if (!key) return false;
+      const d = drawnAt.current.get(key);
+      if (d?.at) {
+        const px = MARK_PX + 18;
+        L.marker(d.at, { icon: L.divIcon({ className: "rring", html: ringSvg(px, color, fill), iconSize: [px, px], iconAnchor: [px / 2, px / 2] }), interactive: false, keyboard: false, zIndexOffset: -1000 }).addTo(ring);
+      } else if (d?.poly) L.polygon(d.poly, { color, weight: fill ? 4 : 3, fillColor: color, fillOpacity: fill ? 0.14 : 0, interactive: false }).addTo(ring);
+      else return false;
+      return true;
+    };
+    if (!draw(selKey, "#00ffff", true)) {
+      // not drawn yet (outside the view): outline its true cell, as before
+      const s = card ? targetAt(card) : wide && current ? byId.get(current.id) : undefined;
+      const sc = s ? cellOf(s.lat, s.lon, gridRes) : null;
+      if (sc) L.polygon(cellCorners(sc), { color: "#00ffff", weight: 4, fillColor: "#00ffff", fillOpacity: 0.14, interactive: false }).addTo(ring);
+    }
+    const hk = hover ? "s:" + hover : null;
+    if (hk && hk !== selKey) draw(hk, "#f7931a", false);
+  }, [ready, mode, current?.id, hover, gridRes, cardKey, wide, view, things, level, operator]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // areas view: H3 resolution 7. Open jobs per area, the number in each cell, the selected area solid, its ring of six dashed.
   const jobCells = useMemo(() => { const m = new Map<string, JobPin[]>(); for (const j of jobs) { const c = cellOf(j.lat, j.lon, AREA_RES); if (c) m.set(c, [...(m.get(c) ?? []), j]); } return m; }, [jobs]);
@@ -447,6 +544,8 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
             <span><HexMark kind="coin" size={20} />Machine with bitcoin: hexagon coin</span>
             <span><HexMark kind="machine" size={20} tone="#00ffff" />Our machine: filled hexagon</span>
             <span><HexMark kind="machine" size={20} tone="#8a9bb0" />Grey hexagon: vending machines by other operators, from OpenStreetMap. A number is how many.</span>
+            {/* r26 B6: operators see each site's fit number, as in round 3 picture 2. The public sees no numbers. */}
+            {operator && <span className="fitkey"><b style={{ color: "#ffc266" }}>86</b> Fit 80 and up <b>64</b> Fit 60 to 79 <b style={{ color: "#9aa3ad", fontWeight: 600 }}>41</b> Fit under 60. A number in a solid hexagon is a count.</span>}
             <span className="flipnote"><HexMark kind="site" size={22} /><HexMark kind="machine" size={22} tone="#00ffff" /><span><b>Before and after.</b> When the host says yes, the dotted hexagon flips to a filled one. Numbers in a hexagon are groups.</span></span>
           </div>
         ) : (

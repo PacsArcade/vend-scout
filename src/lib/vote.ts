@@ -1,5 +1,8 @@
 import type { VoteOption } from "./types";
 
+/** r26: what the vote page promises. Soft on purpose: anyone can vote many times, so the votes help us choose, they do not decide. */
+export const VOTE_PROMISE = "Top picks help us choose the next restock.";
+
 /** A plain vote counts 1. A sats-backed vote counts 2. */
 export const SATS_WEIGHT = 2;
 
