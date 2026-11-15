@@ -11,6 +11,7 @@ import { isOperatorNow } from "@/lib/auth";
 import { readState } from "@/lib/store";
 import { openJobs } from "@/lib/jobs";
 import { takesLine } from "@/lib/machinecard";
+import { mailReady } from "@/lib/mail";
 import { latestProof } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export default async function ScoutPage({ searchParams }: { searchParams: Promis
     <>
       <Nav on="scout" />
       <StorageBanner />
-      <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} jobs={jobs} total={total} top20={top20} initialView={initialView} initialTab={tab === "list" ? "list" : "map"} initialMode={mode === "areas" ? "areas" : "pins"} cities={cities} hasData={Object.values(counts).some((c) => c !== null)} operator={await isOperatorNow()} copyStamp={copyStamp} demoDrop={process.env.VEND_DEMO_DROP === "1" && demo === "1"} />
+      <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} jobs={jobs} total={total} top20={top20} initialView={initialView} initialTab={tab === "list" ? "list" : "map"} initialMode={mode === "areas" ? "areas" : "pins"} cities={cities} hasData={Object.values(counts).some((c) => c !== null)} operator={await isOperatorNow()} mailOn={mailReady()} copyStamp={copyStamp} demoDrop={process.env.VEND_DEMO_DROP === "1" && demo === "1"} />
     </>
   );
 }

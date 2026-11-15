@@ -1,10 +1,11 @@
 "use client";
-import { forwardRef, useEffect, useRef } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Pin } from "@/lib/pins";
 import type { VenueCategory } from "@/lib/types";
 import { agoLine } from "@/lib/machinecard";
 import { HexMark } from "./Hex";
+import { PublicReport } from "./PublicReport";
 
 // r23: the card a pin tap opens over the bottom of the map. Three faces, from the round 2 mockup:
 // an operator's store card (facts and two buttons), the public store card (facts only), and our machine card.
@@ -17,10 +18,13 @@ export type CardTarget = CardItem | { kind: "cell"; items: CardItem[] };
 const KIND: Record<VenueCategory, string> = { laundry: "Laundromat", gym: "Gym", car_wash: "Car wash", car_repair: "Auto shop" };
 const CHIP: Record<VenueCategory, string> = { laundry: "laundromat", gym: "gym", car_wash: "car wash", car_repair: "auto shop" };
 
-export const PinCard = forwardRef<HTMLDivElement, { target: CardTarget; operator: boolean; onClose: () => void; onPick: (it: CardItem) => void }>(function PinCard({ target, operator, onClose, onPick }, ref) {
+export const PinCard = forwardRef<HTMLDivElement, { target: CardTarget; operator: boolean; mailOn: boolean; onClose: () => void; onPick: (it: CardItem) => void }>(function PinCard({ target, operator, mailOn, onClose, onPick }, ref) {
   const head = useRef<HTMLHeadingElement>(null);
   const key = target.kind === "store" ? target.pin.id : target.kind === "machine" ? target.m.id : target.items.map((i) => (i.kind === "store" ? i.pin.id : i.m.id)).join(",");
-  useEffect(() => { head.current?.focus(); }, [key]);
+  // the machine card can turn into the report form (r23 part C), and back
+  const [reporting, setReporting] = useState<string | null>(null);
+  const reportOpen = target.kind === "machine" && reporting === target.m.id;
+  useEffect(() => { head.current?.focus(); }, [key, reportOpen]);
   const close = <button type="button" className="x" onClick={onClose}>Close</button>;
   let body: React.ReactNode;
   if (target.kind === "store") {
@@ -45,18 +49,20 @@ export const PinCard = forwardRef<HTMLDivElement, { target: CardTarget; operator
       <>
         <div className="hd">
           <HexMark kind={m.btc ? "coin" : "machine"} size={30} />
-          <div><h3 id="pincard-h" ref={head} tabIndex={-1}>{m.name}</h3><p className="why">Our machine{m.host ? ` at ${m.host}` : ""}{m.btc ? " · takes bitcoin" : ""}</p></div>
+          <div><h3 id="pincard-h" ref={head} tabIndex={-1}>{reportOpen ? `Report a problem: ${m.name}` : m.name}</h3><p className="why">Our machine{m.host ? ` at ${m.host}` : ""}{m.btc ? " · takes bitcoin" : ""}</p></div>
           {close}
         </div>
+        {reportOpen ? <PublicReport machine={m.id} machineName={m.name} mailOn={mailOn} onDone={() => setReporting(null)} /> : <>
         <div className="facts">
           <div><span>Takes</span><b>{m.takes ?? "Not listed yet"}</b></div>
           <div><span>Last stocked</span><b>{m.stocked ? agoLine(m.stocked) : "No stocking photo yet"}</b></div>
         </div>
         <div className="acts">
-          <Link className="btn gild" href={`/m/${m.id}#report`}>Report a problem</Link>
+          <button type="button" className="btn gild" onClick={() => setReporting(m.id)}>Report a problem</button>
           <Link className="btn" href={`/m/${m.id}`}>Machine page</Link>
         </div>
         <div className="acts one"><Link className="btn" href={`/vote/${m.id}`}>Vote on what goes in</Link></div>
+        </>}
       </>
     );
   } else {
@@ -77,5 +83,5 @@ export const PinCard = forwardRef<HTMLDivElement, { target: CardTarget; operator
       </>
     );
   }
-  return <div ref={ref} className="glass pincard" role="dialog" aria-labelledby="pincard-h"><div className="grab" aria-hidden="true" />{body}</div>;
+  return <div ref={ref} className="glass pincard" role="dialog" aria-labelledby="pincard-h"><div className="grab" aria-hidden="true" /><div className="pcscroll">{body}</div></div>;
 });

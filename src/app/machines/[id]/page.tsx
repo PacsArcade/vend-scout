@@ -157,7 +157,9 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
             <h3>Requested items</h3>
             {mreq.length === 0 ? <p className="muted small">Nothing requested yet.</p> : <ul className="plain">{mreq.map((r) => <li key={r.id}>{r.text} <span className="muted small"><Bft iso={r.at} h={r.h} /></span></li>)}</ul>}
             <h3>Problems reported</h3>
-            {mrep.length === 0 ? <p className="muted small">None.</p> : <ul className="plain">{mrep.map((r) => <li key={r.id}><b>{r.reason}</b>{r.text ? `: ${r.text}` : ""} <span className="muted small"><Bft iso={r.at} h={r.h} /></span></li>)}</ul>}
+            {mrep.length === 0 ? <p className="muted small">None.</p> : <ul className="plain">{mrep.map((r) => <li key={r.id} className="reprow"><b>{r.reason}</b>{r.text ? `: ${r.text}` : ""} <span className="muted small">{r.npub ? "From a signed-in fren" : "From the public, no sign-in"}, <Bft iso={r.at} h={r.h} /></span>
+              {/* r23: the picture sent with a public report. Operators only; never shown on a public page. */}
+              {r.photo && <a href={`/api/reportphoto/${r.photo}`} target="_blank" rel="noreferrer"><img className="repthumb" src={`/api/reportphoto/${r.photo}`} alt={`Picture sent with the report: ${r.reason}`} /></a>}</li>)}</ul>}
             <h3>Redeem credits</h3>
             <p className="muted small">A neighbor spends their vending machine credits at this machine. Not money.</p>
             <ActionForm action="spendCredits" extra={{ machine: m.id }} submit="Redeem" doneText="Redeemed." fields={[{ name: "npub", label: "Their npub", placeholder: "npub1..." }, { name: "amount", label: "Credits", type: "number", value: 10, min: 1 }]} />

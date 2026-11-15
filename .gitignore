@@ -14,3 +14,4 @@ data/items
 osm-source/
 osm-out/
 .env.upload
+data/reports

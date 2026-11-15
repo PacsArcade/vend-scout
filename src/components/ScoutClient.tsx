@@ -36,7 +36,7 @@ const FILTERS: { key: VenueCategory; label: string }[] = [
 const CHIP: Record<VenueCategory, string> = { laundry: "laundromat", gym: "gym", car_wash: "car wash", car_repair: "auto shop" };
 const CAT_NAME: Record<Category, string> = { laundry: "Laundromats", gym: "Gyms", car_wash: "Car washes", car_repair: "Auto shops", vending: "Vending machines", convenience: "Convenience shops", fast_food: "Fast food" };
 
-export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs, total, hasData, top20, initialView, initialTab, initialMode, cities, operator, demoDrop, copyStamp }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: OursPt[]; jobs: JobPin[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; initialMode: "pins" | "areas"; cities: { slug: string; name: string; scanned: boolean }[]; operator: boolean; demoDrop?: boolean; copyStamp?: string }) {
+export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs, total, hasData, top20, initialView, initialTab, initialMode, cities, operator, mailOn = false, demoDrop, copyStamp }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: OursPt[]; jobs: JobPin[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; initialMode: "pins" | "areas"; cities: { slug: string; name: string; scanned: boolean }[]; operator: boolean; mailOn?: boolean; demoDrop?: boolean; copyStamp?: string }) {
   const router = useRouter();
   const [on, setOn] = useState<Record<string, boolean>>({ laundry: true, gym: true, car_wash: true, car_repair: true });
   const [lateOnly, setLateOnly] = useState(false);
@@ -429,7 +429,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
         )}
         <div className="leafwrap">
           <div ref={mapEl} className="leaf" />
-          {card && mode === "pins" && <PinCard ref={cardRef} target={card} operator={operator} onClose={closeCard} onPick={openItem} />}
+          {card && mode === "pins" && <PinCard ref={cardRef} target={card} operator={operator} mailOn={mailOn} onClose={closeCard} onPick={openItem} />}
           {!tilesOk && (
             <svg className="fallback" viewBox="0 0 900 760" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Fallback map, tiles did not load">
               <rect width="900" height="760" fill="#1b1b1b" />

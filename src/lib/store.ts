@@ -33,6 +33,7 @@ import type { Claim, HostPick, JobKind, MachineStatus, MachineType } from "./typ
 import { MACHINE_STATUSES, MACHINE_TYPES } from "./types";
 import type { Applicant, ApplicantStage, CrewRole, Outreach, OutreachHow, Route } from "./types";
 import { FOOD_KINDS, SHELF_KINDS, STAGES } from "./types";
+import { REPORT_REASONS } from "./social";
 
 
 export interface State {
@@ -143,6 +144,7 @@ export type Action =
   | { action: "outreach"; id: string; who: string; how: OutreachHow; outcome: string; note: string }
   | { action: "neighborVerify"; machine: string; npub: string }
   | { action: "neighborReport"; machine: string; npub: string; reason: string; text: string }
+  | { action: "publicReport"; machine: string; reason: string; text: string; photo: string }
   | { action: "requestItems"; machine: string; npub: string; text: string }
   | { action: "shareCredit"; machine: string; npub: string }
   | { action: "spendCredits"; machine: string; npub: string; amount: number }
@@ -345,6 +347,18 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
       if (!reason) return { ok: false, error: "Pick a reason" };
       if (!machine(a.machine)) return { ok: false, error: "No such machine" };
       st.reports.push({ id: `rp${++st.counter}`, machine: a.machine, npub: hex, reason, text, at: nowIso(), h });
+      break;
+    }
+    case "publicReport": {
+      // r23: a report from anyone, no sign-in. A picture and a comment are required, to keep out junk. The picture is stored
+      // already cleaned by /api/m/[machine]/report and only operators can open it. No email is ever kept here.
+      const reason = str(a.reason, 60), text = str(a.text, 500), photo = str(a.photo, 80);
+      if (!REPORT_REASONS.includes(reason)) return { ok: false, error: "Pick what is wrong" };
+      if (text.length < 5) return { ok: false, error: "Say what is wrong in a few words" };
+      if (!/^rp-\d+-[0-9a-f]{8}\.(jpg|png|webp)$/.test(photo)) return { ok: false, error: "Add a picture of the machine" };
+      const m = machine(a.machine);
+      if (!m || m.status !== "Placed") return { ok: false, error: "No such machine" };
+      st.reports.push({ id: `rp${++st.counter}`, machine: a.machine, npub: "", reason, text, photo, at: nowIso(), h });
       break;
     }
     case "requestItems": {

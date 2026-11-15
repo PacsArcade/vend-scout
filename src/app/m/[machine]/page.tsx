@@ -13,6 +13,7 @@ import { boardName } from "@/lib/arcade";
 import { npubToHex } from "@/lib/operator";
 import { latestProof, machineTag } from "@/lib/social";
 import { readState } from "@/lib/store";
+import { mailReady } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export default async function NeighborPage({ params }: { params: Promise<{ machi
               <p className="small">After photo, <span className="mono">{stamp}</span>{runner ? <>, by {boardName(runner.name)}</> : null}</p>
             </div>
           ) : <div className="glass tile"><b>No stocking photo yet</b><p className="muted small">When the stocker sends one, it shows here.</p></div>}
-          <NeighborPanel machine={m.id} machineName={m.name} tag={machineTag(m.id)} origin={origin} hasPhoto={!!p} stocker={runner ? boardName(runner.name) : "The stocker"} tipOk={!!runner?.lightning} runnerHex={runner?.npub ? npubToHex(runner.npub) : null} verifies={verifies} />
+          <NeighborPanel machine={m.id} machineName={m.name} tag={machineTag(m.id)} origin={origin} hasPhoto={!!p} stocker={runner ? boardName(runner.name) : "The stocker"} tipOk={!!runner?.lightning} runnerHex={runner?.npub ? npubToHex(runner.npub) : null} verifies={verifies} mailOn={mailReady()} />
           <p className="muted small">Credits are for use at our machines. They are not money.</p>
         </div>
         <div className="mp-right">
