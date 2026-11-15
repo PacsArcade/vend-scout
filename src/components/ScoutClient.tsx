@@ -25,7 +25,7 @@ type View = { s: number; w: number; n: number; e: number; wpx: number };
 type Thing = { kind: "store"; pin: Pin; lat: number; lon: number } | { kind: "machine"; m: OursPt; lat: number; lon: number } | { kind: "other"; lat: number; lon: number };
 const ORANGE = "#f7931a", CYAN = "#00ffff", GREY = "#8a9bb0";
 const itemAt = (it: CardItem) => (it.kind === "store" ? it.pin : it.m);
-const targetAt = (t: CardTarget) => (t.kind === "cell" ? itemAt(t.items[0]) : itemAt(t));
+const targetAt = (t: CardTarget) => (t.kind === "cell" ? itemAt(t.items[0]) : t.kind === "others" ? t : itemAt(t));
 
 const FILTERS: { key: VenueCategory; label: string }[] = [
   { key: "laundry", label: "Laundromats" },
@@ -36,7 +36,7 @@ const FILTERS: { key: VenueCategory; label: string }[] = [
 const CHIP: Record<VenueCategory, string> = { laundry: "laundromat", gym: "gym", car_wash: "car wash", car_repair: "auto shop" };
 const CAT_NAME: Record<Category, string> = { laundry: "Laundromats", gym: "Gyms", car_wash: "Car washes", car_repair: "Auto shops", vending: "Vending machines", convenience: "Convenience shops", fast_food: "Fast food" };
 
-export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs, total, hasData, top20, initialView, initialTab, initialMode, cities, operator, demoDrop, copyStamp }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: OursPt[]; jobs: JobPin[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; initialMode: "pins" | "areas"; cities: { slug: string; name: string; scanned: boolean }[]; operator: boolean; demoDrop?: boolean; copyStamp?: string }) {
+export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs, total, hasData, top20, initialView, initialTab, initialMode, cities, operator, mailOn = false, demoDrop, copyStamp }: { place: { slug: string; name: string }; bbox: Bbox; pins: Pin[]; existing: Pt[]; ours: OursPt[]; jobs: JobPin[]; total: number; hasData: boolean; top20: string[]; initialView?: { lat: number; lon: number; zoom: number }; initialTab: "map" | "list"; initialMode: "pins" | "areas"; cities: { slug: string; name: string; scanned: boolean }[]; operator: boolean; mailOn?: boolean; demoDrop?: boolean; copyStamp?: string }) {
   const router = useRouter();
   const [on, setOn] = useState<Record<string, boolean>>({ laundry: true, gym: true, car_wash: true, car_repair: true });
   const [lateOnly, setLateOnly] = useState(false);
@@ -159,7 +159,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
   }, [card, closeCard]);
   const openItem = useCallback((it: CardItem) => { setCard(it); if (it.kind === "store") setSel(it.pin.id); }, []);
   // Pan so the selected hexagon sits in the clear map above the card.
-  const cardKey = card ? (card.kind === "cell" ? "cell:" + card.items.length + ":" + targetAt(card).lat : card.kind === "store" ? card.pin.id : card.m.id) : "";
+  const cardKey = card ? (card.kind === "cell" ? "cell:" + card.items.length + ":" + targetAt(card).lat : card.kind === "store" ? card.pin.id : card.kind === "others" ? `others:${card.lat},${card.lon}` : card.m.id) : "";
   useEffect(() => {
     const map = mapRef.current, el = cardRef.current, box = mapEl.current;
     if (!card || !map || !el || !box) return;
@@ -193,9 +193,12 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
       const real = items.filter((t): t is Exclude<Thing, { kind: "other" }> => t.kind !== "other");
       const drawn: Thing[] = real.length ? real : items;
       const one = drawn.length === 1 ? drawn[0] : null;
-      if (one?.kind === "other") { L.polygon(corners, { color: "#111", weight: 1, fillColor: GREY, fillOpacity: 0.85, interactive: false }).addTo(g); continue; }
+      const allOther = real.length === 0;
       let poly: Leaflet.Polygon, name: string;
-      if (one?.kind === "store") {
+      if (one?.kind === "other") {
+        poly = L.polygon(corners, { color: "#111", weight: 1, fillColor: GREY, fillOpacity: 0.85, className: "mark" });
+        name = "1 vending machine by another operator";
+      } else if (one?.kind === "store") {
         const fresh1 = fresh.includes(one.pin.id);
         poly = L.polygon(corners, { color: ORANGE, weight: one.pin.score >= 70 ? 3.2 : 2.4, dashArray: "2 7", lineCap: "round", fillColor: "#1b1b1b", fillOpacity: 0.35, className: "mark" + (fresh1 ? " droppin" : "") });
         name = `${one.pin.name}, potential site`;
@@ -204,14 +207,14 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
         if (one.m.btc) label(cell, "B", "#111");
         name = `${one.m.name}, our machine${one.m.btc ? ", takes bitcoin" : ""}`;
       } else {
-        const allOther = real.length === 0;
-        poly = L.polygon(corners, { color: allOther ? GREY : ORANGE, weight: 2.4, fillColor: "#262626", fillOpacity: 0.95, interactive: !allOther, className: "mark" });
+        poly = L.polygon(corners, { color: allOther ? GREY : ORANGE, weight: 2.4, fillColor: "#262626", fillOpacity: 0.95, className: "mark" });
         label(cell, String(drawn.length), "#fff");
-        if (allOther) { poly.addTo(g); continue; }
-        name = `${drawn.length} places in this hexagon`;
+        name = allOther ? `${drawn.length} vending machines by other operators` : `${drawn.length} places in this hexagon`;
       }
       const pick = () => {
         openerCell.current = cell;
+        // r24: a cell of only other operators' machines opens a facts-only card with the count
+        if (allOther) { const [la, lo] = cellCentre(cell); setCard({ kind: "others", count: drawn.length, lat: la, lon: lo }); return; }
         if (real.length === 1) openItem(real[0].kind === "store" ? { kind: "store", pin: real[0].pin } : { kind: "machine", m: real[0].m });
         else if (gridRes < GRID_FINEST) { closeRef.current(); map.setView(cellCentre(cell), Math.min(19, map.getZoom() + 2)); } // a finer grid splits the group
         else setCard({ kind: "cell", items: real.map((t) => (t.kind === "store" ? { kind: "store", pin: t.pin } : { kind: "machine", m: t.m })) });
@@ -429,7 +432,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
         )}
         <div className="leafwrap">
           <div ref={mapEl} className="leaf" />
-          {card && mode === "pins" && <PinCard ref={cardRef} target={card} operator={operator} onClose={closeCard} onPick={openItem} />}
+          {card && mode === "pins" && <PinCard ref={cardRef} target={card} operator={operator} mailOn={mailOn} onClose={closeCard} onPick={openItem} />}
           {!tilesOk && (
             <svg className="fallback" viewBox="0 0 900 760" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Fallback map, tiles did not load">
               <rect width="900" height="760" fill="#1b1b1b" />
@@ -441,8 +444,9 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
           <div className="legend">
             <span><HexMark kind="site" size={20} />Potential site: dotted hexagon</span>
             <span><HexMark kind="coin" size={20} />Machine with bitcoin: hexagon coin</span>
-            <span><HexMark kind="machine" size={20} />Machine: filled hexagon</span>
-            <span className="flipnote"><HexMark kind="site" size={22} /><HexMark kind="machine" size={22} /><span><b>Before and after.</b> When the host says yes, the dotted hexagon flips to a filled one. Numbers in a hexagon are groups.</span></span>
+            <span><HexMark kind="machine" size={20} tone="#00ffff" />Our machine: filled hexagon</span>
+            <span><HexMark kind="machine" size={20} tone="#8a9bb0" />Grey hexagon: vending machines by other operators, from OpenStreetMap. A number is how many.</span>
+            <span className="flipnote"><HexMark kind="site" size={22} /><HexMark kind="machine" size={22} tone="#00ffff" /><span><b>Before and after.</b> When the host says yes, the dotted hexagon flips to a filled one. Numbers in a hexagon are groups.</span></span>
           </div>
         ) : (
           <div className="legend">

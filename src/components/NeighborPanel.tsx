@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { RELAYS } from "@/lib/profile";
-import { REPORT_REASONS, SHARE_TAGS } from "@/lib/social";
+import { SHARE_TAGS } from "@/lib/social";
 import { ZAP_AMOUNTS } from "@/lib/zapconfig";
+import { PublicReport } from "./PublicReport";
 
 declare global { interface Window { nostr?: { signEvent: (e: unknown) => Promise<{ pubkey: string }> } } }
 type Ev = { pubkey: string; id: string };
@@ -15,7 +16,7 @@ async function post(url: string, body: object) {
 }
 function publish(ev: unknown) { for (const url of RELAYS) { try { const ws = new WebSocket(url); ws.onopen = () => { ws.send(JSON.stringify(["EVENT", ev])); setTimeout(() => ws.close(), 4000); }; } catch { /* next */ } } }
 
-export interface NeighborProps { machine: string; machineName: string; tag: string; origin: string; hasPhoto: boolean; stocker: string; tipOk: boolean; runnerHex: string | null; verifies: number }
+export interface NeighborProps { machine: string; machineName: string; tag: string; origin: string; hasPhoto: boolean; stocker: string; tipOk: boolean; runnerHex: string | null; verifies: number; mailOn: boolean }
 
 export function NeighborPanel(p: NeighborProps) {
   const [signed, setSigned] = useState(false);
@@ -23,13 +24,15 @@ export function NeighborPanel(p: NeighborProps) {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<"" | "report" | "request">("");
-  const [reason, setReason] = useState(REPORT_REASONS[0]);
   const [text, setText] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
   const [custom, setCustom] = useState("");
   const [invoice, setInvoice] = useState<{ pr: string; zap: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // r23: the map's machine card links here with #report: open the report form straight away.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (window.location.hash === "#report") { setOpen("report"); setTimeout(() => document.getElementById("report")?.scrollIntoView({ block: "start" }), 50); } }, []);
   useEffect(() => { void (async () => { const r = await fetch("/api/neighbor/session"); if (r.ok) { const j = (await r.json()) as { credits: number }; setSigned(true); setCredits(j.credits); } })(); }, []);
 
   async function signIn(): Promise<boolean> {
@@ -98,24 +101,18 @@ export function NeighborPanel(p: NeighborProps) {
         )}
       </section>
 
-      <section className="glass tile">
+      <section className="glass tile" id="report">
         <h2>Second look from a neighbor</h2>
         <p className="muted small">{p.verifies > 0 ? `${p.verifies} neighbor${p.verifies === 1 ? "" : "s"} checked the latest photo. ` : ""}A neighbor check is extra evidence. It does not release the stocker&apos;s pay. A person approves that.</p>
         {signed ? <p className="small">You have <b className="num">{credits}</b> vending machine credits. Spend them at any of our machines.</p> : <p className="muted small">Sign in with nostr to earn vending machine credits.</p>}
         <div className="actions">
           {!signed && <button className="btn gild full" onClick={signIn}>Sign in with nostr</button>}
           <button className={"btn full" + (signed ? " gild" : "")} onClick={() => act({ action: "verify" })} disabled={busy || !p.hasPhoto}>Verify this machine is stocked</button>
-          <button className="btn full" onClick={() => setOpen(open === "report" ? "" : "report")}>Report a problem</button>
+          <button className="btn full" aria-expanded={open === "report"} onClick={() => setOpen(open === "report" ? "" : "report")}>Report a problem</button>
           <button className="btn full" onClick={() => { document.getElementById("tip")?.scrollIntoView({ behavior: "smooth" }); }}>Tip the stocker</button>
           <button className="btn full" onClick={() => setOpen(open === "request" ? "" : "request")}>Request items</button>
         </div>
-        {open === "report" && (
-          <div className="form" style={{ gridTemplateColumns: "1fr" }}>
-            <label><span>What is wrong</span><select value={reason} onChange={(e) => setReason(e.target.value)}>{REPORT_REASONS.map((r) => <option key={r}>{r}</option>)}</select></label>
-            <label><span>Tell us more (optional)</span><textarea rows={3} maxLength={500} value={text} onChange={(e) => setText(e.target.value)} /></label>
-            <button className="btn gild" onClick={() => act({ action: "report", reason, text }, () => { setOpen(""); setText(""); })} disabled={busy}>Send the report</button>
-          </div>
-        )}
+        {open === "report" && <div className="reportwrap"><h3>Report a problem</h3><PublicReport machine={p.machine} machineName={p.machineName} mailOn={p.mailOn} onDone={() => setOpen("")} autoFocus /></div>}
         {open === "request" && (
           <div className="form" style={{ gridTemplateColumns: "1fr" }}>
             <label><span>What would you like in this machine?</span><textarea rows={3} maxLength={300} value={text} onChange={(e) => setText(e.target.value)} placeholder="Hot chips, protein bars, juice for kids" /></label>

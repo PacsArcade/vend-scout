@@ -10,7 +10,8 @@ import { bundleMeta, bundledCity } from "@/lib/bundled";
 import { isOperatorNow } from "@/lib/auth";
 import { readState } from "@/lib/store";
 import { openJobs } from "@/lib/jobs";
-import { takesLine } from "@/lib/machinecard";
+import { payWays } from "@/lib/machinecard";
+import { mailReady } from "@/lib/mail";
 import { latestProof } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export default async function ScoutPage({ searchParams }: { searchParams: Promis
   const counts = await cacheCounts(place.slug);
   const cities = await Promise.all(ILLINOIS.map(async (c) => ({ slug: c.slug, name: c.name.replace(", Illinois", "").replace(", United States", ""), scanned: Object.values(await cacheCounts(c.slug)).some((n) => n !== null) })));
   // Our placed machines, with the facts the map's machine card shows. Last stocked is the newest stocking photo sent or approved.
-  const ours = st.machines.filter((m) => m.lat !== undefined && m.lon !== undefined && m.status === "Placed").map((m) => ({ id: m.id, name: m.name, host: m.hostName, lat: m.lat!, lon: m.lon!, btc: !!m.profile.lightning, takes: takesLine(m.profile), stocked: latestProof(st, m.id)?.sentAt ?? null }));
+  const ours = st.machines.filter((m) => m.lat !== undefined && m.lon !== undefined && m.status === "Placed").map((m) => ({ id: m.id, name: m.name, host: m.hostName, lat: m.lat!, lon: m.lon!, btc: !!m.profile.lightning, ways: payWays(m.profile), stocked: latestProof(st, m.id)?.sentAt ?? null }));
   // Open jobs that have a place on the map. The machine's bitcoin flag picks the coin or the plain filled hexagon.
   const open = await openJobs(st);
   const jobs = open.jobs.filter((j) => j.lat !== undefined && j.lon !== undefined).map((j) => ({ id: j.id, kind: j.kind, title: j.title, detail: j.detail, sats: j.sats + j.bonus, lat: j.lat!, lon: j.lon!, coin: !!st.machines.find((m) => j.id.endsWith(`:${m.id}`))?.profile.lightning }));
@@ -36,7 +37,7 @@ export default async function ScoutPage({ searchParams }: { searchParams: Promis
     <>
       <Nav on="scout" />
       <StorageBanner />
-      <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} jobs={jobs} total={total} top20={top20} initialView={initialView} initialTab={tab === "list" ? "list" : "map"} initialMode={mode === "areas" ? "areas" : "pins"} cities={cities} hasData={Object.values(counts).some((c) => c !== null)} operator={await isOperatorNow()} copyStamp={copyStamp} demoDrop={process.env.VEND_DEMO_DROP === "1" && demo === "1"} />
+      <ScoutClient key={place.slug} place={{ slug: place.slug, name: place.name }} bbox={place.bbox} pins={pins} existing={machines} ours={ours} jobs={jobs} total={total} top20={top20} initialView={initialView} initialTab={tab === "list" ? "list" : "map"} initialMode={mode === "areas" ? "areas" : "pins"} cities={cities} hasData={Object.values(counts).some((c) => c !== null)} operator={await isOperatorNow()} mailOn={mailReady()} copyStamp={copyStamp} demoDrop={process.env.VEND_DEMO_DROP === "1" && demo === "1"} />
     </>
   );
 }

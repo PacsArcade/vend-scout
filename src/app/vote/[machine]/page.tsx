@@ -8,17 +8,17 @@ export const dynamic = "force-dynamic";
 export default async function VotePage({ params }: { params: Promise<{ machine: string }> }) {
   const { machine } = await params;
   const m = (await readState()).machines.find((x) => x.id === machine);
-  if (!m) notFound();
+  if (!m || m.status !== "Placed") notFound();
   const rows = await getVotes(machine);
   return (
     <div className="phonewrap">
       <div className="phone">
-        <PhoneBar right="scanned from the machine" />
-        <span className="testtag">PREVIEW · NOT LIVE YET</span>
+        <PhoneBar right="vote for this machine" />
         <h1>What should go in here?</h1>
         <p className="muted small">{m.name}. Top picks go in on the next restock.</p>
         <VoteClient machine={machine} rows={rows} />
-        <p className="muted small">Got a Lightning wallet? Back your vote with sats and it counts double.</p>
+        {/* r24: the sats-backed vote stays hidden until a real Lightning payment sits behind it. Every vote counts 1. */}
+        <p className="muted small">One vote each time you tap. Anyone can vote, no sign-in.</p>
       </div>
     </div>
   );
