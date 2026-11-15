@@ -65,11 +65,11 @@ export const PinCard = forwardRef<HTMLDivElement, { target: CardTarget; operator
           {m.where && <div className="where"><span>Where inside</span><b>{m.where}</b></div>}
         </div>
         {/* r26 fix 2: four even buttons. Walk there full width on top, two equal halves, the vote full width. */}
-        <div className="acts mach">
+        <div className="acts macts">
           {/* r26: the phone's own maps app, by a plain link. No script, no tracking. */}
           <a className="btn gild wide" href={walk.href} {...(walk.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})} aria-label={`Walk there: open ${m.name} in your maps app`}>Walk there</a>
-          <button type="button" className="btn" onClick={() => setReporting(m.id)}>Report a problem</button>
-          <Link className="btn" href={`/m/${m.id}`}>Machine page</Link>
+          <button type="button" className="btn half" onClick={() => setReporting(m.id)}>Report a problem</button>
+          <Link className="btn half" href={`/m/${m.id}`}>Machine page</Link>
           <Link className="btn wide" href={`/vote/${m.id}`}>Vote on what goes in</Link>
         </div>
         </>}

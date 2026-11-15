@@ -26,14 +26,20 @@ describe("fix 1: one place, one mark", () => {
 describe("fix 2: the machine card's four buttons are even", () => {
   const src = read("components/PinCard.tsx"), css = read("app/globals.css");
   it("one grid: Walk there full width, two equal halves, the vote full width", () => {
-    const acts = src.slice(src.indexOf('<div className="acts mach">'), src.indexOf("</div>", src.indexOf('<div className="acts mach">')));
+    const acts = src.slice(src.indexOf('<div className="acts macts">'), src.indexOf("</div>", src.indexOf('<div className="acts macts">')));
     const order = ["Walk there</a>", "Report a problem</button>", "Machine page</Link>", "Vote on what goes in</Link>"].map((t) => acts.indexOf(t));
     expect(order.every((i) => i > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(acts).toMatch(/className="btn gild wide"[^>]*>|className="btn gild wide"/);
     expect(acts).toContain('className="btn wide" href={`/vote/');
-    expect(css).toContain(".pincard .acts.mach{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}");
-    expect(css).toContain(".pincard .acts.mach .wide{grid-column:1/-1}");
+    expect(css).toContain(".pincard .acts.macts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}");
+    expect(css).toContain(".pincard .acts.macts .wide{grid-column:1/-1}");
+  });
+  it("the button row does not borrow the machine page's .mach grid, and the two halves share one type rule", () => {
+    expect(src).not.toContain('className="acts mach"');
+    expect(css).not.toMatch(/\.pincard \.acts\.mach[{ .]/);
+    expect((src.match(/className="btn half"/g) || []).length).toBe(2);
+    expect(css).toContain("@media (max-width:380px){.pincard .acts.macts .half{font-size:13px;letter-spacing:-.02em}}");
   });
 });
 
