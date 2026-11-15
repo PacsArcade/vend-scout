@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { BitcoinMark } from "@/components/BitcoinMark";
+import { PayLine } from "@/components/PayLine";
+import { payWays } from "@/lib/machinecard";
 import { headers } from "next/headers";
 import { stampString } from "@/components/Bft";
 import { NeighborPanel } from "@/components/NeighborPanel";
@@ -13,6 +14,7 @@ import { boardName } from "@/lib/arcade";
 import { npubToHex } from "@/lib/operator";
 import { latestProof, machineTag } from "@/lib/social";
 import { readState } from "@/lib/store";
+import { mailReady } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,7 @@ export default async function NeighborPage({ params }: { params: Promise<{ machi
           <PhoneBar right="neighbors" />
           <div className="glass card">
             <div className="sechd"><h1 style={{ margin: 0 }}>{m.name}</h1><span className="pill good">{m.status}</span></div>
-            <BitcoinMark on={m.profile.lightning} />
+            <p className="small payrow"><PayLine ways={payWays(m.profile)} /></p>
             <p className="muted small">At {m.hostName}. <span className="mono">{machineTag(m.id)}</span></p>
             <div className="zonebox" style={{ marginTop: 12 }}>
               <HexZone lat={m.lat} lon={m.lon} coin={m.profile.lightning} />
@@ -58,7 +60,7 @@ export default async function NeighborPage({ params }: { params: Promise<{ machi
               <p className="small">After photo, <span className="mono">{stamp}</span>{runner ? <>, by {boardName(runner.name)}</> : null}</p>
             </div>
           ) : <div className="glass tile"><b>No stocking photo yet</b><p className="muted small">When the stocker sends one, it shows here.</p></div>}
-          <NeighborPanel machine={m.id} machineName={m.name} tag={machineTag(m.id)} origin={origin} hasPhoto={!!p} stocker={runner ? boardName(runner.name) : "The stocker"} tipOk={!!runner?.lightning} runnerHex={runner?.npub ? npubToHex(runner.npub) : null} verifies={verifies} />
+          <NeighborPanel machine={m.id} machineName={m.name} tag={machineTag(m.id)} origin={origin} hasPhoto={!!p} stocker={runner ? boardName(runner.name) : "The stocker"} tipOk={!!runner?.lightning} runnerHex={runner?.npub ? npubToHex(runner.npub) : null} verifies={verifies} mailOn={mailReady()} />
           <p className="muted small">Credits are for use at our machines. They are not money.</p>
         </div>
         <div className="mp-right">

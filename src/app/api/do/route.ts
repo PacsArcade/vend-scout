@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { actionAllowed, crewPubkeyFromCookieHeader, gateOn, operatorFromCookieHeader } from "@/lib/operator";
 import { crewActionOk, crewFor } from "@/lib/crewauth";
-import { allow } from "@/lib/ratelimit";
+import { allow, clientKey } from "@/lib/ratelimit";
 import { perform, readState, type Action } from "@/lib/store";
+
+/** r24 limits per address per hour. */
+const VOTES_PER_HOUR = 10, SUGGESTIONS_PER_HOUR = 3;
 
 export async function POST(req: Request) {
   let body: Action;
@@ -26,6 +29,11 @@ export async function POST(req: Request) {
   if (gateOn() && body.action === "apply") {
     const ip = (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim();
     if (!allow(`apply:${ip}`)) return NextResponse.json({ ok: false, error: "That is a lot of applications from one place. Try again later." }, { status: 429 });
+  }
+  // r24: the vote page is live. Votes and suggestions are limited per address (a speed bump per instance, like the apply form).
+  if (!op && (body.action === "vote" || body.action === "suggest")) {
+    const [key, max, what] = body.action === "vote" ? ["vote", VOTES_PER_HOUR, "votes"] : ["suggest", SUGGESTIONS_PER_HOUR, "suggestions"];
+    if (!allow(`${key}:${clientKey(req)}`, max)) return NextResponse.json({ ok: false, error: `That is a lot of ${what} from this phone. Try again in an hour.` }, { status: 429 });
   }
   let r: Awaited<ReturnType<typeof perform>>;
   try { r = await perform(body); }

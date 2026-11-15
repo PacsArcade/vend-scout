@@ -1,20 +1,30 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ActionForm } from "./Actions";
 
 interface Row { id: string; name: string; total: number; pct: number }
+type Res = { ok: boolean; error?: string; note?: string };
+const post = async (body: object): Promise<Res> => {
+  try {
+    const r = await fetch("/api/do", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    return (await r.json().catch(() => ({ ok: false, error: "The server did not answer. Try again." }))) as Res;
+  } catch { return { ok: false, error: "No connection. Try again." }; }
+};
 
+// r24: the live vote page. Every vote counts 1: the sats-backed vote is hidden until a real payment sits behind it.
 export function VoteClient({ machine, rows }: { machine: string; rows: Row[] }) {
   const router = useRouter();
   const [pick, setPick] = useState(rows[0]?.id);
-  const [backed, setBacked] = useState(false);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
   const picked = rows.find((r) => r.id === pick) ?? rows[0];
-  async function vote() {
-    if (!picked) return;
-    const r = await fetch("/api/do", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "vote", machine, option: picked.id, backed }) });
-    if (r.ok) { setMsg(`Counted for ${picked.name}.`); router.refresh(); } else setMsg("That vote did not go through.");
+  async function run(body: object, after?: () => void) {
+    setBusy(true); setMsg(""); setErr("");
+    const j = await post(body);
+    setBusy(false);
+    if (j.ok) { setMsg(j.note ?? "Done."); after?.(); router.refresh(); } else setErr(j.error ?? "That did not go through.");
   }
   return (
     <>
@@ -22,17 +32,16 @@ export function VoteClient({ machine, rows }: { machine: string; rows: Row[] }) 
       {rows.map((r) => (
         <button key={r.id} className={"opt" + (r.id === picked?.id ? " pick" : "")} onClick={() => setPick(r.id)} aria-pressed={r.id === picked?.id}>
           <span className="optmain"><b>{r.name}</b><span className="vb"><i style={{ width: `${r.pct}%` }} /></span></span>
-          <span className="pct num">{r.total} votes</span>
+          <span className="pct num">{r.total} vote{r.total === 1 ? "" : "s"}</span>
         </button>
       ))}
-      <div className="glass tile"><ActionForm action="suggest" extra={{ machine }} submit="Suggest it" doneText="Added." fields={[{ name: "name", label: "Something else?", placeholder: "Suggest an item" }]} /></div>
-      {rows.length > 0 && (
-        <>
-          <label className="muted small check"><input type="checkbox" checked={backed} onChange={(e) => setBacked(e.target.checked)} /> Back my vote with sats (counts double, test mode)</label>
-          <div className="actions"><button className="btn gild full" onClick={vote}>Vote for {picked?.name}</button></div>
-        </>
-      )}
-      {msg && <p className="small okmsg" role="status">{msg}</p>}
+      {rows.length > 0 && <div className="actions"><button className="btn gild full" disabled={busy} onClick={() => picked && run({ action: "vote", machine, option: picked.id })}>Vote for {picked?.name}</button></div>}
+      {msg && <p className="toast" role="status">{msg}</p>}
+      {err && <p className="err" role="alert">{err}</p>}
+      <form className="glass tile form suggestform" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) { setErr("Type an item first."); return; } void run({ action: "suggest", machine, name }, () => setName("")); }}>
+        <label><span>Something else?</span><input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Suggest an item" /></label>
+        <button className="btn" type="submit" disabled={busy}>Suggest it</button>
+      </form>
     </>
   );
 }

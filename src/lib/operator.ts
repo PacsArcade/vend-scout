@@ -84,7 +84,8 @@ export function operatorFromCookieHeader(header: string | null): string | null {
 }
 
 /** Which /api/do actions anyone may send. Everything else needs an operator when the gate is on. */
-export const PUBLIC_ACTIONS = ["apply", "hostPick"];
+// r24: vote and suggest are public now the vote page is live. /api/do limits them per address.
+export const PUBLIC_ACTIONS = ["apply", "hostPick", "vote", "suggest"];
 /** Crew actions: operator-only on the live site until crew sign-in exists. */
 export const CREW_ACTIONS = ["goOnline", "passJob", "scheduleBlock", "onboard", "claimJob", "submitProof", "ackPop", "setLeaderboard", "routeRunner"];
 export const SIGN_IN_LINE = "Sign in with nostr. You need a nostr signer, like the nos2x or Alby browser extension.";
@@ -96,7 +97,7 @@ export function actionAllowed(action: string, isOperator: boolean, isCrew = fals
 
 /** Paths anyone may open when the gate is on. Everything else needs an operator. */
 const PUBLIC_PAGES = [/^\/$/, /^\/scout$/, /^\/crew$/, /^\/crew\/apply$/, /^\/crew\/signin$/, /^\/host\/[^/]+$/, /^\/vote\/[^/]+$/, /^\/pay\/[^/]+\/[^/]+$/, /^\/signin$/, /^\/m\/[^/]+$/, /^\/p\/[^/]+$/, /^\/p\/[^/]+\/badge$/, /^\/verify\/[^/]+$/, /^\/badges\/[\w-]+\.svg$/, /^\/brand\/[\w-]+\.svg$/, /^\/icon\.svg$/, /^\/owner$/, /^\/owner\/apply$/];
-const PUBLIC_API = [/^\/api\/crew\/postings$/, /^\/api\/chain\/tip$/, /^\/api\/place$/, /^\/api\/do$/, /^\/api\/admin\/session$/, /^\/api\/crew\/session$/, /^\/api\/scout$/, /^\/api\/scout\/pins$/, /^\/api\/scout\/stream$/, /^\/api\/m\/[^/]+\/photo$/, /^\/api\/neighbor\/(session|act)$/, /^\/api\/zap\/invoice$/, /^\/api\/cron\/scan$/, /^\/api\/profile$/, /^\/api\/owner\/apply$/, /^\/api\/verify\/[^/]+$/];
+const PUBLIC_API = [/^\/api\/crew\/postings$/, /^\/api\/m\/[^/]+\/report$/, /^\/api\/chain\/tip$/, /^\/api\/place$/, /^\/api\/do$/, /^\/api\/admin\/session$/, /^\/api\/crew\/session$/, /^\/api\/scout$/, /^\/api\/scout\/pins$/, /^\/api\/scout\/stream$/, /^\/api\/m\/[^/]+\/photo$/, /^\/api\/neighbor\/(session|act)$/, /^\/api\/zap\/invoice$/, /^\/api\/cron\/scan$/, /^\/api\/profile$/, /^\/api\/owner\/apply$/, /^\/api\/verify\/[^/]+$/];
 export function pathIsPublic(pathname: string, isApi: boolean): boolean {
   return (isApi ? PUBLIC_API : PUBLIC_PAGES).some((r) => r.test(pathname));
 }
