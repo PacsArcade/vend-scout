@@ -546,7 +546,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
             <span><HexMark kind="machine" size={20} tone="#00ffff" />Our machine: filled hexagon</span>
             <span><HexMark kind="machine" size={20} tone="#8a9bb0" />Grey hexagon: vending machines by other operators, from OpenStreetMap. A number is how many.</span>
             {/* r26 B6: operators see each site's fit number, as in round 3 picture 2. The public sees no numbers. */}
-            {operator && <span className="fitkey"><b style={{ color: "#ffc266" }}>86</b> Fit 80 and up <b>64</b> Fit 60 to 79 <b style={{ color: "#9aa3ad", fontWeight: 600 }}>41</b> Fit under 60. A number in a solid hexagon is a count.</span>}
+            {operator && <span className="fitkey"><i><b style={{ color: "#ffc266" }}>86</b>Fit 80 and up</i> <i><b>64</b>Fit 60 to 79</i> <i><b style={{ color: "#9aa3ad", fontWeight: 600 }}>41</b>Fit under 60.</i> A number in a solid hexagon is a count.</span>}
             <span className="flipnote"><HexMark kind="site" size={22} /><HexMark kind="machine" size={22} tone="#00ffff" /><span><b>Before and after.</b> When the host says yes, the dotted hexagon flips to a filled one. Numbers in a hexagon are groups.</span></span>
           </div>
         ) : (
