@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 
 export interface MapPoint { id: string; lat: number; lon: number; kind: "applicant" | "machine" | "stop" | "chosen"; label: string }
 const STYLE: Record<MapPoint["kind"], Leaflet.CircleMarkerOptions> = {
-  applicant: { radius: 8, color: "#d4a843", fillColor: "#d4a843", fillOpacity: 0.9, weight: 2 },
+  applicant: { radius: 8, color: "#00ffff", fillColor: "#00ffff", fillOpacity: 0.9, weight: 2 },
   machine: { radius: 8, color: "#5fd38a", fillColor: "#5fd38a", fillOpacity: 0.9, weight: 2 },
   stop: { radius: 8, color: "#5fd38a", fillColor: "#0a0810", fillOpacity: 1, weight: 3 },
   chosen: { radius: 10, color: "#ffffff", fillColor: "#5fd38a", fillOpacity: 1, weight: 3 },

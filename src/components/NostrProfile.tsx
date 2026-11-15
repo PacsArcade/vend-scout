@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
+import { HexBanner } from "./Hex";
 import { KIND0_FIELDS, KIND0_MAX, EMPTY_KIND0, buildKind0Event, fetchKind0Event, parseKind0, publishEvent, verifyNip05, type Kind0, type Kind0Field, type Nip05State, type NostrEvent, type RelayResult } from "@/lib/profile";
 
 /** Read the newest kind 0 for a key, in the browser. */
@@ -34,7 +35,7 @@ export function NostrFace({ hex, size = 96 }: { hex: string; size?: number }) {
 
 const LABEL: Record<Kind0Field, string> = { display_name: "Display name", name: "Username", about: "About", picture: "Photo (https address)", banner: "Banner (https address)", website: "Website (https)", nip05: "NIP-05 address (name@domain)", lud16: "Lightning address" };
 
-export function NostrProfile({ hex, mine, signedIn }: { hex: string; mine: boolean; signedIn: boolean }) {
+export function NostrProfile({ hex, npub, mine, signedIn }: { hex: string; npub: string; mine: boolean; signedIn: boolean }) {
   const { loading, ev, k0 } = useKind0(hex);
   const n05 = useNip05(k0.nip05, hex, !loading && !!k0.nip05);
   const [open, setOpen] = useState(false);
@@ -85,23 +86,27 @@ export function NostrProfile({ hex, mine, signedIn }: { hex: string; mine: boole
   }
 
   const name = k0.display_name || k0.name;
+  const shortKey = `${npub.slice(0, 10)}...${npub.slice(-6)}`;
   return (
-    <div className="glass card">
-      {k0.banner && <img src={k0.banner} alt="" style={{ width: "100%", maxHeight: 160, objectFit: "cover", borderRadius: 12, marginBottom: 12 }} referrerPolicy="no-referrer" />}
-      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-        {k0.picture ? <img src={k0.picture} alt="" width={88} height={88} style={{ borderRadius: "50%", objectFit: "cover" }} referrerPolicy="no-referrer" /> : <div aria-hidden style={{ width: 88, height: 88, borderRadius: "50%", background: "rgba(255,255,255,.08)" }} />}
-        <div>
-          <h2 style={{ margin: 0 }}>{loading ? "Loading profile" : name || "No name published"}</h2>
-          {k0.display_name && k0.name && <div className="muted small">@{k0.name}</div>}
+    <div className="glass card k0" id="nostr" style={{ padding: 0 }}>
+      {k0.banner ? <img src={k0.banner} alt="" className="k0-banner" style={{ objectFit: "cover" }} referrerPolicy="no-referrer" /> : <HexBanner seed={hex} />}
+      <div className="k0-body">
+        <div className="k0-top">
+          {k0.picture ? <img src={k0.picture} alt="" width={84} height={84} className="k0-pic notch notch-sm" referrerPolicy="no-referrer" /> : <span className="k0-pic notch notch-sm" aria-hidden><img src="/brand/05-crew-badge-icon.svg" alt="" width={48} height={48} /></span>}
+          <div className="k0-names">
+            <h2 style={{ margin: 0 }}>{loading ? "Loading profile" : name || "No name published"}</h2>
+            {k0.display_name && k0.name && <div className="muted small">@{k0.name}</div>}
+          </div>
         </div>
-      </div>
-      {!loading && !ev && <p className="muted small" role="status">No profile found on the relays we ask. They may be slow, or this key has not published one.</p>}
-      <table style={{ marginTop: 12 }}><tbody>
-        <tr><td className="muted small">About</td><td>{k0.about || empty}</td></tr>
-        <tr><td className="muted small">NIP-05</td><td>{k0.nip05 ? <>{k0.nip05} <span className="chip" role="status">{NIP05_TEXT[n05]}</span></> : empty}</td></tr>
-        <tr><td className="muted small">Lightning address</td><td>{k0.lud16 || empty}</td></tr>
-        <tr><td className="muted small">Website</td><td>{k0.website ? <a href={k0.website} rel="noopener noreferrer nofollow">{k0.website}</a> : empty}</td></tr>
-      </tbody></table>
+        <div className="k0-src"><span className="pill cy">{mine ? "From your nostr profile" : "From their nostr profile"}</span> <span className="dim">Kind 0. Read from nostr relays, not stored by us.</span></div>
+        {!loading && !ev && <p className="muted small" role="status">No profile found on the relays we ask. They may be slow, or this key has not published one.</p>}
+        {k0.about && <p className="k0-about">{k0.about}</p>}
+        <dl className="k0-rows">
+          <div><dt>Verified name (NIP-05)</dt><dd>{k0.nip05 ? <>{k0.nip05} <span className={"pill" + (n05 === "verified" ? " good" : " line")} role="status">{n05 === "verified" ? "\u2713 " : ""}{NIP05_TEXT[n05]}</span></> : empty}</dd></div>
+          <div><dt>Lightning address (LUD-16)</dt><dd>{k0.lud16 || empty}</dd></div>
+          <div><dt>Website</dt><dd>{k0.website ? <a href={k0.website} rel="noopener noreferrer nofollow">{k0.website}</a> : empty}</dd></div>
+          <div><dt>Public key</dt><dd><span className="mono" title={npub}>{shortKey}</span></dd></div>
+        </dl>
       {mine && !open && <div className="actions"><button className="btn gild" onClick={startEdit} disabled={busy}>{busy ? "Loading" : "Update my nostr profile"}</button></div>}
       {!mine && !signedIn && <div className="actions"><button className="btn" onClick={signIn} disabled={busy}>This is my key: sign in</button></div>}
       {open && (
@@ -119,6 +124,7 @@ export function NostrProfile({ hex, mine, signedIn }: { hex: string; mine: boole
         <ul className="plain" role="status" style={{ marginTop: 12 }}>{results.map((r) => <li key={r.relay}><span className="mono small">{r.relay.replace("wss://", "")}</span> {r.ok ? "OK" : `Failed${r.message ? `: ${r.message}` : ""}`}</li>)}</ul>
       )}
       {err && <p className="err" role="alert">{err}</p>}
+      </div>
     </div>
   );
 }

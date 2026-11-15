@@ -26,7 +26,8 @@ export default async function BadgePage({ params }: { params: Promise<{ npub: st
       <main className="page narrow pagecenter">
         <h1>Crew ID badge</h1>
         {!s.onCrew ? <div className="glass card"><p>This key is not on the crew right now, so there is no badge.</p></div> : (
-          <div className="glass card crewid">
+          <div className="glass card crewid hot">
+            <div className="idband"><span>VendFrens</span><b>CREW ID</b></div>
             <div className="crewhead2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className="crewcard-art" src="/brand/05-crew-badge-full.svg" alt="VendFrens crew badge" width={67} height={84} />

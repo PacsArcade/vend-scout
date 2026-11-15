@@ -5,7 +5,7 @@ import type { State } from "./store";
 import { GIG, zoneKey } from "./gig";
 import type { JobKind } from "./types";
 
-export interface Job { id: string; kind: JobKind; title: string; detail: string; sats: number; bonus: number; lat?: number; lon?: number }
+export interface Job { id: string; kind: JobKind; title: string; detail: string; sats: number; bonus: number; lat?: number; lon?: number; btc?: boolean }
 export interface Bundle { route: string; name: string; stops: number; sats: number; lat?: number; lon?: number }
 
 /** Open jobs, worked out from what the app already knows. Nothing here is stored except a claim. */
@@ -18,14 +18,14 @@ export async function openJobs(st: State): Promise<{ jobs: Job[]; bundles: Bundl
   for (const m of st.machines) {
     if (m.status === "Placed" && !inRoute.has(m.id)) {
       const low = m.slots.filter((s) => s.kind !== "pickup" && s.level < 0.45).length;
-      if (low > 0 || m.restockRequested) jobs.push({ id: `restock:${m.id}`, kind: "restock", title: `Restock ${m.name}`, detail: low > 0 ? `${low} slot${low === 1 ? "" : "s"} low at ${m.hostName}` : `Requested by admin at ${m.hostName}`, sats: pay("restock"), bonus: 0, lat: m.lat, lon: m.lon });
+      if (low > 0 || m.restockRequested) jobs.push({ id: `restock:${m.id}`, kind: "restock", title: `Restock ${m.name}`, detail: low > 0 ? `${low} slot${low === 1 ? "" : "s"} low at ${m.hostName}` : `Requested by admin at ${m.hostName}`, sats: pay("restock"), bonus: 0, lat: m.lat, lon: m.lon, btc: m.profile.lightning });
     }
     if (m.status === "In repair") jobs.push({ id: `tech:${m.id}`, kind: "tech", title: `Repair ${m.name}`, detail: "Marked In repair. Check it and report.", sats: pay("tech"), bonus: 0 });
   }
   for (const l of st.listings) {
     if (l.status !== "approved" || l.qty < 1) continue;
     const m = st.machines.find((x) => x.id === l.machine);
-    jobs.push({ id: `shelf:${l.id}`, kind: "shelf", title: `Shelf pickup: ${l.item}`, detail: `Collect from ${l.madeBy}, stock ${m?.name ?? "the machine"}. Pickup window ${l.pickupWindow}.`, sats: pay("shelf"), bonus: 0, lat: m?.lat, lon: m?.lon });
+    jobs.push({ id: `shelf:${l.id}`, kind: "shelf", title: `Shelf pickup: ${l.item}`, detail: `Collect from ${l.madeBy}, stock ${m?.name ?? "the machine"}. Pickup window ${l.pickupWindow}.`, sats: pay("shelf"), bonus: 0, lat: m?.lat, lon: m?.lon, btc: m?.profile.lightning });
   }
   for (const [id, stage] of Object.entries(st.tracked)) {
     if (stage !== "Found" && stage !== "Visited") continue;
