@@ -149,6 +149,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
   // the true H3 grid under everything (pins view). Resolution follows the zoom so the cells stay a readable size.
   const mpp = view ? ((view.e - view.w) * 111_320 * Math.cos((((view.n + view.s) / 2) * Math.PI) / 180)) / view.wpx : NaN;
   const gridRes = resForPixels(mpp);
+  const level = levelFor(gridRes); // r26: building, levels or cells (src/lib/hexlevels.ts)
   const markPx = Number.isFinite(mpp) ? ((2 * getHexagonEdgeLengthAvg(gridRes, "m")) / mpp) * MARK_SCALE : 48;
 
   // ---- r23: the card a pin tap opens, and the marks drawn inside their grid cells ----
@@ -176,7 +177,8 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
       // r26: a mark that fanned out is drawn a little off its real spot; pan to where it is drawn
       const d = drawnAt.current.get(cardThingKey(card))?.at, at = d ? { lat: d[0], lon: d[1] } : targetAt(card), pt = map.latLngToContainerPoint([at.lat, at.lon]);
       const room = box.clientHeight - el.offsetHeight - 16, w = box.clientWidth;
-      const dy = pt.y - Math.max(markPx / 2 + 8, room / 2), dx = pt.x < 40 || pt.x > w - 40 ? pt.x - w / 2 : 0;
+      const half = level === "cells" ? markPx / 2 : MARK_PX / 2; // r26: a mark on its spot is MARK_PX tall, not the cell's size
+      const dy = pt.y - Math.max(half + 8, room / 2), dx = pt.x < 40 || pt.x > w - 40 ? pt.x - w / 2 : 0;
       if (Math.abs(dy) > 8 || dx) map.panBy([dx, dy], { animate: true });
     });
     return () => cancelAnimationFrame(id);
@@ -191,7 +193,6 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
   //   building (finest grid): every store and machine stands on its real spot; marks too close for a thumb fan out on spider lines.
   //   levels (one out): seven whole small hexagons inside each bold border; a thing alone keeps its real spot, several are a count in the middle.
   //   cells (further out): as before, each mark the shape of its grid cell shrunk to MARK_SCALE, a count in the middle.
-  const level = levelFor(gridRes);
   useEffect(() => {
     const L = LRef.current, g = markRef.current, map = mapRef.current;
     if (!ready || !L || !g || !map) return;
