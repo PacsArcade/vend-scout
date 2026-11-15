@@ -104,6 +104,7 @@ const cleanProfile = (p: MachineProfile): MachineProfile => ({
   make: str(p.make, 60), model: str(p.model, 60), serial: str(p.serial, 80), rawCode: str(p.rawCode, 300), labelPhoto: p.labelPhoto,
   cardReader: str(p.cardReader, 60), cash: !!p.cash, lightning: !!p.lightning,
   telemetry: ["none", "card", "camera", "sensors"].includes(p.telemetry) ? p.telemetry : "none", notes: str(p.notes, 1000),
+  whereInside: str(p.whereInside, 80),
 });
 const int = (v: unknown, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(v) || 0)));
 

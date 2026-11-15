@@ -76,6 +76,7 @@ export function MachineForm({ mode, machineId, initial }: { mode: "inventory" | 
       </label>
       <label className="check wide"><input type="checkbox" checked={p.cash} onChange={(e) => set("cash", e.target.checked)} /> <span>Takes cash</span></label>
       <label className="check wide"><input type="checkbox" checked={p.lightning} onChange={(e) => set("lightning", e.target.checked)} /> <span>Has a Lightning board fitted</span></label>
+      <label className="wide"><span>Where inside (shown on the map card, leave blank to hide it)</span><input value={p.whereInside ?? ""} onChange={(e) => set("whereInside", e.target.value)} maxLength={80} placeholder="Front desk, on the left" /></label>
       <label className="wide"><span>Notes</span><textarea value={p.notes} onChange={(e) => set("notes", e.target.value)} rows={3} maxLength={1000} /></label>
       <div className="formfoot">
         <button className="btn gild" type="submit" disabled={busy}>{mode === "inventory" ? "Add to inventory" : "Save profile"}</button>

@@ -4,15 +4,16 @@ import Link from "next/link";
 import type { Pin } from "@/lib/pins";
 import type { VenueCategory } from "@/lib/types";
 import { agoLine, type PayWay } from "@/lib/machinecard";
-import { PayLine } from "./PayLine";
+import { PayMarks } from "./PayMarks";
 import { HexMark } from "./Hex";
 import { PublicReport } from "./PublicReport";
+import { walkHref, walkKind } from "@/lib/walk";
 
 // r23: the card a pin tap opens over the bottom of the map. Three faces, from the round 2 mockup:
 // an operator's store card (facts and two buttons), the public store card (facts only), and our machine card.
 // A cell holding several things at the finest grid opens a short pick list instead.
 
-export type OursPt = { id: string; name: string; host: string; lat: number; lon: number; btc: boolean; ways: PayWay[]; stocked: string | null };
+export type OursPt = { id: string; name: string; host: string; lat: number; lon: number; btc: boolean; ways: PayWay[]; stocked: string | null; where?: string; prospectId?: string };
 export type CardItem = { kind: "store"; pin: Pin } | { kind: "machine"; m: OursPt };
 export type CardTarget = CardItem | { kind: "cell"; items: CardItem[] } | { kind: "others"; count: number; lat: number; lon: number };
 
@@ -46,6 +47,8 @@ export const PinCard = forwardRef<HTMLDivElement, { target: CardTarget; operator
     );
   } else if (target.kind === "machine") {
     const m = target.m;
+    const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
+    const walk = { href: walkHref(m.lat, m.lon, m.name, ua), newTab: walkKind(ua) === "osm" };
     body = (
       <>
         <div className="hd">
@@ -54,15 +57,21 @@ export const PinCard = forwardRef<HTMLDivElement, { target: CardTarget; operator
           {close}
         </div>
         {reportOpen ? <PublicReport machine={m.id} machineName={m.name} mailOn={mailOn} onDone={() => setReporting(null)} /> : <>
-        <div className="facts">
-          <div><span>Takes</span><b><PayLine ways={m.ways} lead="" /></b></div>
+        <div className="facts mfacts">
+          {/* r26: the marks for the money; the screen reader hears "Takes bitcoin and cash" from PayMarks, so the label is not read twice */}
+          <div className="takes"><span aria-hidden="true">Takes</span><b><PayMarks ways={m.ways} /></b></div>
           <div><span>Last stocked</span><b>{m.stocked ? agoLine(m.stocked) : "No stocking photo yet"}</b></div>
+          {/* r26: the operator's words for where it stands inside. No words, no line. */}
+          {m.where && <div className="where"><span>Where inside</span><b>{m.where}</b></div>}
         </div>
-        <div className="acts">
-          <button type="button" className="btn gild" onClick={() => setReporting(m.id)}>Report a problem</button>
-          <Link className="btn" href={`/m/${m.id}`}>Machine page</Link>
+        {/* r26 fix 2: four even buttons. Walk there full width on top, two equal halves, the vote full width. */}
+        <div className="acts macts">
+          {/* r26: the phone's own maps app, by a plain link. No script, no tracking. */}
+          <a className="btn gild wide" href={walk.href} {...(walk.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})} aria-label={`Walk there: open ${m.name} in your maps app`}>Walk there</a>
+          <button type="button" className="btn half" onClick={() => setReporting(m.id)}>Report a problem</button>
+          <Link className="btn half" href={`/m/${m.id}`}>Machine page</Link>
+          <Link className="btn wide" href={`/vote/${m.id}`}>Vote on what goes in</Link>
         </div>
-        <div className="acts one"><Link className="btn" href={`/vote/${m.id}`}>Vote on what goes in</Link></div>
         </>}
       </>
     );

@@ -64,8 +64,9 @@ export interface MachineProfile {
   lightning: boolean; // Lightning board fitted
   telemetry: Telemetry;
   notes: string;
+  whereInside?: string; // r26: where the machine stands inside the host's building, in the operator's words ("Front desk, on the left"). Shown on the map card; hidden when empty.
 }
-export const EMPTY_PROFILE: MachineProfile = { make: "", model: "", serial: "", rawCode: "", cardReader: "", cash: false, lightning: false, telemetry: "none", notes: "" };
+export const EMPTY_PROFILE: MachineProfile = { make: "", model: "", serial: "", rawCode: "", cardReader: "", cash: false, lightning: false, telemetry: "none", notes: "", whereInside: "" };
 export type MachineStatus = "In storage" | "Placed" | "In repair" | "Retired";
 export const MACHINE_STATUSES: MachineStatus[] = ["In storage", "Placed", "In repair", "Retired"];
 export type MachineType = "snack" | "drinks" | "combo" | "fresh" | "coffee" | "cards" | "art" | "lockers" | "claw" | "other";

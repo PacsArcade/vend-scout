@@ -828,3 +828,51 @@ path.mark.droppin{animation:pindrop .8s cubic-bezier(.2,1.3,.4,1) both;transform
 .map .leaf.leaflet-container .leaflet-control-attribution{background:rgba(27,27,27,.88);color:#c6c6c6;font-size:11px;padding:2px 8px}
 .map .leaf.leaflet-container .leaflet-control-attribution a{color:#8ff;text-decoration:underline}
 .pincard .facts .payline,.pincard .facts .payline span{display:inline;color:inherit;font-size:inherit}
+/* r26: the money marks on the machine card. Bitcoin is the drawn sign, cash is "$". Colours measured in machinecard.test.ts. */
+.pincard .facts .paymarks{display:block;color:#fff;font-size:15px}
+.pincard .facts .paymarks .pm{display:inline-flex;align-items:center;gap:14px;min-height:28px;margin-top:2px}
+.pincard .facts .paymarks .pm-btc{display:block;flex:none}
+.pincard .facts .paymarks .pm-cash{display:block;font-size:25px;line-height:1;font-weight:800;font-family:"Noto Sans","DejaVu Sans",sans-serif}
+.pincard .facts .paymarks .pm-word{display:block;font-size:15px;font-weight:700}
+.paymarks .sr,.pincard .facts .paymarks .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* r26: marks on their real spot (hexagon round 3). Leaflet places the icon; the SVG fills it. */
+.leaflet-marker-icon.rmark{background:none;border:0;cursor:pointer}
+.leaflet-marker-icon.rmark svg{display:block;width:100%;height:100%;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.leaflet-marker-icon.rmark:focus{outline:none}
+.leaflet-marker-icon.rmark:focus-visible{outline:3px solid #00ffff;outline-offset:2px;border-radius:8px}
+.leaflet-marker-icon.rmark.droppin svg{animation:pindrop .8s cubic-bezier(.2,1.3,.4,1) both;transform-origin:center}
+@media (prefers-reduced-motion:reduce){.leaflet-marker-icon.rmark.droppin svg{animation:none}}
+.leaflet-marker-icon.rring{background:none;border:0;pointer-events:none}
+.leaflet-marker-icon.rring svg{display:block;width:100%;height:100%}
+.pincard .facts .where{grid-column:1/-1}
+/* r26 fix 3: the fit key is three items, each the mark then its words, like the other legend rows. The count line stands alone after them. */
+.legend .fitkey{display:flex;flex-wrap:wrap;gap:6px 18px;flex:1 1 100%;margin:0}
+.legend .fitkey .fk{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;margin:0}
+.legend .fitkey .fkmark{display:inline-flex;width:30px;height:30px;flex:none;margin:0}
+.legend .fitkey .fkmark svg{display:block}
+.legend .fitcount{display:block;flex:1 1 100%;margin:0}
+/* r26 fix 2: the machine card's four buttons. Walk there and the vote run full width; the two between are equal halves. */
+.pincard .acts.macts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.pincard .acts.macts .wide{grid-column:1/-1}
+
+/* r26 fix 4: the money marks off the card too (the /m/ machine page and the machines list), drawn the same as on the card */
+.paymarks{display:inline-flex;align-items:center;vertical-align:middle}
+.paymarks .pm{display:inline-flex;align-items:center;gap:12px}
+.paymarks .pm-btc{display:block;flex:none}
+.paymarks .pm-cash{display:block;font-size:22px;line-height:1;font-weight:800;font-family:"Noto Sans","DejaVu Sans",sans-serif}
+.paymarks .pm-word{display:block;font-weight:700}
+.paymarks.none{display:inline}
+.payrow{display:flex;align-items:center;gap:10px;min-height:28px}
+.payrow>span[aria-hidden]{color:var(--dim)}
+td .paymarks{margin-left:8px}
+td .paymarks .pm-btc{width:12px;height:17px}
+td .paymarks .pm-cash{font-size:16px}
+/* r26 fix 2: the machine card's rows sit the same distance apart. The fact boxes are the card's own colour, so the gap that shows is
+   text to text: header to Takes, Takes to Where inside, and Where inside to the buttons are each 20 px (measured in the DONE note). */
+.pincard .facts .paymarks .pm{display:flex;min-height:0;margin-top:0}
+.pincard .facts.mfacts{row-gap:4px}
+.pincard .acts.macts{margin-top:4px;padding-top:8px}
+/* r26 (975,999): the buttons' row was named "mach", the same name as the machine page's layout grid, so it took that grid's side padding
+   (16 px on a phone, 28 px wide) and ran narrower than the fact boxes above it. Now "macts": the buttons line up with the fact boxes.
+   On a phone narrower than 390 the two halves drop one type step and tighten a little, so "Report a problem" keeps 12 px or more each side. */
+@media (max-width:380px){.pincard .acts.macts .half{font-size:13px;letter-spacing:-.02em}}
