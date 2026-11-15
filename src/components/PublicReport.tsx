@@ -35,7 +35,7 @@ export function PublicReport({ machine, machineName, mailOn, onDone, autoFocus }
   const done = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (autoFocus) first.current?.focus(); }, [autoFocus]);
   // the chosen picture's preview: an object URL made when the file is picked, freed when it changes or the form goes
-  const pick = (f: File | null) => { setFile(f); setPreview((old) => { if (old) URL.revokeObjectURL(old); return f ? URL.createObjectURL(f) : null; }); };
+  const pick = (f: File | null) => { setFile(f); if (f) setErr(""); setPreview((old) => { if (old) URL.revokeObjectURL(old); return f ? URL.createObjectURL(f) : null; }); };
   useEffect(() => () => { setPreview((old) => { if (old) URL.revokeObjectURL(old); return null; }); }, []);
   useEffect(() => { if (sent) done.current?.focus(); }, [sent]);
 
@@ -77,7 +77,7 @@ export function PublicReport({ machine, machineName, mailOn, onDone, autoFocus }
         {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, nothing for next/image to optimise */}
         {preview && <img className="reportprev" src={preview} alt="The picture you chose" />}
       </div>
-      <label><span>What happened (needed)</span><textarea rows={3} maxLength={500} value={text} onChange={(e) => setText(e.target.value)} placeholder="The B4 slot took my money and dropped nothing" /></label>
+      <label><span>What happened (needed)</span><textarea rows={3} maxLength={500} value={text} onChange={(e) => { setText(e.target.value); setErr(""); }} placeholder="The B4 slot took my money and dropped nothing" /></label>
       {mailOn && (
         <label><span>Your email (optional)</span><input type="email" inputMode="email" autoComplete="email" maxLength={200} value={email} onChange={(e) => setEmail(e.target.value)} />
           <small className="dim">We send one email to say we got this, with how to sign up as a fren. Then we drop the address: it joins no list and is never shown.</small>

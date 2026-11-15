@@ -154,6 +154,9 @@ export default async function MachinePage({ params }: { params: Promise<{ id: st
             <h2>Neighbors</h2>
             <p className="small">The page on the QR: <Link href={`/m/${m.id}`}>/m/{m.id}</Link>. Tag: <span className="mono">{SHARE_TAGS(m.id)}</span></p>
             <p className="muted small">Neighbor checks on photos: <span className="num">{st.verifies.filter((v) => v.machine === m.id).length}</span>.</p>
+            <h3>Vote list</h3>
+            {/* r24: the public vote page is live. Suggestions are text typed by anyone; an operator can take one off, with its votes. */}
+            {votes.length === 0 ? <p className="muted small">No suggestions yet. <Link href={`/vote/${m.id}`}>The vote page</Link></p> : <ul className="plain votelist">{votes.map((r) => <li key={r.id}><span><b>{r.name}</b> <span className="muted small num">{r.total} vote{r.total === 1 ? "" : "s"}</span></span><ActionButton label="Remove" className="mini-btn" payload={{ action: "removeSuggestion", machine: m.id, id: r.id }} /></li>)}</ul>}
             <h3>Requested items</h3>
             {mreq.length === 0 ? <p className="muted small">Nothing requested yet.</p> : <ul className="plain">{mreq.map((r) => <li key={r.id}>{r.text} <span className="muted small"><Bft iso={r.at} h={r.h} /></span></li>)}</ul>}
             <h3>Problems reported</h3>

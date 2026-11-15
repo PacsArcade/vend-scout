@@ -174,6 +174,7 @@ export type Action =
   | { action: "listing"; item: string; kind: ShelfKind; priceSats: number; qty: number; machine: string; pickupWindow: string; madeBy: string; lightning: string }
   | { action: "decide"; id: string; status: ListingStatus }
   | { action: "vote"; machine: string; option: string; backed: boolean }
+  | { action: "removeSuggestion"; machine: string; id: string }
   | { action: "suggest"; machine: string; name: string };
 
 export async function perform(a: Action): Promise<{ ok: boolean; error?: string; id?: string; code?: string; note?: string }> {
@@ -684,13 +685,35 @@ export async function perform(a: Action): Promise<{ ok: boolean; error?: string;
     }
     case "vote": {
       if (!machine(a.machine)) return { ok: false, error: "No such machine" };
-      (st.ballots[a.machine] ??= []).push({ option: a.option, backed: !!a.backed });
-      break;
+      const opt = (st.suggestions[a.machine] ?? []).find((o) => o.id === a.option);
+      if (!opt) return { ok: false, error: "That item is not on this machine's list" };
+      // r24: no Lightning payment sits behind a vote yet, so every vote counts 1. SATS_WEIGHT stays in vote.ts for when one does.
+      (st.ballots[a.machine] ??= []).push({ option: opt.id, backed: false });
+      await write(st);
+      return { ok: true, note: `Counted for ${opt.name}.` };
     }
     case "suggest": {
-      const name = str(a.name, 40);
-      if (!machine(a.machine) || !name) return { ok: false, error: "Type an item first" };
-      (st.suggestions[a.machine] ??= []).push({ id: "s" + ++st.counter, name, votes: 1, sats: 0 });
+      // r24: public text typed by anyone. Trimmed, spaces squeezed, 40 characters. A name already on the list counts as a vote for it.
+      const name = str(a.name, 80).replace(/\s+/g, " ").trim().slice(0, 40).trim();
+      if (!machine(a.machine)) return { ok: false, error: "No such machine" };
+      if (!name) return { ok: false, error: "Type an item first" };
+      const list = (st.suggestions[a.machine] ??= []);
+      const same = list.find((o) => o.name.toLowerCase() === name.toLowerCase());
+      if (same) {
+        (st.ballots[a.machine] ??= []).push({ option: same.id, backed: false });
+        await write(st);
+        return { ok: true, note: `${same.name} is already on the list. Counted as a vote for it.` };
+      }
+      list.push({ id: "s" + ++st.counter, name, votes: 1, sats: 0 });
+      await write(st);
+      return { ok: true, note: `Added ${name}, with your vote.` };
+    }
+    case "removeSuggestion": {
+      // r24: operators take a suggestion off a machine's list, with its votes.
+      const list = st.suggestions[a.machine] ?? [];
+      if (!list.some((o) => o.id === a.id)) return { ok: false, error: "No such item" };
+      st.suggestions[a.machine] = list.filter((o) => o.id !== a.id);
+      st.ballots[a.machine] = (st.ballots[a.machine] ?? []).filter((b) => b.option !== a.id);
       break;
     }
     case "hostApply": {

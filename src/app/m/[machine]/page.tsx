@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { BitcoinMark } from "@/components/BitcoinMark";
+import { PayLine } from "@/components/PayLine";
+import { payWays } from "@/lib/machinecard";
 import { headers } from "next/headers";
 import { stampString } from "@/components/Bft";
 import { NeighborPanel } from "@/components/NeighborPanel";
@@ -39,7 +40,7 @@ export default async function NeighborPage({ params }: { params: Promise<{ machi
           <PhoneBar right="neighbors" />
           <div className="glass card">
             <div className="sechd"><h1 style={{ margin: 0 }}>{m.name}</h1><span className="pill good">{m.status}</span></div>
-            <BitcoinMark on={m.profile.lightning} />
+            <p className="small payrow"><PayLine ways={payWays(m.profile)} /></p>
             <p className="muted small">At {m.hostName}. <span className="mono">{machineTag(m.id)}</span></p>
             <div className="zonebox" style={{ marginTop: 12 }}>
               <HexZone lat={m.lat} lon={m.lon} coin={m.profile.lightning} />

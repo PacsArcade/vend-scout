@@ -84,7 +84,8 @@ export function operatorFromCookieHeader(header: string | null): string | null {
 }
 
 /** Which /api/do actions anyone may send. Everything else needs an operator when the gate is on. */
-export const PUBLIC_ACTIONS = ["apply", "hostPick"];
+// r24: vote and suggest are public now the vote page is live. /api/do limits them per address.
+export const PUBLIC_ACTIONS = ["apply", "hostPick", "vote", "suggest"];
 /** Crew actions: operator-only on the live site until crew sign-in exists. */
 export const CREW_ACTIONS = ["goOnline", "passJob", "scheduleBlock", "onboard", "claimJob", "submitProof", "ackPop", "setLeaderboard", "routeRunner"];
 export const SIGN_IN_LINE = "Sign in with nostr. You need a nostr signer, like the nos2x or Alby browser extension.";

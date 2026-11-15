@@ -2,8 +2,8 @@ import { coinSvg, machineSvg, siteSvg } from "@/lib/hexart";
 import { cellCorners, checkInZone, ringOf } from "@/lib/areas";
 
 /** One mark, drawn from the shared strings. kind: coin (placed, takes bitcoin), machine (placed), site (potential). */
-export function HexMark({ kind, size = 24, label }: { kind: "coin" | "machine" | "site"; size?: number; label?: string }) {
-  const html = kind === "coin" ? coinSvg(size) : kind === "machine" ? machineSvg(size) : siteSvg(size);
+export function HexMark({ kind, size = 24, label, tone }: { kind: "coin" | "machine" | "site"; size?: number; label?: string; tone?: string }) {
+  const html = kind === "coin" ? coinSvg(size) : kind === "machine" ? machineSvg(size, tone) : siteSvg(size);
   return <span className="hexmark" role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
