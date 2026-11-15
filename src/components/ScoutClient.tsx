@@ -1,25 +1,31 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "leaflet.markercluster/dist/MarkerCluster.css";
 import { BlockLoader, Ticker } from "./BlockLoader";
 import type { Bbox, Category, VenueCategory } from "@/lib/types";
 import { ALL_CATEGORIES } from "@/lib/types";
 import { STATES } from "@/lib/states";
-import { cellOf, cellCorners, cellsInView, resForView, ringOf, AREA_RES } from "@/lib/areas";
-import { coinSvg, groupSvg, machineSvg, siteSvg } from "@/lib/hexart";
+import { cellOf, cellCorners, cellsInView, ringOf, AREA_RES } from "@/lib/areas";
 import { HexMark } from "./Hex";
+import { cellCentre, groupByCell, innerHex, MARK_SCALE, GRID_FINEST, resForPixels } from "@/lib/hexcells";
+import { getHexagonEdgeLengthAvg } from "h3-js";
+import { PinCard, type CardItem, type CardTarget, type OursPt } from "./PinCard";
 
 export type { Pin } from "@/lib/pins";
 import type { Pin } from "@/lib/pins";
 type Pt = { lat: number; lon: number };
-export type OursPt = Pt & { btc: boolean };
+export type { OursPt };
 export type JobPin = { id: string; kind: string; title: string; detail: string; sats: number; lat: number; lon: number; coin: boolean };
 const JOB_LABEL: Record<string, string> = { restock: "Restock", scout: "Scout visit", shelf: "Shelf pickup", tech: "Repair" };
-type View = { s: number; w: number; n: number; e: number };
+type View = { s: number; w: number; n: number; e: number; wpx: number };
+/** What sits in a grid cell on the pins view: a store, one of our machines, or someone else's machine from OpenStreetMap. */
+type Thing = { kind: "store"; pin: Pin; lat: number; lon: number } | { kind: "machine"; m: OursPt; lat: number; lon: number } | { kind: "other"; lat: number; lon: number };
+const ORANGE = "#f7931a", CYAN = "#00ffff", GREY = "#8a9bb0";
+const itemAt = (it: CardItem) => (it.kind === "store" ? it.pin : it.m);
+const targetAt = (t: CardTarget) => (t.kind === "cell" ? itemAt(t.items[0]) : itemAt(t));
 
 const FILTERS: { key: VenueCategory; label: string }[] = [
   { key: "laundry", label: "Laundromats" },
@@ -54,7 +60,11 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
   const LRef = useRef<typeof Leaflet | null>(null);
-  const clusterRef = useRef<Leaflet.MarkerClusterGroup | null>(null);
+  const markRef = useRef<Leaflet.LayerGroup | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [card, setCard] = useState<CardTarget | null>(null);
+  const openerCell = useRef<string | null>(null);
+  const [wide, setWide] = useState(false);
   const gridRef = useRef<Leaflet.LayerGroup | null>(null);
   const ringRef = useRef<Leaflet.LayerGroup | null>(null);
   const areaRef = useRef<Leaflet.LayerGroup | null>(null);
@@ -100,7 +110,6 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
     let ro: ResizeObserver | null = null;
     (async () => {
       const L = (await import("leaflet")).default as typeof Leaflet;
-      await import("leaflet.markercluster");
       if (dead || !mapEl.current || mapRef.current) return;
       LRef.current = L;
       const map = L.map(mapEl.current, { zoomControl: false, attributionControl: true });
@@ -115,7 +124,10 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
       gridRef.current = L.layerGroup().addTo(map);
       areaRef.current = L.layerGroup().addTo(map);
       ringRef.current = L.layerGroup().addTo(map);
-      const sync = () => { if (!mapEl.current || mapEl.current.clientWidth < 50) return; const b = map.getBounds(); setView({ s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast() }); };
+      markRef.current = L.layerGroup().addTo(map);
+      // a tap on the bare map closes the card. Taps on a mark stop before they reach the map.
+      map.on("click", () => closeRef.current());
+      const sync = () => { if (!mapEl.current || mapEl.current.clientWidth < 50) return; const b = map.getBounds(); setView({ s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast(), wpx: mapEl.current.clientWidth }); };
       map.on("moveend", sync);
       sync();
       if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(() => map.invalidateSize()); ro.observe(mapEl.current); }
@@ -125,39 +137,93 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
     return () => { dead = true; ro?.disconnect(); mapRef.current?.remove(); mapRef.current = null; };
   }, [bbox]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hexIcon = (L: typeof Leaflet, html: string, size: number, cls = "") => L.divIcon({ className: "hexpin " + cls, html: `<span>${html}</span>`, iconSize: [size + 16, size + 16], iconAnchor: [(size + 16) / 2, (size + 16) / 2] });
-
-  // machines: other people's are small grey hexagons in groups; ours are filled hexagons, a coin with the B mark when it takes bitcoin
-  useEffect(() => {
-    const L = LRef.current, map = mapRef.current;
-    if (!ready || !L || !map || mode !== "pins") return;
-    const g = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45, disableClusteringAtZoom: 15, showCoverageOnHover: false,
-      iconCreateFunction: (c) => L.divIcon({ html: groupSvg(36, c.getChildCount(), "#8a9bb0"), className: "hexpin", iconSize: [36, 36] }) });
-    for (const m of existing) g.addLayer(L.marker([m.lat, m.lon], { icon: hexIcon(L, machineSvg(20, "#8a9bb0"), 20), keyboard: false }));
-    map.addLayer(g);
-    const mine = L.layerGroup();
-    for (const m of ours) L.marker([m.lat, m.lon], { icon: hexIcon(L, m.btc ? coinSvg(30) : machineSvg(30, "#00ffff"), 30), title: m.btc ? "Our machine, takes bitcoin" : "Our machine", zIndexOffset: 500 }).bindTooltip(m.btc ? "Our machine, takes bitcoin" : "Our machine").addTo(mine);
-    map.addLayer(mine);
-    return () => { map.removeLayer(g); map.removeLayer(mine); };
-  }, [ready, existing, ours, mode]);
-
-  // prospects: dotted hexagons, in hexagon groups with a count that split as you zoom
-  useEffect(() => {
-    const L = LRef.current, map = mapRef.current;
-    if (!ready || !L || !map || mode !== "pins") return;
-    const g = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 55, disableClusteringAtZoom: 16, showCoverageOnHover: false,
-      iconCreateFunction: (c) => L.divIcon({ html: groupSvg(40, c.getChildCount()), className: "hexpin", iconSize: [40, 40] }) });
-    for (const p of shown) {
-      const strong = p.score >= 70;
-      g.addLayer(L.marker([p.lat, p.lon], { icon: hexIcon(L, siteSvg(strong ? 32 : 24), strong ? 32 : 24, fresh.includes(p.id) ? "droppin" : ""), keyboard: false }).on("click", () => setSel(p.id)).bindTooltip(`${p.name}, fit ${p.score} of 100`));
-    }
-    map.addLayer(g);
-    clusterRef.current = g;
-    return () => { map.removeLayer(g); };
-  }, [ready, mode, shown.map((p) => p.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // the true H3 grid under everything (pins view). Resolution follows the zoom so the cells stay a readable size.
-  const gridRes = view ? resForView(view) : 9;
+  const mpp = view ? ((view.e - view.w) * 111_320 * Math.cos((((view.n + view.s) / 2) * Math.PI) / 180)) / view.wpx : NaN;
+  const gridRes = resForPixels(mpp);
+  const markPx = Number.isFinite(mpp) ? ((2 * getHexagonEdgeLengthAvg(gridRes, "m")) / mpp) * MARK_SCALE : 48;
+
+  // ---- r23: the card a pin tap opens, and the marks drawn inside their grid cells ----
+  const closeCard = useCallback(() => {
+    setCard((c) => {
+      if (c && openerCell.current) { const cell = openerCell.current; setTimeout(() => (mapEl.current?.querySelector(`[data-cell="${cell}"]`) as HTMLElement | SVGElement | null)?.focus(), 0); }
+      return null;
+    });
+  }, []);
+  const closeRef = useRef(closeCard);
+  useEffect(() => { const q = window.matchMedia("(min-width: 901px)"); const f = () => setWide(q.matches); f(); q.addEventListener("change", f); return () => q.removeEventListener("change", f); }, []);
+  useEffect(() => {
+    if (!card) return;
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") closeCard(); };
+    document.addEventListener("keydown", k);
+    return () => document.removeEventListener("keydown", k);
+  }, [card, closeCard]);
+  const openItem = useCallback((it: CardItem) => { setCard(it); if (it.kind === "store") setSel(it.pin.id); }, []);
+  // Pan so the selected hexagon sits in the clear map above the card.
+  const cardKey = card ? (card.kind === "cell" ? "cell:" + card.items.length + ":" + targetAt(card).lat : card.kind === "store" ? card.pin.id : card.m.id) : "";
+  useEffect(() => {
+    const map = mapRef.current, el = cardRef.current, box = mapEl.current;
+    if (!card || !map || !el || !box) return;
+    const id = requestAnimationFrame(() => {
+      const at = targetAt(card), pt = map.latLngToContainerPoint([at.lat, at.lon]);
+      const room = box.clientHeight - el.offsetHeight - 16, w = box.clientWidth;
+      const dy = pt.y - Math.max(markPx / 2 + 8, room / 2), dx = pt.x < 40 || pt.x > w - 40 ? pt.x - w / 2 : 0;
+      if (Math.abs(dy) > 8 || dx) map.panBy([dx, dy], { animate: true });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [cardKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const things = useMemo<Thing[]>(() => [
+    ...existing.map((m) => ({ kind: "other" as const, lat: m.lat, lon: m.lon })),
+    ...shown.map((p) => ({ kind: "store" as const, pin: p, lat: p.lat, lon: p.lon })),
+    ...ours.map((m) => ({ kind: "machine" as const, m, lat: m.lat, lon: m.lon })),
+  ], [existing, ours, shown.map((p) => p.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Every store and machine is the shape of its own grid cell, shrunk to MARK_SCALE around the centre. Several in one cell: one count hexagon.
+  useEffect(() => {
+    const L = LRef.current, g = markRef.current, map = mapRef.current;
+    if (!ready || !L || !g || !map) return;
+    g.clearLayers();
+    if (mode !== "pins" || !view) return;
+    const padLat = (view.n - view.s) * 0.3, padLon = (view.e - view.w) * 0.3;
+    const near = things.filter((t) => t.lat >= view.s - padLat && t.lat <= view.n + padLat && t.lon >= view.w - padLon && t.lon <= view.e + padLon);
+    const font = Math.round(Math.max(13, Math.min(24, markPx * 0.42)));
+    const label = (cell: string, text: string, ink: string) => L.marker(cellCentre(cell), { icon: L.divIcon({ className: "hexlabel2", html: `<b style="font-size:${font}px;color:${ink}">${text}</b>`, iconSize: [0, 0] }), interactive: false, keyboard: false }).addTo(g);
+    for (const { cell, items } of groupByCell(near, gridRes)) {
+      const corners = innerHex(cell);
+      // Stores and our machines own a cell. Other people's machines (OpenStreetMap) only show in a cell that has none of ours, so they never hide a store.
+      const real = items.filter((t): t is Exclude<Thing, { kind: "other" }> => t.kind !== "other");
+      const drawn: Thing[] = real.length ? real : items;
+      const one = drawn.length === 1 ? drawn[0] : null;
+      if (one?.kind === "other") { L.polygon(corners, { color: "#111", weight: 1, fillColor: GREY, fillOpacity: 0.85, interactive: false }).addTo(g); continue; }
+      let poly: Leaflet.Polygon, name: string;
+      if (one?.kind === "store") {
+        const fresh1 = fresh.includes(one.pin.id);
+        poly = L.polygon(corners, { color: ORANGE, weight: one.pin.score >= 70 ? 3.2 : 2.4, dashArray: "2 7", lineCap: "round", fillColor: "#1b1b1b", fillOpacity: 0.35, className: "mark" + (fresh1 ? " droppin" : "") });
+        name = `${one.pin.name}, potential site`;
+      } else if (one?.kind === "machine") {
+        poly = L.polygon(corners, { color: "#111", weight: 1.5, fillColor: one.m.btc ? ORANGE : CYAN, fillOpacity: 1, className: "mark" });
+        if (one.m.btc) label(cell, "B", "#111");
+        name = `${one.m.name}, our machine${one.m.btc ? ", takes bitcoin" : ""}`;
+      } else {
+        const allOther = real.length === 0;
+        poly = L.polygon(corners, { color: allOther ? GREY : ORANGE, weight: 2.4, fillColor: "#262626", fillOpacity: 0.95, interactive: !allOther, className: "mark" });
+        label(cell, String(drawn.length), "#fff");
+        if (allOther) { poly.addTo(g); continue; }
+        name = `${drawn.length} places in this hexagon`;
+      }
+      const pick = () => {
+        openerCell.current = cell;
+        if (real.length === 1) openItem(real[0].kind === "store" ? { kind: "store", pin: real[0].pin } : { kind: "machine", m: real[0].m });
+        else if (gridRes < GRID_FINEST) { closeRef.current(); map.setView(cellCentre(cell), Math.min(19, map.getZoom() + 2)); } // a finer grid splits the group
+        else setCard({ kind: "cell", items: real.map((t) => (t.kind === "store" ? { kind: "store", pin: t.pin } : { kind: "machine", m: t.m })) });
+      };
+      poly.on("click", (e) => { L.DomEvent.stopPropagation(e); pick(); }).addTo(g);
+      const el = poly.getElement();
+      if (el) {
+        el.setAttribute("tabindex", "0"); el.setAttribute("role", "button"); el.setAttribute("aria-label", name); el.setAttribute("data-cell", cell);
+        el.addEventListener("keydown", (e) => { const k = (e as KeyboardEvent).key; if (k === "Enter" || k === " ") { e.preventDefault(); pick(); } });
+      }
+    }
+  }, [ready, mode, view, gridRes, things, fresh, markPx, openItem]);
   useEffect(() => {
     const L = LRef.current, g = gridRef.current;
     if (!ready || !L || !g) return;
@@ -172,13 +238,14 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
     if (!ready || !L || !ring) return;
     ring.clearLayers();
     if (mode !== "pins") return;
-    const s = current && byId.get(current.id);
+    // the open card's cell; with no card, the list's selection on a wide screen (the phone shows no list beside the map)
+    const s = card ? targetAt(card) : wide && current ? byId.get(current.id) : undefined;
     const sc = s ? cellOf(s.lat, s.lon, gridRes) : null;
     if (sc) L.polygon(cellCorners(sc), { color: "#00ffff", weight: 4, fillColor: "#00ffff", fillOpacity: 0.14, interactive: false }).addTo(ring);
     const h = hover ? byId.get(hover) : null;
     const hc = h ? cellOf(h.lat, h.lon, gridRes) : null;
     if (hc && hc !== sc) L.polygon(cellCorners(hc), { color: "#f7931a", weight: 3, fillOpacity: 0, interactive: false }).addTo(ring);
-  }, [ready, mode, current?.id, hover, gridRes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, mode, current?.id, hover, gridRes, cardKey, wide]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // areas view: H3 resolution 7. Open jobs per area, the number in each cell, the selected area solid, its ring of six dashed.
   const jobCells = useMemo(() => { const m = new Map<string, JobPin[]>(); for (const j of jobs) { const c = cellOf(j.lat, j.lon, AREA_RES); if (c) m.set(c, [...(m.get(c) ?? []), j]); } return m; }, [jobs]);
@@ -209,6 +276,8 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
 
   useEffect(() => { setTimeout(() => mapRef.current?.invalidateSize(), 60); }, [mode]);
   useEffect(() => { if (tab === "map") setTimeout(() => mapRef.current?.invalidateSize(), 50); }, [tab]);
+
+  function pickMode(m: "pins" | "areas") { setMode(m); setCard(null); }
 
   function pickFromList(p: Pin) {
     setSel(p.id);
@@ -336,13 +405,13 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
       <div className="glass map">
         <div className="mapbar">
           <div className="seg" role="group" aria-label="Map view">
-            <button aria-pressed={mode === "pins"} onClick={() => setMode("pins")}>Pins</button>
-            <button aria-pressed={mode === "areas"} onClick={() => setMode("areas")}>Areas</button>
+            <button aria-pressed={mode === "pins"} onClick={() => pickMode("pins")}>Pins</button>
+            <button aria-pressed={mode === "areas"} onClick={() => pickMode("areas")}>Areas</button>
           </div>
           <div className="chips">
           <span className="chip"><HexMark kind="coin" size={20} />Placed machines {ours.length}</span>
           <span className="chip"><HexMark kind="site" size={20} />Potential sites {shown.length}</span>
-          <button className="chip" aria-pressed={mode === "areas"} onClick={() => setMode("areas")}>Open jobs {jobs.length}</button>
+          <button className="chip" aria-pressed={mode === "areas"} onClick={() => pickMode("areas")}>Open jobs {jobs.length}</button>
           <button className="chip" onClick={near}>Near me</button>
           </div>
         </div>
@@ -360,6 +429,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
         )}
         <div className="leafwrap">
           <div ref={mapEl} className="leaf" />
+          {card && mode === "pins" && <PinCard ref={cardRef} target={card} operator={operator} onClose={closeCard} onPick={openItem} />}
           {!tilesOk && (
             <svg className="fallback" viewBox="0 0 900 760" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Fallback map, tiles did not load">
               <rect width="900" height="760" fill="#1b1b1b" />

@@ -1,0 +1,81 @@
+"use client";
+import { forwardRef, useEffect, useRef } from "react";
+import Link from "next/link";
+import type { Pin } from "@/lib/pins";
+import type { VenueCategory } from "@/lib/types";
+import { agoLine } from "@/lib/machinecard";
+import { HexMark } from "./Hex";
+
+// r23: the card a pin tap opens over the bottom of the map. Three faces, from the round 2 mockup:
+// an operator's store card (facts and two buttons), the public store card (facts only), and our machine card.
+// A cell holding several things at the finest grid opens a short pick list instead.
+
+export type OursPt = { id: string; name: string; host: string; lat: number; lon: number; btc: boolean; takes: string | null; stocked: string | null };
+export type CardItem = { kind: "store"; pin: Pin } | { kind: "machine"; m: OursPt };
+export type CardTarget = CardItem | { kind: "cell"; items: CardItem[] };
+
+const KIND: Record<VenueCategory, string> = { laundry: "Laundromat", gym: "Gym", car_wash: "Car wash", car_repair: "Auto shop" };
+const CHIP: Record<VenueCategory, string> = { laundry: "laundromat", gym: "gym", car_wash: "car wash", car_repair: "auto shop" };
+
+export const PinCard = forwardRef<HTMLDivElement, { target: CardTarget; operator: boolean; onClose: () => void; onPick: (it: CardItem) => void }>(function PinCard({ target, operator, onClose, onPick }, ref) {
+  const head = useRef<HTMLHeadingElement>(null);
+  const key = target.kind === "store" ? target.pin.id : target.kind === "machine" ? target.m.id : target.items.map((i) => (i.kind === "store" ? i.pin.id : i.m.id)).join(",");
+  useEffect(() => { head.current?.focus(); }, [key]);
+  const close = <button type="button" className="x" onClick={onClose}>Close</button>;
+  let body: React.ReactNode;
+  if (target.kind === "store") {
+    const p = target.pin;
+    body = (
+      <>
+        <div className="hd">
+          <HexMark kind="site" size={30} />
+          <div><h3 id="pincard-h" ref={head} tabIndex={-1}>{p.name}</h3><p className="why">{KIND[p.category]}{p.area ? ` · ${p.area}` : ""}</p></div>
+          {close}
+        </div>
+        {operator && <p className="fit num">Fit {p.score} of 100 {p.checked && <span className="pill pur">Scout checked</span>}</p>}
+        <p className="chiprow"><span className="chip">{CHIP[p.category]}</span>{p.late && <span className="chip">open late</span>}{p.site && <span className="chip">has website</span>}</p>
+        {operator
+          ? <div className="acts"><Link className="btn gild" href={`/prospects/${p.id}`}>Review this site</Link><Link className="btn" href={`/prospects/${p.id}/site`}>Selling card</Link></div>
+          : <p className="why">No machine here yet.</p>}
+      </>
+    );
+  } else if (target.kind === "machine") {
+    const m = target.m;
+    body = (
+      <>
+        <div className="hd">
+          <HexMark kind={m.btc ? "coin" : "machine"} size={30} />
+          <div><h3 id="pincard-h" ref={head} tabIndex={-1}>{m.name}</h3><p className="why">Our machine{m.host ? ` at ${m.host}` : ""}{m.btc ? " · takes bitcoin" : ""}</p></div>
+          {close}
+        </div>
+        <div className="facts">
+          <div><span>Takes</span><b>{m.takes ?? "Not listed yet"}</b></div>
+          <div><span>Last stocked</span><b>{m.stocked ? agoLine(m.stocked) : "No stocking photo yet"}</b></div>
+        </div>
+        <div className="acts">
+          <Link className="btn gild" href={`/m/${m.id}#report`}>Report a problem</Link>
+          <Link className="btn" href={`/m/${m.id}`}>Machine page</Link>
+        </div>
+        <div className="acts one"><Link className="btn" href={`/vote/${m.id}`}>Vote on what goes in</Link></div>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <div className="hd">
+          <HexMark kind="site" size={30} />
+          <div><h3 id="pincard-h" ref={head} tabIndex={-1}>{target.items.length} places in this hexagon</h3><p className="why">Pick one to see its facts.</p></div>
+          {close}
+        </div>
+        <ul className="picks">
+          {target.items.map((it) => (
+            <li key={it.kind === "store" ? it.pin.id : it.m.id}>
+              <button type="button" className="btn" onClick={() => onPick(it)}>{it.kind === "store" ? it.pin.name : `${it.m.name}, our machine`}</button>
+            </li>
+          ))}
+        </ul>
+      </>
+    );
+  }
+  return <div ref={ref} className="glass pincard" role="dialog" aria-labelledby="pincard-h"><div className="grab" aria-hidden="true" />{body}</div>;
+});

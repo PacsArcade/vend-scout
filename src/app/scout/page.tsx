@@ -10,6 +10,8 @@ import { bundleMeta, bundledCity } from "@/lib/bundled";
 import { isOperatorNow } from "@/lib/auth";
 import { readState } from "@/lib/store";
 import { openJobs } from "@/lib/jobs";
+import { takesLine } from "@/lib/machinecard";
+import { latestProof } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,8 @@ export default async function ScoutPage({ searchParams }: { searchParams: Promis
   const st = await readState();
   const counts = await cacheCounts(place.slug);
   const cities = await Promise.all(ILLINOIS.map(async (c) => ({ slug: c.slug, name: c.name.replace(", Illinois", "").replace(", United States", ""), scanned: Object.values(await cacheCounts(c.slug)).some((n) => n !== null) })));
-  const ours = st.machines.filter((m) => m.lat !== undefined && m.status === "Placed").map((m) => ({ lat: m.lat!, lon: m.lon!, btc: !!m.profile.lightning }));
+  // Our placed machines, with the facts the map's machine card shows. Last stocked is the newest stocking photo sent or approved.
+  const ours = st.machines.filter((m) => m.lat !== undefined && m.lon !== undefined && m.status === "Placed").map((m) => ({ id: m.id, name: m.name, host: m.hostName, lat: m.lat!, lon: m.lon!, btc: !!m.profile.lightning, takes: takesLine(m.profile), stocked: latestProof(st, m.id)?.sentAt ?? null }));
   // Open jobs that have a place on the map. The machine's bitcoin flag picks the coin or the plain filled hexagon.
   const open = await openJobs(st);
   const jobs = open.jobs.filter((j) => j.lat !== undefined && j.lon !== undefined).map((j) => ({ id: j.id, kind: j.kind, title: j.title, detail: j.detail, sats: j.sats + j.bonus, lat: j.lat!, lon: j.lon!, coin: !!st.machines.find((m) => j.id.endsWith(`:${m.id}`))?.profile.lightning }));
