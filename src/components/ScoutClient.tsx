@@ -10,6 +10,7 @@ import { ALL_CATEGORIES } from "@/lib/types";
 import { STATES } from "@/lib/states";
 import { cellOf, cellCorners, cellsInView, ringOf, AREA_RES } from "@/lib/areas";
 import { HexMark } from "./Hex";
+import { btcMarkHtml } from "@/lib/hexart";
 import { cellCentre, groupByCell, innerHex, MARK_SCALE, GRID_FINEST, resForPixels } from "@/lib/hexcells";
 import { getHexagonEdgeLengthAvg } from "h3-js";
 import { PinCard, type CardItem, type CardTarget, type OursPt } from "./PinCard";
@@ -204,7 +205,7 @@ export function ScoutClient({ place, bbox, pins: pinsProp, existing, ours, jobs,
         name = `${one.pin.name}, potential site`;
       } else if (one?.kind === "machine") {
         poly = L.polygon(corners, { color: "#111", weight: 1.5, fillColor: one.m.btc ? ORANGE : CYAN, fillOpacity: 1, className: "mark" });
-        if (one.m.btc) label(cell, "B", "#111");
+        if (one.m.btc) L.marker(cellCentre(cell), { icon: L.divIcon({ className: "hexlabel2", html: btcMarkHtml(markPx), iconSize: [0, 0] }), interactive: false, keyboard: false }).addTo(g);
         name = `${one.m.name}, our machine${one.m.btc ? ", takes bitcoin" : ""}`;
       } else {
         poly = L.polygon(corners, { color: allOther ? GREY : ORANGE, weight: 2.4, fillColor: "#262626", fillOpacity: 0.95, className: "mark" });
